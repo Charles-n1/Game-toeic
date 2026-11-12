@@ -2,7 +2,7 @@
 
 Train for the TOEIC reading part: training with justifications, timed tests, spaced-repetition recovery, and a spider chart of your grammar categories.
 
-**Open it:** https://charles-n1.github.io/Prep-my-toeicc/
+**Open it:** https://charles-n1.github.io/Game-toeic/
 
 ## Lexia, the game (⚔️ in the footer)
 
@@ -54,7 +54,7 @@ The values of `firebaseConfig.js` are not secret (they only name the project): t
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173/Prep-my-toeicc/
+npm run dev     # http://localhost:5173/Game-toeic/
 npm run build   # the site goes in dist/
 ```
 

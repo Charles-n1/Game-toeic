@@ -28,8 +28,8 @@ function addCsp() {
   };
 }
 
-// base: the site lives at https://charles-n1.github.io/Prep-my-toeicc/
+// base: the site lives at https://charles-n1.github.io/Game-toeic/
 export default defineConfig({
   plugins: [react(), addCsp()],
-  base: '/Prep-my-toeicc/',
+  base: '/Game-toeic/',
 });
