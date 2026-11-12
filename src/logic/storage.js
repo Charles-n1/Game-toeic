@@ -237,6 +237,22 @@ export function loadTestSession(questions) {
   return { ...saved, exam: exam, group: group, choices: byQuestionId(group, saved.choices) };
 }
 
+// ---------- The game (the isekai world) ----------
+// It stays on the phone (not in the account). The game checks it when it reads it (see game/logic/save.js).
+const GAME_KEY = 'game';
+
+export function saveGameData(game) {
+  writeJson(GAME_KEY, game);
+}
+
+export function loadGameData() {
+  return readJson(GAME_KEY);
+}
+
+export function forgetGameData() {
+  removeJson(GAME_KEY);
+}
+
 // ---------- Account (cloud save) ----------
 // sync: { syncedAt, dirty }. syncedAt = the version of the cloud save this phone has (null = none).
 // dirty = something changed here since, the cloud doesn't have it yet.

@@ -20,6 +20,7 @@ export const FOOTER_PAGES = [
   { name: 'recovery', icon: recoveryIcon },
   { name: 'stats', icon: statsIcon },
   { name: 'settings', icon: settingsIcon },
+  { name: 'game', emoji: '⚔️' }, // the isekai game: no PNG, an emoji (it opens on top of the app, see App.jsx)
 ];
 
 function FooterButton({ page, isActive, onSelect }) {
@@ -31,7 +32,11 @@ function FooterButton({ page, isActive, onSelect }) {
 
   return (
     <button onClick={press} style={styles.button} aria-label={page.name}>
-      <Icon src={page.icon} color={theme.text} size={ICON_SIZE} style={isActive ? null : styles.inactive} />
+      {page.emoji ? (
+        <span style={{ ...styles.emoji, ...(isActive ? null : styles.inactive) }}>{page.emoji}</span>
+      ) : (
+        <Icon src={page.icon} color={theme.text} size={ICON_SIZE} style={isActive ? null : styles.inactive} />
+      )}
     </button>
   );
 }
@@ -62,5 +67,10 @@ const styles = {
   },
   inactive: {
     opacity: 0.35,
+  },
+  emoji: {
+    height: ICON_SIZE,
+    lineHeight: ICON_SIZE + 'px',
+    fontSize: 38,
   },
 };

@@ -14,14 +14,15 @@ import { tellFrend } from './logic/frendRadio';
 import HistoryPage from './pages/HistoryPage';
 import LessonPage from './pages/LessonPage';
 import AccountPage from './pages/AccountPage';
+import GamePage from './game/GamePage';
 import { QUESTIONS } from './data/questions';
 import { addAnswer } from './data/categories';
 import { today } from './logic/dates';
 import { THEMES, ThemeContext } from './themes';
 import { MUSICS, startAudio } from './sounds';
-import { GoalContext, DEFAULT_GOAL } from './goal';
+import { GoalContext, DEFAULT_GOAL, successRate } from './goal';
 import { isSnapshotTime, makeSnapshot } from './logic/history';
-import { moveLateToToday } from './logic/retrieve';
+import { moveLateToToday, onWrong, onRetrieveSuccess, isDue } from './logic/retrieve';
 import { levelExam, newTestSession } from './logic/sessions';
 import { CLOUD_READY, startCloud } from './logic/cloud';
 import { MAX_APP_WIDTH } from './screen';
@@ -100,6 +101,7 @@ export default function App() {
   const [anchors, setAnchors] = useState({}); // where the buttons the tutorial points at are: { eye: {...}, ... }
   const [lessonCategory, setLessonCategory] = useState(null); // the category of the lesson page ('passive'...)
   const [account, setAccount] = useState(null); // the email of the logged-in account (null = none)
+  const [gameOpen, setGameOpen] = useState(false); // true = the isekai game covers the app
   // First launch: the account page comes first (log in = the progress comes back), then the tutorial.
   const [welcome, setWelcome] = useState(saved.goal === null && CLOUD_READY);
   const showWelcome = welcome && account === null; // already logged in (remembered by Firebase): no need
@@ -199,6 +201,10 @@ export default function App() {
   }
 
   function goTo(newPage) {
+    if (newPage === 'game') {
+      setGameOpen(true); // not a page: the game opens on top of the app
+      return;
+    }
     if (newPage === page) return;
 
     // Going right in the footer -> new page comes from the right. Else from the left.
@@ -232,6 +238,28 @@ export default function App() {
     }
     setStats(newStats);
     setHistory(newHistory);
+  }
+
+  function closeGame() {
+    setGameOpen(false);
+  }
+
+  // The game needs the level of the player: the level test of the tutorial, then back to the game by the footer.
+  function takeLevelTestForGame() {
+    setGameOpen(false);
+    finishTutorial('normal');
+  }
+
+  // An answer given in a fight of the game counts like an answer of a training:
+  // the stats, and the recovery (failed = to review tomorrow, reviewed with success = wait longer).
+  function recordGameAnswer(question, isCorrect) {
+    recordAnswers([{ question: question, isCorrect: isCorrect }]);
+    if (!isCorrect) {
+      updateQuestion(onWrong(question));
+    } else if (isDue(question, today())) {
+      updateQuestion(onRetrieveSuccess(question));
+      logReview();
+    }
   }
 
   // A button tells where it is on the screen (see Anchor): keep it for the tutorial.
@@ -351,6 +379,19 @@ export default function App() {
 
           {/* Frend, alive: he walks on the footer sometimes (hidden during the tutorial) */}
           <FrendCompanion paused={tutorialOn} rare={!settings.frendComes} />
+
+          {/* The isekai game: its own window, on top of the pages and the footer. */}
+          {gameOpen && (
+            <GamePage
+              questions={questions}
+              stats={stats}
+              history={history}
+              goalRate={successRate(goal || DEFAULT_GOAL)}
+              onAnswer={recordGameAnswer}
+              onTakeTest={takeLevelTestForGame}
+              onClose={closeGame}
+            />
+          )}
 
           {/* First launch: the account page, on top of everything. The tutorial comes after. */}
           {showWelcome && (
