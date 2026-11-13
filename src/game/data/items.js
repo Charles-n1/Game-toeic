@@ -1,27 +1,27 @@
 // Everything the player can own.
 // kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give).
 // price: what a shop asks, in Lexis. sell: what a shop gives for it.
-// Health and damage are counted in HALF hearts: power 1 = half a heart.
+// power: the damage of the weapon, in HP. defense: the HP the armor stops at each hit.
 export const ITEMS = {
-  woodSword: { name: 'Wooden Sword', icon: '🗡️', kind: 'weapon', power: 1, price: 0 },
-  ironSword: { name: 'Iron Sword', icon: '🗡️', kind: 'weapon', power: 2, price: 120 },
-  steelSword: { name: 'Steel Sword', icon: '⚔️', kind: 'weapon', power: 3, price: 400 },
-  mithrilSword: { name: 'Mithril Sword', icon: '⚔️', kind: 'weapon', power: 4, price: 1200 },
-  lexiconBlade: { name: 'Lexicon Blade', icon: '✨', kind: 'weapon', power: 6, price: 3500 },
+  woodSword: { name: 'Wooden Sword', icon: '🗡️', kind: 'weapon', power: 10, price: 0 },
+  ironSword: { name: 'Iron Sword', icon: '🗡️', kind: 'weapon', power: 20, price: 120 },
+  steelSword: { name: 'Steel Sword', icon: '⚔️', kind: 'weapon', power: 30, price: 400 },
+  mithrilSword: { name: 'Mithril Sword', icon: '⚔️', kind: 'weapon', power: 40, price: 1200 },
+  lexiconBlade: { name: 'Lexicon Blade', icon: '✨', kind: 'weapon', power: 60, price: 3500 },
 
   clothes: { name: 'Traveler Clothes', icon: '👕', kind: 'armor', defense: 0, price: 0 },
-  leatherArmor: { name: 'Leather Armor', icon: '🦺', kind: 'armor', defense: 1, price: 150 },
-  chainMail: { name: 'Chain Mail', icon: '🛡️', kind: 'armor', defense: 2, price: 500 },
-  plateArmor: { name: 'Plate Armor', icon: '🛡️', kind: 'armor', defense: 3, price: 1500 },
+  leatherArmor: { name: 'Leather Armor', icon: '🦺', kind: 'armor', defense: 10, price: 150 },
+  chainMail: { name: 'Chain Mail', icon: '🛡️', kind: 'armor', defense: 20, price: 500 },
+  plateArmor: { name: 'Plate Armor', icon: '🛡️', kind: 'armor', defense: 30, price: 1500 },
 
   sandals: { name: 'Sandals', icon: '🩴', kind: 'boots', speed: 0, price: 0 },
   leatherBoots: { name: 'Leather Boots', icon: '🥾', kind: 'boots', speed: 2, price: 100 },
   windBoots: { name: 'Wind Boots', icon: '👟', kind: 'boots', speed: 5, price: 600 },
 
-  healthPotion: { name: 'Health Potion', icon: '🧪', kind: 'potion', heal: 6, price: 15, text: '+3 hearts' },
+  healthPotion: { name: 'Health Potion', icon: '🧪', kind: 'potion', heal: 60, price: 15, text: '+60 HP' },
   manaPotion: { name: 'Mana Potion', icon: '🔮', kind: 'potion', mana: 5, price: 20, text: '+5 mana' },
   speedPotion: { name: 'Speed Potion', icon: '💨', kind: 'potion', haste: true, price: 30, text: '+50% time in a fight' },
-  bread: { name: 'Warm Bread', icon: '🍞', kind: 'potion', heal: 2, price: 6, text: '+1 heart' },
+  bread: { name: 'Warm Bread', icon: '🍞', kind: 'potion', heal: 20, price: 6, text: '+20 HP' },
 
   map1: { name: 'Village Map', icon: '🗺️', kind: 'map', level: 1, price: 60, text: 'Shows the villages' },
   map2: { name: 'Region Map', icon: '🗺️', kind: 'map', level: 2, price: 250, text: 'Shows the dungeons' },

@@ -5,6 +5,7 @@ import { ITEMS } from '../data/items';
 import { pickRandom } from '../../logic/random';
 import { isSolid } from '../world/map';
 import { isNight } from './clock';
+import { facingOf } from './input';
 import { passHours } from './days';
 import { addFriendship, addHappiness } from './village';
 import { marry, partnerOf, childrenOf } from './families';
@@ -70,7 +71,11 @@ function strollPerson(game, npc, dt) {
     place.x = x;
     place.y = y;
   }
-  if (place.walkX !== 0 || place.walkY !== 0) place.step += dt * 6;
+  place.walking = place.walkX !== 0 || place.walkY !== 0;
+  if (place.walking) {
+    place.step += dt * 6;
+    place.dir = facingOf(place.walkX, place.walkY);
+  }
 }
 
 export function updatePeople(game, dt) {
@@ -79,6 +84,10 @@ export function updatePeople(game, dt) {
     const place = game.run.people[npc.id];
     const isListening = Math.hypot(place.x - player.x, place.y - player.y) < TALK_RANGE; // the player is near: stay
     if (isOutside(game, npc) && !isListening) strollPerson(game, npc, dt);
+    if (isListening) {
+      place.walking = false;
+      place.dir = facingOf(player.x - place.x, player.y - place.y); // they turn to the player
+    }
   }
 }
 
@@ -124,7 +133,7 @@ function greeting(game, npc) {
 // ---------- The choices of the talk menu. Each function returns a choice, or null if it does not apply. ----------
 
 function talkChoice(game, npc) {
-  return { label: '💬 Talk', run: () => chat(game, npc) };
+  return { label: 'Talk', run: () => chat(game, npc) };
 }
 
 function giftChoice(game, npc) {
@@ -133,9 +142,9 @@ function giftChoice(game, npc) {
   function give() {
     removeItem(game.player, itemId);
     addFriendship(game, npc.id, 6);
-    say(game, npc.id, ['For me? ' + ITEMS[itemId].icon + ' Thank you!']);
+    say(game, npc.id, ['A ' + ITEMS[itemId].name.toLowerCase() + '? For me? Thank you!']);
   }
-  return { label: '🎁 Give ' + ITEMS[itemId].icon + ' ' + ITEMS[itemId].name, run: give };
+  return { label: 'Give: ' + ITEMS[itemId].name, icon: itemId, run: give };
 }
 
 function activeQuestChoice(game, npc) {
@@ -150,7 +159,7 @@ function activeQuestChoice(game, npc) {
     finishQuest(game, quest);
     say(game, npc.id, [quest.thanks]);
   }
-  return { label: '📜 ' + quest.title + ' (' + progress.have + '/' + progress.need + ')', run: report };
+  return { label: 'Quest: ' + quest.title + ' (' + progress.have + '/' + progress.need + ')', icon: 'quests', run: report };
 }
 
 function newQuestChoice(game, npc) {
@@ -158,11 +167,11 @@ function newQuestChoice(game, npc) {
   if (!quest) return null;
   function ask() {
     say(game, npc.id, [quest.ask], [
-      { label: '✅ I will help', run: () => startQuest(game, quest) },
+      { label: 'I will help', run: () => startQuest(game, quest) },
       { label: 'Not now', run: () => {} },
     ]);
   }
-  return { label: '❗ Do you need help?', run: ask };
+  return { label: 'Need help?', icon: 'quests', run: ask };
 }
 
 function shopChoice(game, npc) {
@@ -171,17 +180,17 @@ function shopChoice(game, npc) {
     game.run.shop = { npcId: npc.id, kind: npc.shop };
     game.run.screen = 'shop';
   }
-  return { label: npc.shop === 'forge' ? '⚒️ Upgrade my equipment' : '🛒 Buy and sell', run: open };
+  return { label: npc.shop === 'forge' ? 'Forge: upgrade my gear' : 'Shop', icon: npc.shop === 'forge' ? 'ironSword' : 'lexis', run: open };
 }
 
 function workChoice(game, npc) {
   if (npc.job !== 'scribe') return null;
-  return { label: '✍️ Work as a scribe (4 Lexis per good line)', run: () => workAsScribe(game, npc) };
+  return { label: 'Work as a scribe (4 Lexis a line)', icon: 'book', run: () => workAsScribe(game, npc) };
 }
 
 function playChoice(game, npc) {
   if (!npc.game) return null;
-  return { label: '🎲 Play Word Sprint', run: () => playWordSprint(game, npc) };
+  return { label: 'Play Word Sprint', icon: 'powers', run: () => playWordSprint(game, npc) };
 }
 
 function lessonChoice(game, npc) {
@@ -195,10 +204,10 @@ function lessonChoice(game, npc) {
     } else {
       game.player.lexis -= LESSON_PRICE;
       game.player.powers.push(npc.teaches);
-      say(game, npc.id, ['Close your eyes. Say the word, and mean it.', 'You learned ' + power.icon + ' ' + power.name + '! Open ✨ Powers.']);
+      say(game, npc.id, ['Close your eyes. Say the word, and mean it.', 'You learned ' + power.name + '! Open the menu: Powers.']);
     }
   }
-  return { label: '📖 Teach me ' + power.icon + ' ' + power.name + ' (' + LESSON_PRICE + ' Lexis)', run: learn };
+  return { label: 'Teach me ' + power.name + ' (' + LESSON_PRICE + ' Lexis)', icon: power.id, run: learn };
 }
 
 function recruitChoice(game, npc) {
@@ -210,10 +219,10 @@ function recruitChoice(game, npc) {
       say(game, npc.id, ['You already have ' + MAX_PARTY + ' companions. Send one home first.']);
     } else {
       game.player.party.push(npc.id);
-      notify(game, '⚔️ ' + npc.name + ' joins you! +1 damage in every fight.', '#7CFC9A');
+      notify(game, '⚔️ ' + npc.name + ' joins you! +10 damage in every fight.', '#7CFC9A');
     }
   }
-  return { label: '⚔️ Fight by my side', run: recruit };
+  return { label: 'Fight by my side', icon: 'woodSword', run: recruit };
 }
 
 // She is free if she has no family, or if her family is the player.
@@ -238,7 +247,7 @@ function dateChoice(game, npc) {
       say(game, null, ['You walk together until the light changes. ' + npc.name + ' talks, and you listen to every word.']);
     }
   }
-  return { label: '💗 Spend time together', run: date };
+  return { label: 'Spend time together', icon: 'flower', run: date };
 }
 
 function proposeChoice(game, npc) {
@@ -258,7 +267,7 @@ function proposeChoice(game, npc) {
       say(game, npc.id, ['Yes. In every tense: I did, I do, I will.', 'The whole village comes to the wedding. ' + npc.name + ' moves into your home.']);
     }
   }
-  return { label: '💍 Will you marry me?', run: propose };
+  return { label: 'Will you marry me?', icon: 'ring', run: propose };
 }
 
 const CHOICE_MAKERS = [
@@ -278,7 +287,7 @@ const CHOICE_MAKERS = [
 // The player talks to someone: a hello, then everything they can do together.
 export function talkTo(game, npc) {
   const choices = CHOICE_MAKERS.map((make) => make(game, npc)).filter((choice) => choice !== null);
-  choices.push({ label: '👋 Goodbye', run: () => {} });
+  choices.push({ label: 'Leave', run: () => {} });
   say(game, npc.id, [greeting(game, npc)], choices);
 }
 

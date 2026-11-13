@@ -1,6 +1,6 @@
-import Sheet from './Sheet';
-import { maxMana } from '../logic/player';
-import { knownPowers, canUsePower, cooldownLeft, usePower } from '../logic/powers';
+import PixelIcon from '../PixelIcon';
+import { maxMana } from '../../logic/player';
+import { knownPowers, canUsePower, cooldownLeft, usePower } from '../../logic/powers';
 
 // What the player does not know yet, without spoiling it.
 function hints(player) {
@@ -14,9 +14,8 @@ function hints(player) {
 }
 
 // The powers of the map: tap one to use it right where the hero stands.
-export default function PowersScreen({ game, refresh, onClose }) {
+export default function PowersPanel({ game, refresh, onClose }) {
   const player = game.player;
-  const powers = knownPowers(player);
 
   function cast(power) {
     usePower(game, power.id);
@@ -25,45 +24,36 @@ export default function PowersScreen({ game, refresh, onClose }) {
   }
 
   return (
-    <Sheet title="Powers" onClose={onClose}>
+    <>
       <span style={styles.mana}>
-        🔮 Mana {player.mana} / {maxMana(player)}
+        MP {player.mana} / {maxMana(player)}
       </span>
-      {powers.map((power) => {
+      {knownPowers(player).map((power) => {
         const wait = cooldownLeft(game, power.id);
         return (
-          <button key={power.id} className="line" style={styles.power} disabled={!canUsePower(game, power)} onClick={() => cast(power)}>
-            <span className="icon">{power.icon}</span>
+          <button key={power.id} className="menu-item" disabled={!canUsePower(game, power)} onClick={() => cast(power)}>
+            <PixelIcon name={power.id} size={28} />
             <div className="grow">
-              <span style={styles.name}>{power.name}</span>
+              <span>{power.name}</span>
               <span className="small">{power.text}</span>
             </div>
-            <span className="small">{wait > 0 ? wait + ' s' : power.mana + ' 🔮'}</span>
+            <span className="small">{wait > 0 ? wait + ' s' : power.mana + ' MP'}</span>
           </button>
         );
       })}
       {hints(player).map((hint) => (
         <span key={hint} className="small" style={styles.hint}>
-          ❔ {hint}
+          ? {hint}
         </span>
       ))}
-    </Sheet>
+    </>
   );
 }
 
 const styles = {
   mana: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  power: {
-    color: '#f4f0ff',
-    textAlign: 'left',
-  },
-  name: {
-    fontWeight: 'bold',
+    color: '#8fb8ff',
+    marginBottom: 6,
   },
   hint: {
     marginTop: 8,

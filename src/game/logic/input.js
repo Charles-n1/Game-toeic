@@ -27,6 +27,12 @@ export function directionOf(input) {
   return { x: x, y: y };
 }
 
+// The direction to look at, to go by (dx, dy): 'up' | 'down' | 'left' | 'right'.
+export function facingOf(dx, dy) {
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+  return dy > 0 ? 'down' : 'up';
+}
+
 // Stops everything (when a menu opens: the hero must not keep walking).
 export function releaseAll(input) {
   input.keys = {};

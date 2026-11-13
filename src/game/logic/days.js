@@ -33,7 +33,7 @@ export function passHours(game, hours) {
   addHours(game, hours);
 }
 
-// Sleeping: the next sunrise, with all the hearts and the mana back.
+// Sleeping: the next sunrise, with all the HP and the mana back.
 export function sleepUntilMorning(game) {
   if (game.hour >= SUNRISE) newDay(game); // before midnight: the morning is tomorrow
   game.hour = SUNRISE;

@@ -1,6 +1,6 @@
 import { zoneAt, HOME_DOOR } from '../data/zones';
 import { isSolid } from '../world/map';
-import { directionOf } from './input';
+import { directionOf, facingOf } from './input';
 import { advanceClock, sleepUntilMorning } from './days';
 import { updateMonsters } from './monsters';
 import { updatePeople, personNear, talkTo } from './people';
@@ -27,23 +27,19 @@ function canStand(x, y) {
   return !isSolid(x - BODY, y - BODY) && !isSolid(x + BODY, y - BODY) && !isSolid(x - BODY, y + BODY) && !isSolid(x + BODY, y + BODY);
 }
 
-function faceDirection(player, direction) {
-  if (Math.abs(direction.x) > Math.abs(direction.y)) player.dir = direction.x > 0 ? 'right' : 'left';
-  else player.dir = direction.y > 0 ? 'down' : 'up';
-}
-
 function walk(game, input, dt) {
   const player = game.player;
   const direction = directionOf(input);
-  if (direction.x === 0 && direction.y === 0) return;
+  game.run.walking = direction.x !== 0 || direction.y !== 0;
+  if (!game.run.walking) return;
 
   const speed = WALK_SPEED * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
   if (canStand(player.x + direction.x * speed, player.y)) player.x += direction.x * speed;
   if (canStand(player.x, player.y + direction.y * speed)) player.y += direction.y * speed;
-  faceDirection(player, direction);
+  player.dir = facingOf(direction.x, direction.y);
 
   const stepBefore = Math.floor(player.step);
-  player.step += dt * 8;
+  player.step += dt * 7;
   if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) dust(game, player.x, player.y);
 }
 
@@ -53,7 +49,6 @@ function noticeZone(game) {
   if (zone.id === game.run.zoneId) return;
   game.run.zoneId = zone.id;
   game.visited[zone.id] = true;
-  notify(game, '📍 ' + zone.name, '#ffe9a8');
 }
 
 // ---------- The action button ----------
@@ -76,12 +71,12 @@ function goToBed(game) {
   }
   sleepUntilMorning(game);
   saveGame(game);
-  notify(game, '💤 You slept well. Hearts and mana are full.', '#9fd8ff');
+  notify(game, '💤 You slept well. HP and mana are full.', '#9fd8ff');
 }
 
 function offerSleep(game) {
   say(game, null, ['Your home. The bed looks soft.'], [
-    { label: '💤 Sleep until morning', run: () => goToBed(game) },
+    { label: 'Sleep until morning', icon: 'sleep', run: () => goToBed(game) },
     { label: 'Not now', run: () => {} },
   ]);
 }
@@ -102,15 +97,15 @@ export function act(game) {
   else dig(game, front.x, front.y);
 }
 
-// What the action button would do right now (written on the button).
-export function actionLabel(game) {
+// What the action button would do right now: the name of its icon (see draw/icons.js).
+export function actionIcon(game) {
   const player = game.player;
   const front = frontTile(player);
-  if (personNear(game)) return '💬';
-  if (isAtHomeDoor(player)) return '💤';
-  if (chestNear(game)) return '🎁';
-  if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return '🥕';
-  return '⛏️';
+  if (personNear(game)) return 'talk';
+  if (isAtHomeDoor(player)) return 'sleep';
+  if (chestNear(game)) return 'chest';
+  if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return 'carrot';
+  return 'dig';
 }
 
 // ---------- The frame ----------

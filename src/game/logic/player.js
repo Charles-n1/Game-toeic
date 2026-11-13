@@ -3,9 +3,9 @@ import { SCENES } from '../data/story';
 import { say, notify } from './messages';
 import { burst } from './particles';
 
-// Health and mana grow with the level. Health is in HALF hearts (10 = 5 hearts).
+// Health and mana grow with the level. Health is in HP: 100 at level 1, +10 per level.
 export function maxHealth(player) {
-  return 10 + (player.level - 1);
+  return 100 + (player.level - 1) * 10;
 }
 
 export function maxMana(player) {
@@ -17,15 +17,15 @@ export function speedOf(player) {
   return 10 + ITEMS[player.boots].speed + Math.floor(player.level / 2);
 }
 
-// The damage of one strike, in half hearts (before the resistance of the monster).
+// The damage of one strike, in HP (before the resistance of the monster).
 export function strikePower(player) {
-  const obsidian = player.obsidianBlade > 0 ? 2 : 0;
+  const obsidian = player.obsidianBlade > 0 ? 20 : 0;
   return ITEMS[player.weapon].power + obsidian;
 }
 
 // What the armor removes from each hit.
 export function armorOf(player) {
-  const stoneSkin = player.stoneSkin ? 2 : 0;
+  const stoneSkin = player.stoneSkin ? 20 : 0;
   return ITEMS[player.armor].defense + stoneSkin;
 }
 

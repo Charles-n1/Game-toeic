@@ -89,10 +89,21 @@ export function recordAnswer(game, question, isCorrect) {
 
 // ---------- Which question a monster asks ----------
 
-// A player with a high TOEIC score meets hard questions more often.
-function hardChance(game, tier) {
-  const bonus = (game.score / 495 - 0.5) * 0.3;
-  return Math.min(0.9, Math.max(0.05, tier.hardChance + bonus));
+// The difficulty the player has reached in a category: 0 Easy, 1 Normal, 2 Difficult, 3 Extreme.
+// The better they are, the harder the questions of this type become.
+export const RANKS = ['Easy', 'Normal', 'Difficult', 'Extreme'];
+const RANK_STEPS = [40, 70, 90]; // % of good answers to reach Normal, Difficult, Extreme
+
+export function difficultyRank(game, categoryId) {
+  const percent = skillPercent(game, categoryId);
+  return RANK_STEPS.filter((step) => percent >= step).length;
+}
+
+// The chance to get a question of the harder difficulties: it grows with the TOEIC score and with the rank.
+function hardChance(game, tier, categoryId) {
+  const scoreBonus = (game.score / 495 - 0.5) * 0.2;
+  const rankBonus = (difficultyRank(game, categoryId) - 1) * 0.15;
+  return Math.min(0.9, Math.max(0.05, tier.hardChance + scoreBonus + rankBonus));
 }
 
 function firstNotEmpty(lists) {
@@ -116,6 +127,6 @@ export function pickQuestion(game, opponent, usedIds, lastText) {
   const due = pool.filter((q) => isDue(q, today()));
   if (due.length > 0) return pickRandom(due);
 
-  const wanted = Math.random() < hardChance(game, tier) ? tier.hard : tier.easy;
+  const wanted = Math.random() < hardChance(game, tier, opponent.category) ? tier.hard : tier.easy;
   return pickRandom(firstNotEmpty([pool.filter((q) => wanted.includes(q.difficulty)), pool]));
 }

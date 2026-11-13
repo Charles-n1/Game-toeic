@@ -1,3 +1,5 @@
+import { facingOf } from './input';
+
 // Those who walk behind the player, in a line: the recruited friends, the obsidian soldiers, and the obsidian cat.
 // game.run.followers: [{ kind: 'person' | 'soldier' | 'pet', id, x, y, step }]
 
@@ -23,10 +25,12 @@ function follow(follower, leader, dt) {
     follower.y = leader.y;
   } else if (far > GAP) {
     const move = Math.min(far - GAP, 6 * dt);
+    follower.dir = facingOf(leader.x - follower.x, leader.y - follower.y);
     follower.x += ((leader.x - follower.x) / far) * move;
     follower.y += ((leader.y - follower.y) / far) * move;
-    follower.step += dt * 8;
+    follower.step += dt * 7;
   }
+  follower.walking = far > GAP;
 }
 
 export function updateFollowers(game, dt) {

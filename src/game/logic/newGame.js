@@ -7,12 +7,13 @@ import { placeDungeonMonsters } from './monsters';
 import { placePeople } from './people';
 import { say } from './messages';
 
-export const GAME_VERSION = 1;
+export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
 
 // Everything that is NOT saved: what is on screen right now. It is rebuilt each time the game opens.
 export function makeRun() {
   return {
-    screen: 'play', // 'play' | 'dialog' | 'fight' | 'shop' | 'bag' | 'map' | 'powers' | 'quests' | 'over'
+    screen: 'play', // 'play' | 'dialog' | 'fight' | 'shop' | 'menu' | 'over'
+    menuTab: null, // the window open in the menu: 'stats' | 'inventory' | 'powers' | 'quests' | 'map' (null = the list)
     dialog: null,
     waitingDialogs: [],
     toasts: [],
@@ -33,6 +34,8 @@ export function makeRun() {
     safeUntil: 0, // no fight can start before this time
     dashUntil: 0,
     flashUntil: 0,
+    shakeUntil: 0, // the screen shakes until this time (a hard hit)
+    walking: false, // the hero is walking right now
     zoneId: null, // the zone the player is in (to announce a new one)
     questions: [], // the questions of the app (given by GamePage)
     goalRate: 70, // the success rate the player aims for (given by GamePage)
@@ -66,7 +69,7 @@ function firstPlayer() {
     step: 0, // for the walking animation
     level: 1,
     xp: 0,
-    health: 10, // half hearts
+    health: 100, // HP
     mana: 5,
     lexis: 20,
     weapon: 'woodSword',

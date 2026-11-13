@@ -4,10 +4,7 @@ import Hud from './Hud';
 import DialogBox from './DialogBox';
 import FightScreen from './FightScreen';
 import ShopScreen from './ShopScreen';
-import BagScreen from './BagScreen';
-import PowersScreen from './PowersScreen';
-import QuestScreen from './QuestScreen';
-import MapScreen from './MapScreen';
+import MenuScreen from './menu/MenuScreen';
 import GameOver from './GameOver';
 import { drawScene } from '../draw/scene';
 import { makeInput, releaseAll, ACTION_KEYS } from '../logic/input';
@@ -16,8 +13,7 @@ import { nextLine } from '../logic/messages';
 import { saveGame } from '../logic/save';
 
 const REFRESH_EVERY = 0.2; // seconds between two updates of the HUD (the world itself is drawn at every frame)
-const SHORTCUTS = { b: 'bag', p: 'powers', j: 'quests', m: 'map' }; // keyboard: a key opens a menu
-const MENUS = ['bag', 'powers', 'quests', 'map', 'shop'];
+const SHORTCUTS = { b: 'inventory', p: 'powers', j: 'quests', m: 'map', c: 'stats' }; // keyboard: a key opens a menu window
 
 // The game being played: the world on a canvas, and the screens of the game on top of it.
 // goalRate: the success rate the player aims for (%). onAnswer(question, isCorrect): tells the app about each answer.
@@ -45,6 +41,7 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
   function frame(ctx, width, height, time, dt) {
     if (game.run.screen === 'play') updateGame(game, input, dt);
     else releaseAll(input);
+    if (game.run.screen !== 'play') game.run.walking = false;
     updateEffects(game, dt);
     drawScene(ctx, game, width, height, time);
 
@@ -71,11 +68,12 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
       if (event.key.startsWith('Arrow') || event.key === ' ') event.preventDefault(); // no page scrolling
       input.keys[event.key] = true;
       if (ACTION_KEYS.includes(event.key) && !event.repeat) doAction();
-      if (SHORTCUTS[event.key]) open(SHORTCUTS[event.key]);
+      if (SHORTCUTS[event.key]) openMenu(SHORTCUTS[event.key]);
+      if (event.key === 'Escape') openMenu(null);
     } else if (current === 'dialog' && ACTION_KEYS.includes(event.key) && !event.repeat) {
       nextLine(game);
       refresh();
-    } else if (MENUS.includes(current) && event.key === 'Escape') {
+    } else if ((current === 'menu' || current === 'shop') && event.key === 'Escape') {
       close();
     }
   }
@@ -89,8 +87,10 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
     refresh();
   }
 
-  function open(menu) {
-    game.run.screen = menu;
+  // tab: the window to open ('stats', 'map'...), null = the list of the menu.
+  function openMenu(tab) {
+    game.run.menuTab = tab;
+    game.run.screen = 'menu';
     refresh();
   }
 
@@ -107,14 +107,11 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
   return (
     <div className="game">
       <canvas ref={canvasRef} className="game-canvas" />
-      {screen === 'play' && <Hud game={game} input={input} onAction={doAction} onOpen={open} onQuit={quit} />}
+      {screen === 'play' && <Hud game={game} input={input} onAction={doAction} onMenu={openMenu} />}
       {screen === 'dialog' && <DialogBox game={game} refresh={refresh} />}
       {screen === 'fight' && <FightScreen game={game} refresh={refresh} />}
       {screen === 'shop' && <ShopScreen game={game} refresh={refresh} onClose={close} />}
-      {screen === 'bag' && <BagScreen game={game} refresh={refresh} onClose={close} />}
-      {screen === 'powers' && <PowersScreen game={game} refresh={refresh} onClose={close} />}
-      {screen === 'quests' && <QuestScreen game={game} onClose={close} />}
-      {screen === 'map' && <MapScreen game={game} onClose={close} />}
+      {screen === 'menu' && <MenuScreen game={game} refresh={refresh} onClose={close} onQuit={quit} />}
       {screen === 'over' && <GameOver game={game} onRestart={onRestart} onQuit={onQuit} />}
     </div>
   );

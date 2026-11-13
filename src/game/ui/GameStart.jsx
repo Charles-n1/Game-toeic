@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import Window from './Window';
+import PixelIcon from './PixelIcon';
+import useCanvas from './useCanvas';
+import { drawLandscape } from '../draw/scene';
 import { GOALS } from '../data/story';
 import { CATEGORIES } from '../../data/categories';
 import { SECTION_MAX } from '../../goal';
@@ -32,6 +36,12 @@ function isValidScore(text) {
   return text !== '' && Number.isInteger(score) && score >= LOWEST_SCORE && score <= SECTION_MAX;
 }
 
+// The village of Lexia, slowly passing by behind the start screen.
+function Landscape() {
+  const canvasRef = useCanvas((ctx, width, height, time) => drawLandscape(ctx, width, height, time));
+  return <canvas ref={canvasRef} className="game-canvas" />;
+}
+
 // The door of the game. To enter, the goddess must know the level of the player:
 // from the level test (or any answer given in the app), or from a score typed here. Then the player picks a life.
 export default function GameStart({ stats, history, onStart, onTakeTest, onClose }) {
@@ -49,86 +59,90 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onClose
   }
 
   return (
-    <div className="start">
-      <div className="row between">
-        <span className="small">An isekai to master the TOEIC</span>
+    <>
+      <Landscape />
+      <div className="start">
         <button className="close" onClick={onClose} aria-label="close">
           ✕
         </button>
-      </div>
-      <span className="logo">LEXIA</span>
-      <span style={styles.tagline}>The Kingdom of Silence</span>
-      <span style={styles.story}>
-        A truck. A goddess. A world where every correct sentence is a sword stroke, and a Demon King steals the words of the living. Fight with your English: the
-        monsters ask what YOU need to train.
-      </span>
+        <div style={styles.header}>
+          <span className="logo">LEXIA</span>
+          <span style={styles.tagline}>The Kingdom of Silence</span>
+        </div>
+        <Window>
+          <span style={styles.story}>
+            A truck. A goddess. A world where every correct sentence is a sword stroke, and a Demon King steals the words of the living. Fight with your English:
+            the monsters ask what YOU need to train.
+          </span>
+        </Window>
 
-      <span className="subtitle">1 · Your level</span>
-      <div className="panel">
-        {appScore === null ? (
-          <>
-            <span>The goddess must read your level first.</span>
-            <button className="btn btn-gold" style={styles.gap} onClick={onTakeTest}>
-              📝 Take the level test (17 min)
+        <Window title="Your level">
+          {appScore === null ? (
+            <>
+              <span>The goddess must read your level first.</span>
+              <button className="px-button px-gold" style={styles.gap} onClick={onTakeTest}>
+                Take the level test (17 min)
+              </button>
+              <span className="small" style={styles.gap}>
+                ...or type your TOEIC reading score (5 to 495):
+              </span>
+            </>
+          ) : (
+            <span>From your answers in the app, your reading score is about {appScore} / 495. You can change it:</span>
+          )}
+          <input className="field" style={styles.gap} value={scoreText} onChange={typeScore} inputMode="numeric" placeholder="300" aria-label="score" />
+        </Window>
+
+        <Window title="Your new life">
+          {GOALS.map((goal) => (
+            <button key={goal.id} className={'menu-item' + (goalId === goal.id ? ' selected' : '')} onClick={() => setGoalId(goal.id)}>
+              <PixelIcon name={goal.icon} size={28} />
+              <div className="grow">
+                <span>{goal.title}</span>
+                <span className="small">{goal.text}</span>
+              </div>
             </button>
-            <span className="small" style={styles.gap}>
-              ...or type your TOEIC reading score (5 to 495):
-            </span>
-          </>
-        ) : (
-          <span>From your answers in the app, your reading score is about {appScore} / 495. You can change it:</span>
-        )}
-        <input className="field" style={styles.gap} value={scoreText} onChange={typeScore} inputMode="numeric" placeholder="ex: 300" aria-label="score" />
-      </div>
+          ))}
+        </Window>
 
-      <span className="subtitle">2 · Your new life</span>
-      {GOALS.map((goal) => (
-        <button key={goal.id} className={'goal ' + (goalId === goal.id ? 'goal-on' : '')} onClick={() => setGoalId(goal.id)}>
-          <span className="icon">{goal.icon}</span>
-          <div className="grow">
-            <span style={styles.goalTitle}>{goal.title}</span>
-            <span className="small">{goal.text}</span>
-          </div>
+        <button className="px-button px-gold" style={styles.start} disabled={!canStart} onClick={start}>
+          Be reborn in Lexia
         </button>
-      ))}
-
-      <button className="btn btn-gold" style={styles.start} disabled={!canStart} onClick={start}>
-        ✨ Be reborn in Lexia
-      </button>
-      <span className="small" style={styles.warning}>
-        Death is real here. Aria can save you 3 times. After that, everything restarts.
-      </span>
-    </div>
+        <span className="small" style={styles.warning}>
+          Death is real here. Aria can save you 3 times. After that, everything restarts.
+        </span>
+      </div>
+    </>
   );
 }
 
 const styles = {
+  header: {
+    alignItems: 'center',
+    marginTop: 30,
+    marginBottom: 10,
+  },
   tagline: {
-    textAlign: 'center',
-    color: '#b9a9ff',
+    color: '#ffffff',
     letterSpacing: 3,
-    fontSize: 13,
+    fontSize: 16,
+    textShadow: '2px 2px 0 #0e1430',
+    marginTop: 4,
   },
   story: {
-    marginTop: 14,
     lineHeight: '21px',
     textAlign: 'center',
   },
   gap: {
     marginTop: 10,
   },
-  goalTitle: {
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
   start: {
-    marginTop: 18,
-    padding: 16,
-    fontSize: 16,
+    padding: 14,
+    fontSize: 20,
   },
   warning: {
     textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 20,
+    color: '#ffffff',
+    textShadow: '1px 1px 0 #0e1430',
   },
 };

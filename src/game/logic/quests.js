@@ -55,6 +55,6 @@ export function finishQuest(game, quest) {
   addFriendship(game, quest.giver, 10);
   addHappiness(game, 3);
   if (quest.gift) addItem(game.player, quest.gift);
-  const gift = quest.gift ? ' + ' + ITEMS[quest.gift].icon : '';
+  const gift = quest.gift ? ' + ' + ITEMS[quest.gift].name : '';
   notify(game, '✅ ' + quest.title + ': +' + quest.lexis + ' Lexis' + gift, '#7CFC9A');
 }

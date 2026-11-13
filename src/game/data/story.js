@@ -1,11 +1,11 @@
 // The story of the game. It follows the goal the player chose at the start.
 
-// The four ways to live in this world.
+// The four ways to live in this world. icon: its pixel picture (see draw/icons.js).
 export const GOALS = [
-  { id: 'hero', icon: '👑', title: 'Defeat the Demon King', text: 'Walk north. End the Silence at its source.' },
-  { id: 'guardian', icon: '🛡️', title: 'Protect the village', text: 'Stop General Barbarism, the enemy at the gate.' },
-  { id: 'peaceful', icon: '🥕', title: 'Live a peaceful life', text: 'A field, friends, a family. Let the heroes be heroes.' },
-  { id: 'wanderer', icon: '🍃', title: 'Just be here', text: 'No plan. See what the world does.' },
+  { id: 'hero', icon: 'lexiconBlade', title: 'Defeat the Demon King', text: 'Walk north. End the Silence at its source.' },
+  { id: 'guardian', icon: 'shield', title: 'Protect the village', text: 'Stop General Barbarism, the enemy at the gate.' },
+  { id: 'peaceful', icon: 'carrot', title: 'Live a peaceful life', text: 'A field, friends, a family. Let the heroes be heroes.' },
+  { id: 'wanderer', icon: 'wind', title: 'Just be here', text: 'No plan. See what the world does.' },
 ];
 
 export function goalOf(id) {
@@ -46,7 +46,7 @@ export const CHAPTERS = {
     { id: 'blade', title: 'A real blade', text: 'Earn Lexis and buy the Iron Sword from Mira.', reward: 40, done: (game) => game.player.weapon !== 'woodSword' },
     CRYPT,
     NIGHT_OF_SILENCE,
-    { id: 'tower', title: 'The Tower of Tenses', text: 'In the Ember Peaks: defeat the Chrono Warden.', reward: 300, done: (game) => game.bosses.warden === true },
+    { id: 'tower', title: 'The Tower of Tenses', text: 'In Frostpeak Pass: defeat the Chrono Warden.', reward: 300, done: (game) => game.bosses.warden === true },
     GENERAL,
     { id: 'king', title: 'The Hero of Words', text: 'Far north, the Castle of Silence. Solecis is waiting.', reward: 0, done: (game) => game.bosses.king === true },
   ],
@@ -127,7 +127,7 @@ export const SCENES = {
     lines: [
       'Your hand is cold. You look down: black glass covers your fingers, then melts back into your skin.',
       'OBSIDIAN has awakened. You can shape it: a wall, a soldier, a blade.',
-      'Open ✨ Powers to use it.',
+      'Open the menu: Powers, to use it.',
     ],
   },
   omen: {

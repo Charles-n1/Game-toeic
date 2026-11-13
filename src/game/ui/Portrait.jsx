@@ -1,23 +1,17 @@
-import { useEffect, useRef } from 'react';
-import { drawPortrait } from '../draw/people';
+import { portraitCanvas } from '../draw/portraits';
 
-const SIZE = 84; // pixels (see .portrait in game.css)
+const urls = new Map(); // look -> the picture, made once
 
-// The face of someone, drawn once (it does not move).
-export default function Portrait({ look }) {
-  const canvasRef = useRef(null);
+function urlOf(look) {
+  if (!urls.has(look)) urls.set(look, portraitCanvas(look).toDataURL());
+  return urls.get(look);
+}
 
-  useEffect(draw, [look]);
-
-  function draw() {
-    const canvas = canvasRef.current;
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = SIZE * ratio;
-    canvas.height = SIZE * ratio;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    drawPortrait(ctx, look, SIZE);
-  }
-
-  return <canvas ref={canvasRef} className="portrait" />;
+// The face of someone, in pixel art, in a framed box. size: in screen pixels.
+export default function Portrait({ look, size = 96 }) {
+  return (
+    <div className="portrait-box" style={{ width: size + 4, height: size + 4 }}>
+      <img src={urlOf(look)} width={size} height={size} alt="" />
+    </div>
+  );
 }

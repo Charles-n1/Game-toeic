@@ -1,4 +1,7 @@
-import Sheet from './Sheet';
+import Window from './Window';
+import PixelIcon from './PixelIcon';
+import Portrait from './Portrait';
+import { describe } from './menu/InventoryPanel';
 import { ITEMS } from '../data/items';
 import { npcOf } from '../data/npcs';
 import { shopItems, priceOf, buy, sellableItems, sell } from '../logic/shop';
@@ -6,17 +9,9 @@ import { negotiate } from '../logic/duels';
 import { countItem } from '../logic/player';
 import { notify } from '../logic/messages';
 
-// What an item does, in a few words.
-function describe(item) {
-  if (item.kind === 'weapon') return 'Damage ' + item.power / 2 + ' ❤ per good answer';
-  if (item.kind === 'armor') return 'Armor +' + item.defense + ' (each hit hurts less)';
-  if (item.kind === 'boots') return 'Speed +' + item.speed + ' (more time to answer)';
-  return item.text || '';
-}
-
 function dealText(game) {
   if (game.deal.day !== game.day) return null;
-  return game.deal.factor < 1 ? '🤝 Deal of the day: −30%' : '😤 The sellers are upset today: +10%';
+  return game.deal.factor < 1 ? 'Deal of the day: −30%' : 'The sellers are upset today: +10%';
 }
 
 // A shop: buy, sell, and negotiate the prices with a duel of words (once a day).
@@ -25,9 +20,11 @@ export default function ShopScreen({ game, refresh, onClose }) {
   const seller = npcOf(shop.npcId);
   const player = game.player;
   const deal = dealText(game);
+  const offers = shopItems(game, shop.kind);
+  const sellable = sellableItems(player);
 
   function buyItem(itemId) {
-    if (buy(game, itemId)) notify(game, ITEMS[itemId].icon + ' ' + ITEMS[itemId].name + ' is yours!', '#7CFC9A');
+    if (buy(game, itemId)) notify(game, ITEMS[itemId].name + ' is yours!', '#8dffb0');
     refresh();
   }
 
@@ -43,56 +40,67 @@ export default function ShopScreen({ game, refresh, onClose }) {
   }
 
   return (
-    <Sheet title={seller.name + ' · ' + seller.role} onClose={onClose}>
-      <span style={styles.lexis}>🪙 {player.lexis} Lexis</span>
-      {deal ? (
-        <span className="small">{deal}</span>
-      ) : (
-        <button className="btn" style={styles.negotiate} onClick={startNegotiation}>
-          🗣️ Negotiate the prices (a duel of words)
-        </button>
-      )}
-
-      <span className="subtitle">{shop.kind === 'forge' ? 'Upgrades' : 'To buy'}</span>
-      {shopItems(game, shop.kind).map((itemId) => (
-        <div key={itemId} className="line">
-          <span className="icon">{ITEMS[itemId].icon}</span>
+    <div className="overlay">
+      <Window title={shop.kind === 'forge' ? 'Forge' : 'Shop'} gold onClose={onClose}>
+        <div className="row" style={styles.top}>
+          <Portrait look={seller.look} size={64} />
           <div className="grow">
-            <span>{ITEMS[itemId].name}</span>
-            <span className="small">{describe(ITEMS[itemId])}</span>
+            <span className="gold">{seller.name}</span>
+            <span className="small">{seller.role}</span>
+            <div className="row" style={styles.lexis}>
+              <PixelIcon name="lexis" size={14} />
+              <span>{player.lexis} Lexis</span>
+            </div>
           </div>
-          <button className="btn btn-gold" disabled={player.lexis < priceOf(game, itemId)} onClick={() => buyItem(itemId)}>
-            {priceOf(game, itemId)} 🪙
-          </button>
         </div>
-      ))}
-      {shopItems(game, shop.kind).length === 0 && <span className="small">Nothing more to sell: you have the best of everything.</span>}
+        {deal ? (
+          <span className="small">{deal}</span>
+        ) : (
+          <button className="px-button" onClick={startNegotiation}>
+            Negotiate the prices (a duel of words)
+          </button>
+        )}
 
-      <span className="subtitle">To sell</span>
-      {sellableItems(player).map((itemId) => (
-        <div key={itemId} className="line">
-          <span className="icon">{ITEMS[itemId].icon}</span>
-          <span className="grow">
-            {ITEMS[itemId].name} × {countItem(player, itemId)}
-          </span>
-          <button className="btn" onClick={() => sellItem(itemId)}>
-            +{ITEMS[itemId].sell} 🪙
-          </button>
-        </div>
-      ))}
-      {sellableItems(player).length === 0 && <span className="small">Nothing to sell. Grow carrots, dig treasures, pick flowers from monsters.</span>}
-    </Sheet>
+        <span className="section">{shop.kind === 'forge' ? 'Upgrades' : 'To buy'}</span>
+        {offers.map((itemId) => (
+          <div key={itemId} className="line">
+            <PixelIcon name={itemId} size={28} />
+            <div className="grow">
+              <span>{ITEMS[itemId].name}</span>
+              <span className="small">{describe(ITEMS[itemId])}</span>
+            </div>
+            <button className="px-button px-gold" disabled={player.lexis < priceOf(game, itemId)} onClick={() => buyItem(itemId)}>
+              {priceOf(game, itemId)}
+            </button>
+          </div>
+        ))}
+        {offers.length === 0 && <span className="small">Nothing more to sell: you have the best of everything.</span>}
+
+        <span className="section">To sell</span>
+        {sellable.map((itemId) => (
+          <div key={itemId} className="line">
+            <PixelIcon name={itemId} size={28} />
+            <span className="grow">
+              {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>
+            </span>
+            <button className="px-button" onClick={() => sellItem(itemId)}>
+              +{ITEMS[itemId].sell}
+            </button>
+          </div>
+        ))}
+        {sellable.length === 0 && <span className="small">Nothing to sell. Grow carrots, dig treasures, take flowers from the monsters.</span>}
+      </Window>
+    </div>
   );
 }
 
 const styles = {
-  lexis: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 10,
-    marginBottom: 6,
+  top: {
+    gap: 12,
+    marginBottom: 10,
   },
-  negotiate: {
+  lexis: {
+    gap: 6,
     marginTop: 4,
   },
 };

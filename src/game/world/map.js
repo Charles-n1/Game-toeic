@@ -1,4 +1,4 @@
-import { ZONES, HOUSES, FIELD, ROADS, zoneAt } from '../data/zones';
+import { ZONES, HOUSES, FIELD, ROADS, PLAZAS, PROPS, zoneAt } from '../data/zones';
 
 // The map is a grid of tiles. It is always built the same way (no real random), so it is never saved.
 export const MAP_SIZE = 120;
@@ -11,7 +11,7 @@ export const TILE = {
   WATER: 4,
   TREE: 5,
   ROCK: 6,
-  STONE: 7, // the ground of the mountains
+  STONE: 7, // the ground of the mountains (snow)
   ASH: 8, // the ground of the demon land
   LAVA: 9,
   DEAD_TREE: 10,
@@ -51,7 +51,7 @@ function landTile(x, y) {
   if (biome === 'village') return r < 0.08 ? TILE.FLOWER : TILE.GRASS;
   if (biome === 'dungeon') return TILE.FLOOR;
   if (biome === 'forest') return r < 0.26 ? TILE.TREE : r < 0.32 ? TILE.FLOWER : TILE.GRASS;
-  if (biome === 'mountain') return r < 0.18 ? TILE.ROCK : TILE.STONE;
+  if (biome === 'mountain') return r < 0.07 ? TILE.TREE : r < 0.16 ? TILE.ROCK : TILE.STONE; // pines, rocks, snow
   if (biome === 'demon') return r < 0.05 ? TILE.LAVA : r < 0.14 ? TILE.DEAD_TREE : TILE.ASH;
   if (biome === 'coast') return r < 0.04 ? TILE.ROCK : TILE.SAND;
   if (biome === 'lake' && isInLake(x, y)) return TILE.WATER;
@@ -127,11 +127,26 @@ function buildMap() {
   }
   HOUSES.forEach((house) => buildHouse(tiles, house));
   fillRect(tiles, FIELD.x, FIELD.y, FIELD.w, FIELD.h, TILE.SOIL);
+  PLAZAS.forEach((plaza) => fillRect(tiles, plaza.x, plaza.y, plaza.w, plaza.h, TILE.PATH));
   ROADS.forEach((road) => buildRoad(tiles, road));
   return tiles;
 }
 
 export const MAP = buildMap();
+
+// The tiles covered by a prop (a fountain, a lamp...). The ground under them does not change: a lamp on a
+// cobblestone square still stands on cobblestones. 1 = blocked.
+function buildBlocked() {
+  const blocked = new Uint8Array(MAP_SIZE * MAP_SIZE);
+  for (const prop of PROPS) {
+    for (let y = prop.y; y < prop.y + prop.h; y++) {
+      for (let x = prop.x; x < prop.x + prop.w; x++) blocked[y * MAP_SIZE + x] = 1;
+    }
+  }
+  return blocked;
+}
+
+const BLOCKED = buildBlocked();
 
 // The tile at (x, y). Outside the map: water.
 export function tileAt(x, y) {
@@ -140,7 +155,8 @@ export function tileAt(x, y) {
 }
 
 export function isSolid(x, y) {
-  return SOLID.includes(tileAt(x, y));
+  if (SOLID.includes(tileAt(x, y))) return true;
+  return BLOCKED[Math.floor(y) * MAP_SIZE + Math.floor(x)] === 1;
 }
 
 // The ground to draw under a tile (a tree stands on grass, a dead tree on ash...).

@@ -18,10 +18,12 @@ An isekai in 2D where every fight is a TOEIC question. To enter: do the level te
   Talk, help (quests), give gifts, recruit, date, marry. Plant carrots, dig treasures, work as a scribe, negotiate prices.
 - **Death**: Aria carries you home 3 times. After that, dying erases the game (not your stats).
 
-Keys: arrows / WASD to walk, `Space` or `E` to act, `1`-`4` to answer, `B` bag, `P` powers, `J` journal, `M` map.
+Keys: arrows / WASD to walk, `Space` or `E` to act, `1`-`4` to answer, `Esc` menu, `C` stats, `B` bag, `P` powers,
+`J` journal, `M` map.
 
 The code is in `src/game/`: `data/` (monsters, people, story...), `logic/` (the rules, one file per subject),
-`draw/` (the canvas) and `ui/` (the screens).
+`draw/` (the pixel art, drawn with code: "text pictures" where one letter = one pixel) and `ui/` (the screens).
+The pixel font is Pixelify Sans (SIL Open Font License, see `src/game/assets/fonts/OFL.txt`).
 
 ## On iPhone
 

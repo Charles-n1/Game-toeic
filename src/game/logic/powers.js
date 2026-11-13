@@ -56,7 +56,7 @@ function summonSoldier(game) {
   }
   game.player.soldiers += 1;
   burst(game, game.player.x, game.player.y, '#3a2f5b', 30);
-  notify(game, '♟️ An obsidian soldier rises. +1 damage.');
+  notify(game, '♟️ An obsidian soldier rises. +10 damage.');
   return true;
 }
 
@@ -74,7 +74,7 @@ function summonPet(game) {
 function forgeBlade(game) {
   game.player.obsidianBlade = 5;
   burst(game, game.player.x, game.player.y, '#b48cff', 30);
-  notify(game, '🔪 Obsidian Blade: +2 damage for 5 fights.');
+  notify(game, '🔪 Obsidian Blade: +20 damage for 5 fights.');
   return true;
 }
 
@@ -86,7 +86,7 @@ function wound(game, monster, damage) {
   monster.health -= damage;
   if (monster.health > 0) return;
   if (monster.tier === 'small') lootMonster(game, monster);
-  else monster.health = 1;
+  else monster.health = 10;
 }
 
 function thunderVerdict(game) {
@@ -119,20 +119,20 @@ function throwBall(game, damage, color) {
 }
 
 function throwLightningBall(game) {
-  return throwBall(game, 4, '#9fd8ff');
+  return throwBall(game, 40, '#9fd8ff');
 }
 
 // ---------- Elements ----------
 
 function healingRain(game) {
-  heal(game.player, 6);
+  heal(game.player, 60);
   burst(game, game.player.x, game.player.y, '#6ec6ff', 30);
-  floatText(game, game.player.x, game.player.y, '+3 ❤', '#7CFC9A');
+  floatText(game, game.player.x, game.player.y, '+60', '#7CFC9A');
   return true;
 }
 
 function throwFireball(game) {
-  return throwBall(game, 2, '#ff7b3a');
+  return throwBall(game, 20, '#ff7b3a');
 }
 
 function windDash(game) {
@@ -144,7 +144,7 @@ function windDash(game) {
 function stoneSkin(game) {
   game.player.stoneSkin = true;
   burst(game, game.player.x, game.player.y, '#b08a5a', 20);
-  notify(game, '⛰️ Stone Skin: +2 armor for your next fight.');
+  notify(game, '⛰️ Stone Skin: +20 armor for your next fight.');
   return true;
 }
 

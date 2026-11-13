@@ -14,7 +14,7 @@ export const ZONES = [
 
   // ---------- The lands ----------
   { id: 'demon', name: 'The Silent Lands', kind: 'land', biome: 'demon', x: 0, y: 0, w: 120, h: 22, danger: 4, species: ['imp', 'demonKnight'] },
-  { id: 'mountain', name: 'Ember Peaks', kind: 'land', biome: 'mountain', x: 0, y: 22, w: 120, h: 22, danger: 3, species: ['wisp', 'golem', 'wolf'] },
+  { id: 'mountain', name: 'Frostpeak Pass', kind: 'land', biome: 'mountain', x: 0, y: 22, w: 120, h: 22, danger: 3, species: ['wisp', 'golem', 'wolf'] },
   { id: 'forest', name: 'Verbwood', kind: 'land', biome: 'forest', x: 0, y: 44, w: 42, h: 56, danger: 2, species: ['slime', 'wolf', 'treant'] },
   { id: 'meadow', name: 'Whisper Meadow', kind: 'land', biome: 'meadow', x: 42, y: 44, w: 40, h: 56, danger: 1, species: ['slime'] },
   { id: 'lake', name: 'Lake Clause', kind: 'land', biome: 'lake', x: 82, y: 44, w: 38, h: 36, danger: 1, species: ['slime', 'bat'] },
@@ -27,19 +27,61 @@ export const SPAWN = { x: 60.5, y: 68.5 };
 export const HOME_DOOR = { x: 60, y: 67 };
 
 // The houses: x, y = top-left tile. Every house is 4 tiles wide and 3 tiles high, the door is at (x + 1, y + 2).
+// roof: its color. sign: the picture hanging next to the door (see draw/icons.js), null = none.
 export const HOUSES = [
-  { x: 59, y: 65 }, // the home of the player
-  { x: 54, y: 62 }, // Aria's clinic
-  { x: 59, y: 60 }, // the library
-  { x: 66, y: 62 }, // the forge
-  { x: 71, y: 64 }, // Finn and Lila
-  { x: 54, y: 72 }, // the bakery
-  { x: 67, y: 72 }, // the elder
-  { x: 55, y: 77 }, // Hana's farm
-  { x: 96, y: 86 }, // Luna's market (Port Syntax)
-  { x: 102, y: 86 }, // the inn
-  { x: 108, y: 86 }, // the barracks
-  { x: 98, y: 92 }, // the fisherman
+  { x: 59, y: 65, roof: 'red', sign: null }, // the home of the player
+  { x: 54, y: 62, roof: 'red', sign: 'healthPotion' }, // Aria's clinic
+  { x: 59, y: 60, roof: 'red', sign: 'book' }, // the library
+  { x: 66, y: 62, roof: 'red', sign: 'ironSword' }, // the forge
+  { x: 71, y: 64, roof: 'red', sign: null }, // Finn and Lila
+  { x: 54, y: 72, roof: 'red', sign: 'bread' }, // the bakery
+  { x: 67, y: 72, roof: 'red', sign: null }, // the elder
+  { x: 55, y: 77, roof: 'red', sign: 'carrot' }, // Hana's farm
+  { x: 96, y: 86, roof: 'blue', sign: 'map1' }, // Luna's market (Port Syntax)
+  { x: 102, y: 86, roof: 'blue', sign: 'mug' }, // the inn
+  { x: 108, y: 86, roof: 'blue', sign: 'shield' }, // the barracks
+  { x: 98, y: 92, roof: 'blue', sign: 'fish' }, // the fisherman
+];
+
+// The cobblestone squares of the villages.
+export const PLAZAS = [{ x: 58, y: 71, w: 6, h: 5 }];
+
+// The things standing on the ground: nobody can walk through them. x, y = top-left tile, w, h = size in tiles.
+// kind: 'fountain' | 'lamp' | 'torch' | 'fence' | 'stall' | 'barrels' | 'crates' | 'signpost'
+export const PROPS = [
+  // ---------- Lexia ----------
+  { kind: 'fountain', x: 60, y: 72, w: 2, h: 2 },
+  { kind: 'lamp', x: 63, y: 68, w: 1, h: 1 },
+  { kind: 'lamp', x: 66, y: 68, w: 1, h: 1 },
+  { kind: 'lamp', x: 63, y: 71, w: 1, h: 1 },
+  { kind: 'lamp', x: 66, y: 71, w: 1, h: 1 },
+  { kind: 'lamp', x: 53, y: 68, w: 1, h: 1 },
+  { kind: 'lamp', x: 75, y: 68, w: 1, h: 1 },
+  { kind: 'lamp', x: 63, y: 59, w: 1, h: 1 },
+  { kind: 'fence', x: 60, y: 77, w: 4, h: 1 }, // around the carrot field (the road crosses it)
+  { kind: 'fence', x: 66, y: 77, w: 2, h: 1 },
+  { kind: 'fence', x: 60, y: 81, w: 4, h: 1 },
+  { kind: 'fence', x: 66, y: 81, w: 2, h: 1 },
+  { kind: 'barrels', x: 70, y: 63, w: 1, h: 1 },
+  { kind: 'crates', x: 53, y: 73, w: 1, h: 1 },
+  { kind: 'signpost', x: 54, y: 67, w: 1, h: 1 },
+
+  // ---------- Port Syntax ----------
+  { kind: 'stall', x: 93, y: 87, w: 2, h: 2 },
+  { kind: 'lamp', x: 95, y: 89, w: 1, h: 1 },
+  { kind: 'lamp', x: 100, y: 89, w: 1, h: 1 },
+  { kind: 'lamp', x: 106, y: 89, w: 1, h: 1 },
+  { kind: 'barrels', x: 103, y: 93, w: 1, h: 1 },
+
+  // ---------- The torches at the doors of the dungeons and of the castle ----------
+  { kind: 'torch', x: 7, y: 61, w: 1, h: 1 },
+  { kind: 'torch', x: 10, y: 61, w: 1, h: 1 },
+  { kind: 'torch', x: 17, y: 37, w: 1, h: 1 },
+  { kind: 'torch', x: 20, y: 37, w: 1, h: 1 },
+  { kind: 'torch', x: 83, y: 37, w: 1, h: 1 },
+  { kind: 'torch', x: 86, y: 37, w: 1, h: 1 },
+  { kind: 'torch', x: 63, y: 16, w: 1, h: 1 },
+  { kind: 'torch', x: 66, y: 16, w: 1, h: 1 },
 ];
 
 // The field where carrots grow (Lexia).

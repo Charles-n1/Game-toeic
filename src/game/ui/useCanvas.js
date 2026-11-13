@@ -28,18 +28,24 @@ export default function useCanvas(onFrame) {
     const ctx = canvasRef.current.getContext('2d');
     const start = performance.now();
     let last = start;
+    let stopped = false; // the canvas left the page: the loop must stop
     let request = requestAnimationFrame(frame);
 
+    // now: given by the browser. The first one can be a bit BEFORE `start`: never a negative time.
     function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000); // never a big jump (when the tab was hidden)
-      last = now;
+      if (stopped || !canvasRef.current) return;
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); // never a big jump (when the tab was hidden)
+      last = Math.max(last, now);
       const size = fitCanvas(canvasRef.current, ctx);
       ctx.clearRect(0, 0, size.width, size.height);
-      frameRef.current(ctx, size.width, size.height, (now - start) / 1000, dt);
-      request = requestAnimationFrame(frame);
+      frameRef.current(ctx, size.width, size.height, Math.max(0, (now - start) / 1000), dt);
+      if (!stopped) request = requestAnimationFrame(frame);
     }
 
-    return () => cancelAnimationFrame(request);
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(request);
+    };
   }
 
   return canvasRef;

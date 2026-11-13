@@ -13,12 +13,14 @@ import { floatText } from './particles';
 
 export const SPELL_MANA = 2; // the cost of a grammar spell
 const DUEL_MISTAKES = 3;
+const ALLY_DAMAGE = 10; // each friend and each obsidian soldier adds this to a strike
+const MIN_DAMAGE = 10;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-// How many friends fight with the player (people + obsidian soldiers): each one adds +1 damage.
+// How many friends fight with the player (people + obsidian soldiers): each one adds +10 damage.
 export function allyCount(player) {
   return player.party.length + player.soldiers;
 }
@@ -50,6 +52,7 @@ function askNext(game, fight) {
   if (opponent.anyCategory) opponent.category = monsterCategory(game); // the Demon King changes type each time
   const lastText = fight.question ? fight.question.text : null;
   fight.question = pickQuestion(game, opponent, fight.usedIds, lastText);
+  if (opponent.tier === 'demon') opponent.category = fight.question.category; // a demon takes the type of its long text
   fight.usedIds.push(fight.question.id);
   fight.limit = timeLimit(game, fight);
   fight.startedAt = Date.now();
@@ -83,22 +86,27 @@ function playerHit(game, fight) {
   const player = game.player;
   const opponent = fight.opponent;
   const isSpell = fight.mode !== 'strike';
-  let power = strikePower(player) + allyCount(player) + (fight.inStorm ? 1 : 0);
+  let power = strikePower(player) + allyCount(player) * ALLY_DAMAGE + (fight.inStorm ? 10 : 0);
   let blocked = opponent.resistance;
   if (isSpell) {
-    power = 1 + spellRank(game, fight.mode);
+    power = 10 * (1 + spellRank(game, fight.mode));
     if (weaknessOf(opponent.category) === fight.mode) power *= 2;
     blocked = opponent.magicResistance;
   }
   const critical = Math.random() < criticalChance(player);
-  const damage = Math.max(1, Math.round(power * (1 - blocked))) * (critical ? 2 : 1);
+  const damage = varied(Math.max(MIN_DAMAGE, power * (1 - blocked))) * (critical ? 2 : 1);
   return { damage: damage, critical: critical };
 }
 
-// The hit of the monster, in half hearts. Armor stops strikes, not magic. half: the player was only a bit slow.
+// A hit is never exactly the same: from 90% to 110% of its power. (More fun to watch.)
+function varied(damage) {
+  return Math.round(damage * (0.9 + Math.random() * 0.2));
+}
+
+// The hit of the monster, in HP. Armor stops strikes, not magic. half: the player was only a bit slow.
 function monsterHit(game, opponent, half) {
   const strike = opponent.attack - armorOf(game.player);
-  const damage = Math.max(1, strike, opponent.magicAttack);
+  const damage = varied(Math.max(MIN_DAMAGE, strike, opponent.magicAttack));
   return half ? Math.ceil(damage / 2) : damage;
 }
 
@@ -137,6 +145,7 @@ export function answer(game, fight, index) {
   }
   if (opponent.duel) last.taken = 0;
   game.player.health -= last.taken;
+  last.mode = fight.mode; // 'strike', or the spell used (for the animation)
   fight.last = last;
   fight.mode = 'strike';
   fight.phase = phaseAfter(game, fight);

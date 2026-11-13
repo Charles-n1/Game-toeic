@@ -1,6 +1,5 @@
-import Sheet from './Sheet';
-import useCanvas from './useCanvas';
-import { drawWorldMap } from '../draw/minimap';
+import useCanvas from '../useCanvas';
+import { drawWorldMap } from '../../draw/minimap';
 
 const MAP_NAMES = ['No map: you only guess the shape of the land', 'Village Map', 'Region Map', 'Treasure Map'];
 const NEXT_HINT = [
@@ -11,19 +10,21 @@ const NEXT_HINT = [
 ];
 
 // The big map of the world. Its precision depends on the map the player bought.
-export default function MapScreen({ game, onClose }) {
+export default function MapPanel({ game }) {
   const level = game.player.mapLevel;
   const canvasRef = useCanvas((ctx, width, height, time) => drawWorldMap(ctx, game, width, time));
 
   return (
-    <Sheet title="Map" onClose={onClose}>
+    <>
       <canvas ref={canvasRef} style={styles.map} />
-      <span style={styles.name}>🗺️ {MAP_NAMES[level]}</span>
+      <span className="gold" style={styles.name}>
+        {MAP_NAMES[level]}
+      </span>
       <span className="small">{NEXT_HINT[level]}</span>
       <span className="small" style={styles.legend}>
-        🔴 you · 🟡 village · 🔴 (big) dungeon · 🟡 (small) treasure
+        White: you · Yellow: villages · Red: dungeons · Small yellow: treasures
       </span>
-    </Sheet>
+    </>
   );
 }
 
@@ -31,12 +32,10 @@ const styles = {
   map: {
     width: '100%',
     aspectRatio: '1',
-    borderRadius: 12,
-    border: '2px solid #f2d16b',
-    marginTop: 12,
+    borderRadius: 4,
+    border: '2px solid #0e1430',
   },
   name: {
-    fontWeight: 'bold',
     marginTop: 10,
   },
   legend: {

@@ -1,5 +1,6 @@
 // Particles: the small things that fly when something happens (sparks, coins, numbers...).
 // Positions are in tiles, like everything on the map. A particle: { x, y, vx, vy, life, age, color, size, text }
+// size: in pixels of the art (a square), or in screen pixels for a text.
 
 const MAX_PARTICLES = 400;
 
@@ -20,7 +21,7 @@ export function burst(game, x, y, color, count = 14) {
       gravity: 4,
       life: 0.5 + Math.random() * 0.4,
       color: color,
-      size: 2 + Math.random() * 3,
+      size: 1 + Math.floor(Math.random() * 2),
     });
   }
 }
@@ -40,7 +41,7 @@ export function dust(game, x, y, color = '#d8c9a8') {
       vy: -Math.random() * 0.6,
       life: 0.4,
       color: color,
-      size: 3,
+      size: 1,
     });
   }
 }
@@ -55,7 +56,7 @@ export function bolt(game, x, y) {
       vy: 0,
       life: 0.25 + i * 0.01,
       color: i % 2 ? '#ffffff' : '#9fd8ff',
-      size: 5,
+      size: 2,
     });
   }
   burst(game, x, y, '#fff7a8', 16);

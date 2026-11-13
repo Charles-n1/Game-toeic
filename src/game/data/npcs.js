@@ -177,7 +177,7 @@ export function npcOf(id) {
 }
 
 // The look of the player.
-export const HERO_LOOK = { skin: '#f3d2b3', hair: '#2b2b3a', style: 'short', eyes: '#2b2b2b', outfit: '#3b6fd4', trim: '#f2d16b' };
+export const HERO_LOOK = { skin: '#f3d2b3', hair: '#8a4b24', style: 'spiky', eyes: '#3a6fd8', outfit: '#2d3a6e', trim: '#d6302f', pants: '#3b3652', boots: '#6b4423', scarf: true, sword: true };
 
 // Names for the babies born in the world.
 export const BABY_NAMES = ['Verba', 'Nomen', 'Syl', 'Lexi', 'Clause', 'Rhema', 'Tilde', 'Odea', 'Punct', 'Vowel', 'Ink', 'Quill'];

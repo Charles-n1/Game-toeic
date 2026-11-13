@@ -46,7 +46,7 @@ function playNightOfSilence(game) {
     say(game, 'orin', SCENES.nightOfSilence.lines);
     killNpc(game, 'orin', null);
   }
-  awaken(game, 'lightning', { speaker: null, lines: ['LIGHTNING has awakened. Open ✨ Powers.'] });
+  awaken(game, 'lightning', { speaker: null, lines: ['LIGHTNING has awakened. Open the menu: Powers.'] });
 }
 
 function startRaid(game) {
