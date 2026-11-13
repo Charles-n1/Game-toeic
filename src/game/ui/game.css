@@ -523,6 +523,17 @@
     -2px 2px 0 #0e1430;
 }
 
+/* ---------- The world map ---------- */
+.map-frame {
+  border: 3px solid #e9c46a;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 2px #0e1430,
+    inset 0 0 0 2px #7a5a1c;
+  overflow: hidden;
+  background: #141a33;
+}
+
 /* ---------- The start screen ---------- */
 .start {
   position: absolute;

@@ -23,8 +23,8 @@ export const ITEMS = {
   speedPotion: { name: 'Speed Potion', icon: '💨', kind: 'potion', haste: true, price: 30, text: '+50% time in a fight' },
   bread: { name: 'Warm Bread', icon: '🍞', kind: 'potion', heal: 20, price: 6, text: '+20 HP' },
 
-  map1: { name: 'Village Map', icon: '🗺️', kind: 'map', level: 1, price: 60, text: 'Shows the villages' },
-  map2: { name: 'Region Map', icon: '🗺️', kind: 'map', level: 2, price: 250, text: 'Shows the dungeons' },
+  map1: { name: 'Village Map', icon: '🗺️', kind: 'map', level: 1, price: 60, text: 'Shows the villages and the roads' },
+  map2: { name: 'Region Map', icon: '🗺️', kind: 'map', level: 2, price: 250, text: 'Shows the whole land' },
   map3: { name: 'Treasure Map', icon: '🗺️', kind: 'map', level: 3, price: 800, text: 'Shows the buried treasures' },
 
   carrotSeed: { name: 'Carrot Seed', icon: '🌱', kind: 'seed', price: 2 },

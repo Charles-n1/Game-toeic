@@ -11,6 +11,8 @@ import { updateStory } from './chapters';
 import { updateParticles, dust } from './particles';
 import { isSoil, workField, dig, chestNear, openChest } from './farm';
 import { saveGame } from './save';
+import { exploreAround } from './explore';
+import { closedSealAt, explainSeal } from './seals';
 import { say, notify, removeOldToasts } from './messages';
 
 // One step of the world. Called at every frame while the player is on the map.
@@ -22,9 +24,17 @@ const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 // ---------- Walking ----------
 
-// Is the hero's body (a small square around x, y) free of walls?
-function canStand(x, y) {
-  return !isSolid(x - BODY, y - BODY) && !isSolid(x + BODY, y - BODY) && !isSolid(x - BODY, y + BODY) && !isSolid(x + BODY, y + BODY);
+// Is the hero's body (a small square around x, y) free of walls and of closed seals?
+function canStand(game, x, y) {
+  const corners = [
+    [x - BODY, y - BODY],
+    [x + BODY, y - BODY],
+    [x - BODY, y + BODY],
+    [x + BODY, y + BODY],
+  ];
+  const seal = corners.map(([cx, cy]) => closedSealAt(game, cx, cy)).find((found) => found);
+  if (seal) explainSeal(game, seal);
+  return !seal && corners.every(([cx, cy]) => !isSolid(cx, cy));
 }
 
 function walk(game, input, dt) {
@@ -34,8 +44,8 @@ function walk(game, input, dt) {
   if (!game.run.walking) return;
 
   const speed = WALK_SPEED * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
-  if (canStand(player.x + direction.x * speed, player.y)) player.x += direction.x * speed;
-  if (canStand(player.x, player.y + direction.y * speed)) player.y += direction.y * speed;
+  if (canStand(game, player.x + direction.x * speed, player.y)) player.x += direction.x * speed;
+  if (canStand(game, player.x, player.y + direction.y * speed)) player.y += direction.y * speed;
   player.dir = facingOf(direction.x, direction.y);
 
   const stepBefore = Math.floor(player.step);
@@ -117,6 +127,7 @@ function slowUpdates(game, dt) {
     game.run.storyTime = 0;
     updateStory(game);
     removeOldToasts(game);
+    exploreAround(game);
   }
   game.run.saveTime += dt;
   if (game.run.saveTime >= SAVE_EVERY) {

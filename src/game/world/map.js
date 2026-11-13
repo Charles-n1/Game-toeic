@@ -1,7 +1,10 @@
-import { ZONES, HOUSES, FIELD, ROADS, PLAZAS, PROPS, zoneAt } from '../data/zones';
+import { ZONES, HOUSES, FIELD, ROADS, PLAZAS, PROPS, RIVERS, WORLD_SIZE, zoneAt } from '../data/zones';
+import { noise, smoothNoise } from './noise';
+
+export { noise };
 
 // The map is a grid of tiles. It is always built the same way (no real random), so it is never saved.
-export const MAP_SIZE = 120;
+export const MAP_SIZE = WORLD_SIZE;
 
 export const TILE = {
   GRASS: 0,
@@ -21,19 +24,18 @@ export const TILE = {
   HOUSE: 14, // the front wall of a house
   DOOR: 15,
   SOIL: 16, // the field: carrots grow here
+  BRIDGE: 17, // where a road crosses the water
 };
 
 // The tiles nobody can walk on.
 const SOLID = [TILE.WATER, TILE.TREE, TILE.ROCK, TILE.LAVA, TILE.DEAD_TREE, TILE.WALL, TILE.ROOF, TILE.HOUSE, TILE.DOOR];
 
-// The ground under a tree, a rock... (to draw it under them).
-const GROUND_OF_BIOME = { demon: TILE.ASH, mountain: TILE.STONE, coast: TILE.SAND, dungeon: TILE.FLOOR };
-
-// A "random" number between 0 and 1 that is always the same for the same tile.
-export function noise(x, y, salt = 0) {
-  let n = Math.imul(x + salt * 7919, 374761393) + Math.imul(y, 668265263);
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
-  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+// The sea: 2 to 11 tiles from the edge of the world, never the same distance (a wavy coast with bays).
+// It never comes into a village or a dungeon.
+function isSea(x, y) {
+  const fromEdge = Math.min(x, y, MAP_SIZE - 1 - x, MAP_SIZE - 1 - y);
+  const depth = 2 + smoothNoise(x, y, 12, 3) * 7 + smoothNoise(x, y, 5, 4) * 2;
+  return zoneAt(x, y).kind === 'land' && fromEdge < depth;
 }
 
 function isInLake(x, y) {
@@ -44,7 +46,7 @@ function isInLake(x, y) {
 
 // The tile of the wild land at (x, y), before the villages, dungeons and roads are added.
 function landTile(x, y) {
-  if (x < 2 || y < 2 || x > MAP_SIZE - 3 || y > MAP_SIZE - 3) return TILE.WATER; // the sea around the island
+  if (isSea(x, y) || isInLake(x, y)) return TILE.WATER;
   const biome = zoneAt(x, y).biome;
   const r = noise(x, y);
 
@@ -54,7 +56,7 @@ function landTile(x, y) {
   if (biome === 'mountain') return r < 0.07 ? TILE.TREE : r < 0.16 ? TILE.ROCK : TILE.STONE; // pines, rocks, snow
   if (biome === 'demon') return r < 0.05 ? TILE.LAVA : r < 0.14 ? TILE.DEAD_TREE : TILE.ASH;
   if (biome === 'coast') return r < 0.04 ? TILE.ROCK : TILE.SAND;
-  if (biome === 'lake' && isInLake(x, y)) return TILE.WATER;
+  if (biome === 'desert') return r < 0.04 ? TILE.TREE : r < 0.08 ? TILE.ROCK : TILE.SAND; // cacti, rocks, sand
   if (biome === 'plains') return r < 0.03 ? TILE.TREE : r < 0.2 ? TILE.FLOWER : TILE.GRASS;
   return r < 0.05 ? TILE.TREE : r < 0.12 ? TILE.FLOWER : TILE.GRASS; // meadow, and the shore of the lake
 }
@@ -100,7 +102,25 @@ function buildHouse(tiles, house) {
   setTile(tiles, house.x + 1, house.y + 2, TILE.DOOR);
 }
 
-// A road never destroys a building or a dungeon wall: it only replaces the nature.
+// A river: a line 2 tiles wide that follows its points, with small bends. It never goes through a village.
+function buildRiver(tiles, points) {
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x0, y0] = points[i];
+    const [x1, y1] = points[i + 1];
+    const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 4);
+    for (let step = 0; step <= steps; step++) {
+      const y = y0 + ((y1 - y0) * step) / steps;
+      const x = x0 + ((x1 - x0) * step) / steps + (smoothNoise(x0, y, 5, 7) - 0.5) * 3;
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const tx = Math.floor(x) + dx;
+        const ty = Math.floor(y) + dy;
+        if (tx >= 0 && ty >= 0 && tx < MAP_SIZE && ty < MAP_SIZE && zoneAt(tx, ty).kind === 'land') setTile(tiles, tx, ty, TILE.WATER);
+      }
+    }
+  }
+}
+
+// A road never destroys a building or a dungeon wall: it only replaces the nature. Over water: a bridge.
 function canBeRoad(tile) {
   return ![TILE.WALL, TILE.FLOOR, TILE.ROOF, TILE.HOUSE, TILE.DOOR, TILE.SOIL].includes(tile);
 }
@@ -111,7 +131,8 @@ function buildRoad(tiles, road) {
   const h = isVertical ? road.y2 - road.y1 + 2 : 2;
   for (let y = road.y1; y < road.y1 + h; y++) {
     for (let x = road.x1; x < road.x1 + w; x++) {
-      if (canBeRoad(tiles[y * MAP_SIZE + x])) setTile(tiles, x, y, TILE.PATH);
+      const tile = tiles[y * MAP_SIZE + x];
+      if (canBeRoad(tile)) setTile(tiles, x, y, tile === TILE.WATER ? TILE.BRIDGE : TILE.PATH);
     }
   }
 }
@@ -121,6 +142,7 @@ function buildMap() {
   for (let y = 0; y < MAP_SIZE; y++) {
     for (let x = 0; x < MAP_SIZE; x++) setTile(tiles, x, y, landTile(x, y));
   }
+  RIVERS.forEach((river) => buildRiver(tiles, river));
   for (const zone of ZONES) {
     if (zone.kind === 'dungeon') buildDungeon(tiles, zone);
     if (zone.kind === 'castle') buildCastle(tiles, zone);
@@ -157,11 +179,6 @@ export function tileAt(x, y) {
 export function isSolid(x, y) {
   if (SOLID.includes(tileAt(x, y))) return true;
   return BLOCKED[Math.floor(y) * MAP_SIZE + Math.floor(x)] === 1;
-}
-
-// The ground to draw under a tile (a tree stands on grass, a dead tree on ash...).
-export function groundAt(x, y) {
-  return GROUND_OF_BIOME[zoneAt(x, y).biome] || TILE.GRASS;
 }
 
 // ---------- Fixed things placed on the map ----------

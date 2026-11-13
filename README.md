@@ -14,7 +14,10 @@ An isekai in 2D where every fight is a TOEIC question. To enter: do the level te
   the category you must train. When your goal is reached in it, the training swaps to your next weakness, and the
   category comes back later. Failed questions come back too, like in Recovery. Every answer counts in the app's stats.
 - **Monsters**: small ones ask RC 10 / RC 8, big ones the hard questions, the demons of the north the long texts (RC 55).
-- **The world**: day and night, 2 villages, 3 dungeons, the castle of the Demon King, a raid on the village every 7 nights.
+- **The world**: an island with rivers, bridges, a desert, snowy peaks and a volcanic land. Day and night, 2 villages,
+  3 dungeons, the castle of the Demon King (sealed until General Barbarism falls), a raid on the village every 7 nights.
+- **The world map** (`M`): what you explored, the rest is in the fog. The maps sold by Luna show more (roads, the whole
+  land, the treasures). Main quest, side quests, shops, your party and a legend.
   Talk, help (quests), give gifts, recruit, date, marry. Plant carrots, dig treasures, work as a scribe, negotiate prices.
 - **Death**: Aria carries you home 3 times. After that, dying erases the game (not your stats).
 

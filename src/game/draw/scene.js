@@ -1,10 +1,11 @@
 import { NPCS, npcOf, HERO_LOOK } from '../data/npcs';
-import { HOUSES, PROPS, zoneAt } from '../data/zones';
+import { HOUSES, PROPS, SEALS, zoneAt } from '../data/zones';
 import { typeOf } from '../data/types';
 import { MAP_SIZE, TILE, tileAt, noise, CHESTS } from '../world/map';
 import { isOutside } from '../logic/people';
 import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
 import { cropAt, isCropReady, closestTreasure } from '../logic/farm';
+import { isSealOpen } from '../logic/seals';
 import { TILE_PX, groundTile, flowersDecal } from './tiles';
 import { personSprite, walkFrame, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
@@ -86,10 +87,11 @@ function standingSprite(x, y) {
   const biome = zoneAt(x, y).biome;
   if (tile === TILE.TREE && biome === 'forest') return props.oakTree(noise(x, y, 3) < 0.5 ? 0 : 1);
   if (tile === TILE.TREE && biome === 'mountain') return props.pineTree();
+  if (tile === TILE.TREE && biome === 'desert') return props.cactus();
   if (tile === TILE.TREE) return props.roundTree();
   if (tile === TILE.DEAD_TREE) return props.deadTree();
   if (tile === TILE.ROCK && biome === 'mountain') return noise(x, y, 5) < 0.45 ? props.iceCrystal() : props.rock('snow');
-  if (tile === TILE.ROCK) return props.rock(biome === 'coast' ? null : 'moss');
+  if (tile === TILE.ROCK) return props.rock(biome === 'coast' || biome === 'desert' ? null : 'moss');
   return null;
 }
 
@@ -174,6 +176,27 @@ function chestsAndBarriers(view, game) {
       }))
     : [];
   return [...chests, ...barriers];
+}
+
+// A closed seal: a wall of red runes that pulses.
+function sealDrawings(view, game, time) {
+  if (!game) return [];
+  return SEALS.filter((seal) => !isSealOpen(game, seal) && isNear(view, seal.x, seal.y, seal.w, seal.h)).map((seal) => ({
+    y: seal.y + seal.h,
+    draw: (ctx) => {
+      const x = seal.x * T - view.x;
+      const y = seal.y * T - view.y;
+      ctx.fillStyle = 'rgba(255, 50, 70, ' + (0.35 + Math.sin(time * 4) * 0.15) + ')';
+      ctx.fillRect(x, y - 10, seal.w * T, T + 10);
+      ctx.fillStyle = '#ffb0b8';
+      for (let i = 0; i < seal.w * 4; i++) {
+        const rx = x + 2 + i * 4;
+        const ry = y - 6 + Math.round(Math.sin(time * 3 + i) * 2);
+        ctx.fillRect(rx, ry, 2, 2); // the runes
+        ctx.fillRect(rx, ry + 8, 1, 3);
+      }
+    },
+  }));
 }
 
 // ---------- The living ----------
@@ -431,7 +454,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawTreasureHint(art, game, view, time);
   const living = [...npcDrawings(game, view, time), ...followerDrawings(game, view, time), ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view));
-  drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time), ...chestsAndBarriers(view, game), ...living]);
+  drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...living]);
   if (fight) drawBattle(art, game, view, time);
   drawBalls(art, game, view);
   drawParticleSquares(art, game.run.particles, view);
@@ -445,12 +468,15 @@ export function drawScene(ctx, game, width, height, time) {
   drawAlerts(ctx, game, width, height, time);
 }
 
-// The village of Lexia, slowly passing by (the background of the start screen).
-export function drawLandscape(ctx, width, height, time) {
-  const scale = pixelScale(width);
+// A place of the world, without its people: the background of the start screen (Lexia, slowly passing by),
+// or the small picture of a place on the world map. center: { x, y } in tiles (null = Lexia, moving).
+// scale: screen pixels per pixel of the art (null = the usual one).
+export function drawLandscape(ctx, width, height, time, center = null, scale = null) {
+  scale = scale || pixelScale(width);
   const art = prepareBuffer(width, height, scale);
-  const centerX = (64 + Math.sin(time * 0.04) * 8) * T;
-  const view = { x: Math.round(centerX - buffer.width / 2), y: Math.round(70 * T - buffer.height / 2), width: buffer.width, height: buffer.height };
+  const centerX = center ? center.x * T : (64 + Math.sin(time * 0.04) * 8) * T;
+  const centerY = center ? center.y * T : 70 * T;
+  const view = { x: Math.round(centerX - buffer.width / 2), y: Math.round(centerY - buffer.height / 2), width: buffer.width, height: buffer.height };
   drawGround(art, null, view, time);
   drawSorted(art, [...treesAndRocks(view), ...houses(view, null, time), ...villageProps(view, time), ...chestsAndBarriers(view, null)]);
   showBuffer(ctx, width, height, scale);

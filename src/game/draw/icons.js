@@ -49,6 +49,16 @@ const MENU = ['............', 'WWWWWWWWWWW.', 'WWWWWWWWWWW.', '............', 'W
 const MUG = ['..WWWW......', '.YYYYYY.....', '.YYYYYYY....', '.YYYYY.Y....', '.YYYYYYY....', '.YYYYYY.....'];
 const FISH = ['............', '.U..UUU.....', '.UUUUWUU....', '.UUUUUUU....', '.U..UUU.....'];
 
+// ---------- The marks of the world map ----------
+const TOWN = ['.....RR.....', '....RRRR....', '...RRRRRR...', '..RRRRRRRR..', '.RRRRRRRRRR.', '..WWWWWWWW..', '..WNNWWUUW..', '..WNNWWUUW..', '..WNNWWWWW..'];
+const SKULL = ['...PPPPPP...', '..PPWWWWPP..', '.PPWWWWWWPP.', '.PWKKWWKKWP.', '.PWKKWWKKWP.', '.PPWWKKWWPP.', '..PPWWWWPP..', '...PWPWPWP..', '....PPPPP...'];
+const MONEY_BAG = ['....NNNN....', '.....NN.....', '...GGGGGG...', '..GGGLLGGG..', '.GGGLYYLGGG.', '.GGGGYYGGGG.', '.GGGLYYLGGG.', '.GGGGGGGGGG.', '..gggggggg..'];
+const BED = ['U...........', 'U.WW........', 'UWWWUUUUUUU.', 'UUUUUUUUUUUU', 'UUUUUUUUUUUU', 'U..........U'];
+const ARROW = ['.....W......', '....WWW.....', '...WWWWW....', '..WWWWWWW...', '.WWWWWWWWW..', '....WWW.....', '....WWW.....', '....WWW.....'];
+const DIAMOND = ['.....L......', '....LMM.....', '...LMMMM....', '..LMMMMMD...', '...MMMMD....', '....MMD.....', '.....D......'];
+const CROSS = ['RR......RR..', '.RR....RR...', '..RR..RR....', '...RRRR.....', '...RRRR.....', '..RR..RR....', '.RR....RR...', 'RR......RR..'];
+const BRIDGE = ['..NNNNNNNN..', '.NnNnNnNnNN.', 'NN........NN', 'N..........N', 'UUU......UUU', 'UUUU....UUUU'];
+
 // The colors shared by every picture. Each icon can change some of them.
 const BASE = { K: '#1c1726', W: '#ffffff', G: '#9aa6b8', L: '#e8eef7', Y: '#ffd23f', y: '#c9961e', N: '#7a4a24', R: '#e8423f', O: '#ff9a2b', U: '#3a7bff', D: '#2c2342', V: '#c9d1e0' };
 
@@ -128,14 +138,31 @@ const ICONS = {
   dig: [PICKAXE, {}],
   chest: [CHEST, { D: '#6b3e1f', W: '#a0683a' }],
   menu: [MENU, {}],
+
+  // ---------- The world map ----------
+  town: [TOWN, { R: '#e8423f', N: '#7a4a24' }],
+  dungeon: [SKULL, { P: '#8a3fd1' }],
+  shop: [MONEY_BAG, { G: '#3f9a4a', g: '#2a6b33', L: '#7cc45a' }],
+  inn: [BED, { U: '#3a7bff', W: '#ffffff' }],
+  you: [ARROW, {}],
+  mainQuest: [DIAMOND, { L: '#fff3b0', M: '#ffc83a', D: '#c98a12' }],
+  sideQuest: [DIAMOND, { L: '#d6ecff', M: '#4aa0ff', D: '#1f5fc0' }],
+  treasure: [CHEST, { D: '#6b3e1f', W: '#e8b83a' }],
+  bridge: [BRIDGE, { N: '#a0683a', n: '#6b3e1f', U: '#3a7bff' }],
+  blocked: [CROSS, {}],
 };
 
-// The picture of an icon as a "data:" address, for an <img>. Unknown name: the star.
-export function iconUrl(name) {
-  return once('icon' + name, () => {
+// The picture of an icon, as a 14 x 14 canvas (12 x 12 + its outline). Unknown name: the star.
+export function iconCanvas(name) {
+  return once('iconCanvas' + name, () => {
     const [rows, colors] = ICONS[name] || ICONS.powers;
     const top = Math.floor((12 - rows.length) / 2); // the picture is centered in a 12 x 12 square
     const square = [...Array(top).fill(''), ...rows, ...Array(12 - rows.length - top).fill('')].map((row) => row.padEnd(12, '.'));
-    return spriteOf(square, { ...BASE, ...colors }, OUTLINE).toDataURL();
+    return spriteOf(square, { ...BASE, ...colors }, OUTLINE);
   });
+}
+
+// The same picture as a "data:" address, for an <img>.
+export function iconUrl(name) {
+  return once('icon' + name, () => iconCanvas(name).toDataURL());
 }

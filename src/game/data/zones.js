@@ -1,26 +1,62 @@
+import { smoothNoise } from '../world/noise';
+
 // The world is one big island of 120 x 120 tiles. A zone = a rectangle of it.
 // The FIRST zone that contains a tile wins: the villages and dungeons are listed before the lands.
+// The borders between the lands are wavy (see zoneAt): only the villages and the dungeons are real rectangles.
 // danger: 0 = safe ... 4 = the demon land. species: the monsters that appear there.
+// text: what the world map says about it. label: where its name is written on the map (default: its middle).
+export const WORLD_SIZE = 120;
+
 export const ZONES = [
   // ---------- Villages (no monster comes in, except during a raid) ----------
-  { id: 'lexia', name: 'Lexia Village', kind: 'village', biome: 'village', x: 52, y: 58, w: 24, h: 24, danger: 0, species: [] },
-  { id: 'port', name: 'Port Syntax', kind: 'village', biome: 'village', x: 92, y: 84, w: 21, h: 15, danger: 0, species: [] },
+  { id: 'lexia', name: 'Lexia Village', kind: 'village', biome: 'village', x: 52, y: 58, w: 24, h: 24, danger: 0, species: [], label: [64, 60], text: 'A quiet village of farmers and bakers. Your new home.' },
+  { id: 'port', name: 'Port Syntax', kind: 'village', biome: 'village', x: 92, y: 84, w: 21, h: 15, danger: 0, species: [], label: [102, 84], text: "A busy harbor: maps, rings and sailors' stories." },
 
   // ---------- Dungeons: a snake of rooms, guards, a boss and a chest at the end ----------
-  { id: 'crypt', name: 'Crypt of Gerunds', kind: 'dungeon', biome: 'dungeon', x: 6, y: 50, w: 17, h: 11, danger: 2, species: [], guard: 'wolf', boss: 'lich' },
-  { id: 'tower', name: 'Tower of Tenses', kind: 'dungeon', biome: 'dungeon', x: 16, y: 26, w: 17, h: 11, danger: 3, species: [], guard: 'golem', boss: 'warden' },
-  { id: 'fort', name: 'Fort Mutter', kind: 'dungeon', biome: 'dungeon', x: 82, y: 26, w: 17, h: 11, danger: 3, species: [], guard: 'imp', boss: 'general' },
-  { id: 'castle', name: 'Castle of Silence', kind: 'castle', biome: 'dungeon', x: 54, y: 3, w: 21, h: 13, danger: 4, species: [], guard: 'demonKnight', boss: 'king' },
+  { id: 'crypt', name: 'Crypt of Gerunds', kind: 'dungeon', biome: 'dungeon', x: 6, y: 50, w: 17, h: 11, danger: 2, species: [], guard: 'wolf', boss: 'lich', text: 'A tomb under Verbwood. The Gerund Lich sleeps inside.' },
+  { id: 'tower', name: 'Tower of Tenses', kind: 'dungeon', biome: 'dungeon', x: 16, y: 26, w: 17, h: 11, danger: 3, species: [], guard: 'golem', boss: 'warden', text: 'A frozen tower where time goes wrong. The Chrono Warden keeps it.' },
+  { id: 'fort', name: 'Fort Mutter', kind: 'dungeon', biome: 'dungeon', x: 82, y: 26, w: 17, h: 11, danger: 3, species: [], guard: 'imp', boss: 'general', text: 'The fort of General Barbarism, the enemy at the gate.' },
+  { id: 'castle', name: 'Castle of Silence', kind: 'castle', biome: 'dungeon', x: 54, y: 3, w: 21, h: 13, danger: 4, species: [], guard: 'demonKnight', boss: 'king', text: 'Solecis waits on his throne. A seal closes the door until the General falls.' },
 
   // ---------- The lands ----------
-  { id: 'demon', name: 'The Silent Lands', kind: 'land', biome: 'demon', x: 0, y: 0, w: 120, h: 22, danger: 4, species: ['imp', 'demonKnight'] },
-  { id: 'mountain', name: 'Frostpeak Pass', kind: 'land', biome: 'mountain', x: 0, y: 22, w: 120, h: 22, danger: 3, species: ['wisp', 'golem', 'wolf'] },
-  { id: 'forest', name: 'Verbwood', kind: 'land', biome: 'forest', x: 0, y: 44, w: 42, h: 56, danger: 2, species: ['slime', 'wolf', 'treant'] },
-  { id: 'meadow', name: 'Whisper Meadow', kind: 'land', biome: 'meadow', x: 42, y: 44, w: 40, h: 56, danger: 1, species: ['slime'] },
-  { id: 'lake', name: 'Lake Clause', kind: 'land', biome: 'lake', x: 82, y: 44, w: 38, h: 36, danger: 1, species: ['slime', 'bat'] },
-  { id: 'coast', name: 'Comma Coast', kind: 'land', biome: 'coast', x: 82, y: 80, w: 38, h: 20, danger: 1, species: ['slime'] },
-  { id: 'plains', name: 'Carrot Plains', kind: 'land', biome: 'plains', x: 0, y: 100, w: 120, h: 20, danger: 1, species: ['slime', 'bat'] },
+  { id: 'demon', name: 'The Silent Lands', kind: 'land', biome: 'demon', x: 0, y: 0, w: 120, h: 22, danger: 4, species: ['imp', 'demonKnight'], label: [28, 12], text: 'Ash, lava and silence. Only demons live here.' },
+  { id: 'mountain', name: 'Frostpeak Pass', kind: 'land', biome: 'mountain', x: 0, y: 22, w: 120, h: 22, danger: 3, species: ['wisp', 'golem', 'wolf'], label: [52, 31], text: 'Snow, pines and ice crystals. The road to the tower and the fort.' },
+  { id: 'desert', name: 'Sunscorch Desert', kind: 'land', biome: 'desert', x: 0, y: 92, w: 42, h: 28, danger: 2, species: ['wolf', 'slime', 'wisp'], label: [20, 106], text: 'Sand and cacti as far as the eye can see. The sun burns the careless.' },
+  { id: 'forest', name: 'Verbwood', kind: 'land', biome: 'forest', x: 0, y: 44, w: 42, h: 56, danger: 2, species: ['slime', 'wolf', 'treant'], label: [24, 78], text: 'Old trees and wolves. At night, someone waits in the clearing.' },
+  { id: 'meadow', name: 'Whisper Meadow', kind: 'land', biome: 'meadow', x: 42, y: 44, w: 40, h: 56, danger: 1, species: ['slime'], label: [62, 50], text: 'Soft hills around Lexia. The first monsters: slimes.' },
+  { id: 'lake', name: 'Lake Clause', kind: 'land', biome: 'lake', x: 82, y: 44, w: 38, h: 36, danger: 1, species: ['slime', 'bat'], label: [101, 60], text: 'Still water. Bats fly over it at night.' },
+  { id: 'coast', name: 'Comma Coast', kind: 'land', biome: 'coast', x: 82, y: 80, w: 38, h: 20, danger: 1, species: ['slime'], label: [108, 102], text: 'Sand, wind and the sea.' },
+  { id: 'plains', name: 'Carrot Plains', kind: 'land', biome: 'plains', x: 0, y: 100, w: 120, h: 20, danger: 1, species: ['slime', 'bat'], label: [64, 108], text: 'Wild flowers south of Lexia. A good place to start.' },
 ];
+
+// The rivers: lines of points, from the mountains to the sea. A road that crosses a river becomes a bridge.
+export const RIVERS = [
+  [
+    [44, 44],
+    [40, 52],
+    [44, 60],
+    [40, 68],
+    [36, 76],
+    [30, 86],
+    [24, 96],
+    [16, 108],
+    [8, 119],
+  ],
+  [
+    [84, 44],
+    [82, 52],
+    [85, 60],
+    [83, 68],
+    [80, 76],
+    [82, 86],
+    [78, 96],
+    [80, 108],
+    [76, 119],
+  ],
+];
+
+// The magic doors: closed until a boss is defeated (the "blocked paths" of the map).
+export const SEALS = [{ x: 64, y: 15, w: 2, h: 1, until: 'general', text: 'Red runes seal the door. Only the fall of General Barbarism can break them.' }];
 
 // Where the player wakes up: in front of the door of their home.
 export const SPAWN = { x: 60.5, y: 68.5 };
@@ -99,12 +135,37 @@ export const ROADS = [
   { x1: 86, y1: 90, x2: 112, y2: 90 }, // the main street of Port Syntax
 ];
 
+function isInside(zone, x, y) {
+  return x >= zone.x && x < zone.x + zone.w && y >= zone.y && y < zone.y + zone.h;
+}
+
+const PLACES = ZONES.filter((zone) => zone.kind !== 'land'); // villages and dungeons: exact rectangles
+const LANDS = ZONES.filter((zone) => zone.kind === 'land');
+
+function clampToWorld(value) {
+  return Math.min(WORLD_SIZE - 1, Math.max(0, value));
+}
+
+// The land of a tile. The tile is moved a bit (up to 5 tiles) before looking: the borders become wavy.
+function landAt(x, y) {
+  const wx = clampToWorld(x + (smoothNoise(x, y, 10, 1) - 0.5) * 10);
+  const wy = clampToWorld(y + (smoothNoise(x, y, 10, 2) - 0.5) * 10);
+  return LANDS.find((zone) => isInside(zone, wx, wy)) || LANDS[LANDS.length - 1];
+}
+
+function computeZoneAt(x, y) {
+  return PLACES.find((zone) => isInside(zone, x, y)) || landAt(x, y);
+}
+
+// The zone of every tile, found once (the game asks very often).
+const ZONE_GRID = [];
+for (let y = 0; y < WORLD_SIZE; y++) {
+  for (let x = 0; x < WORLD_SIZE; x++) ZONE_GRID.push(computeZoneAt(x, y));
+}
+
 // The zone of a tile.
 export function zoneAt(x, y) {
-  for (const zone of ZONES) {
-    if (x >= zone.x && x < zone.x + zone.w && y >= zone.y && y < zone.y + zone.h) return zone;
-  }
-  return ZONES[ZONES.length - 1];
+  return ZONE_GRID[Math.floor(clampToWorld(y)) * WORLD_SIZE + Math.floor(clampToWorld(x))];
 }
 
 export function zoneOf(id) {
@@ -114,4 +175,9 @@ export function zoneOf(id) {
 // The middle of a zone, in tiles.
 export function centerOf(zone) {
   return { x: zone.x + zone.w / 2, y: zone.y + zone.h / 2 };
+}
+
+// Where the name of a zone is written on the world map.
+export function labelOf(zone) {
+  return zone.label ? { x: zone.label[0], y: zone.label[1] } : centerOf(zone);
 }

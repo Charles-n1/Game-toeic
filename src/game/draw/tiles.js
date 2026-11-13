@@ -1,7 +1,7 @@
 import { TILE, tileAt, noise } from '../world/map';
 import { zoneAt } from '../data/zones';
 import { makeGrid, dot, fillRect, sprinkle, randomOf, toCanvas, once } from './pixels';
-import { GRASS, DIRT, COBBLE, SAND, WATER, SNOW, ASH, LAVA, FLOOR, WALL, SOIL } from './palette';
+import { GRASS, DIRT, COBBLE, SAND, WATER, SNOW, ASH, LAVA, FLOOR, WALL, SOIL, WOOD } from './palette';
 
 // The ground: one 16 x 16 picture per tile. Each picture is made once, then reused.
 // A tile also looks at its 4 neighbors: the grass grows over the edge of a path, the water foams on the shore...
@@ -17,7 +17,7 @@ const SIDES = [
 
 // ---------- Which ground is where ----------
 
-const GROUND_OF_BIOME = { mountain: 'snow', demon: 'ash', coast: 'sand', dungeon: 'floor' };
+const GROUND_OF_BIOME = { mountain: 'snow', demon: 'ash', coast: 'sand', desert: 'sand', dungeon: 'floor' };
 const SIMPLE_GROUND = {
   [TILE.GRASS]: 'grass',
   [TILE.FLOWER]: 'grass',
@@ -29,10 +29,11 @@ const SIMPLE_GROUND = {
   [TILE.FLOOR]: 'floor',
   [TILE.WALL]: 'wall',
   [TILE.SOIL]: 'soil',
+  [TILE.BRIDGE]: 'bridge',
 };
 
 // The ground of a tile, as a word: 'grass' | 'path' | 'cobble' | 'sand' | 'water' | 'snow' | 'ash' | 'lava' |
-// 'floor' | 'wall' | 'soil'. Under a tree, a rock or a house: the ground of the land around.
+// 'floor' | 'wall' | 'soil' | 'bridge'. Under a tree, a rock or a house: the ground of the land around.
 export function groundKind(x, y) {
   const tile = tileAt(x, y);
   const zone = zoneAt(x, y);
@@ -51,6 +52,7 @@ function edgeOf(kind, neighbor) {
   if (kind === 'water' && neighbor !== 'water') return 'f'; // foam
   if (kind === 'floor' && neighbor === 'wall') return 'w'; // the shadow of the wall
   if (kind === 'wall' && neighbor !== 'wall') return 'r'; // the rim of the wall
+  if (kind === 'bridge' && neighbor === 'water') return 'b'; // the rail of the bridge
   return '.';
 }
 
@@ -236,6 +238,23 @@ function paintWall(grid, edges) {
   fillRect(grid, 0, 5, S, 1, WALL.rim);
 }
 
+// Wooden planks across the water. The rails are on the sides that touch the water.
+function paintBridge(grid, edges) {
+  const isAcross = edges[0] === 'b' || edges[2] === 'b'; // water above and below: the bridge goes left-right
+  fillRect(grid, 0, 0, S, S, WOOD.base);
+  for (let i = 3; i < S; i += 4) {
+    if (isAcross) fillRect(grid, i, 0, 1, S, WOOD.dark);
+    else fillRect(grid, 0, i, S, 1, WOOD.dark);
+  }
+  [...edges].forEach((letter, side) => {
+    if (letter !== 'b') return;
+    for (let i = 0; i < S; i++) {
+      dot(grid, ...sideCell(side, i, 0), WOOD.deep);
+      dot(grid, ...sideCell(side, i, 1), WOOD.light);
+    }
+  });
+}
+
 function paintSoil(grid) {
   fillRect(grid, 0, 0, S, S, SOIL.base);
   for (let y = 3; y < S; y += 4) {
@@ -255,6 +274,7 @@ function paintGround(grid, kind, variant, frame, edges) {
   else if (kind === 'floor') paintFloor(grid, variant);
   else if (kind === 'wall') paintWall(grid, edges);
   else if (kind === 'soil') paintSoil(grid);
+  else if (kind === 'bridge') paintBridge(grid, edges);
   else paintGrass(grid, variant);
 }
 

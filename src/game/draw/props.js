@@ -130,6 +130,28 @@ export function deadTree() {
   });
 }
 
+const CACTUS_ROWS = [
+  '....GG......',
+  '...GLG......',
+  '...GLG..G...',
+  '.G.GLG..GG..',
+  '.GLGLG..LG..',
+  '.GLGLGGGLG..',
+  '..GGLGGGG...',
+  '...GLG......',
+  '...GLG......',
+  '...GLG......',
+  '...GGG......',
+];
+
+// The cacti of Sunscorch Desert.
+export function cactus() {
+  return once('cactus', () => {
+    const canvas = spriteOf(CACTUS_ROWS, { G: '#3f9a4a', L: '#7cc45a' }, '#163a1e');
+    return sprite(canvas, 5, 12);
+  });
+}
+
 // ---------- Rocks ----------
 
 const STONE = { dark: '#6d6a72', mid: '#8e8a93', light: '#b7b3bb', outline: '#2a2730' };

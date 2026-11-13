@@ -5,7 +5,7 @@ import PixelIcon from './PixelIcon';
 import useCanvas from './useCanvas';
 import { typeOf } from '../data/types';
 import { zoneAt } from '../data/zones';
-import { drawMiniMap } from '../draw/minimap';
+import { drawMiniMap } from '../draw/worldmap';
 import { xpForLevel } from '../logic/player';
 import { clockText, isNight } from '../logic/clock';
 import { daysBeforeRaid } from '../logic/raid';

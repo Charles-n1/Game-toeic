@@ -49,7 +49,7 @@ export default function MenuScreen({ game, refresh, onClose, onQuit }) {
   }
 
   if (Panel) {
-    const title = ENTRIES.find((entry) => entry.tab === tab).label;
+    const title = tab === 'map' ? 'World Map' : ENTRIES.find((entry) => entry.tab === tab).label;
     return (
       <div className="overlay">
         <Window title={title} gold onClose={onClose}>

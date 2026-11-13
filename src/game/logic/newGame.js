@@ -3,6 +3,7 @@ import { NPCS } from '../data/npcs';
 import { SPAWN } from '../data/zones';
 import { INTRO, GOAL_BLESSING, SCENES, CHAPTERS } from '../data/story';
 import { chooseFocus } from './learning';
+import { emptyExplored, exploreAround } from './explore';
 import { placeDungeonMonsters } from './monsters';
 import { placePeople } from './people';
 import { say } from './messages';
@@ -34,6 +35,7 @@ export function makeRun() {
     safeUntil: 0, // no fight can start before this time
     dashUntil: 0,
     flashUntil: 0,
+    sealToldUntil: 0, // the message of a closed seal is not repeated before this time
     shakeUntil: 0, // the screen shakes until this time (a hard hit)
     walking: false, // the hero is walking right now
     zoneId: null, // the zone the player is in (to announce a new one)
@@ -122,16 +124,19 @@ export function newGame(goalId, score, stats) {
     bosses: {}, // the bosses already dead
     cleared: {}, // the dungeon guards dead today
     raid: { nextDay: 7, count: 0, perfect: 0, active: false, deaths: 0 },
+    explored: emptyExplored(), // the blocks of the world already seen (see explore.js)
     run: makeRun(),
   };
   game.focus.current = chooseFocus(game);
   wakeUp(game);
+  exploreAround(game);
   tellIntro(game);
   return game;
 }
 
 // Fills what is not saved. Used for a new game and for a loaded one.
 export function wakeUp(game) {
+  if (typeof game.explored !== 'string') game.explored = emptyExplored(); // a save from before the world map
   game.run = makeRun();
   placePeople(game);
   placeDungeonMonsters(game);
