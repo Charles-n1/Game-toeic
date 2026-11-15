@@ -32,6 +32,7 @@ const musicElement = new Audio();
 musicElement.loop = true; // restart at the end
 let musicUrl = null; // the music file, as a local copy
 let wanted = { music: MUSICS[0], musicVolume: 0.3, soundVolume: 1 };
+let appMusicMuted = false; // true while the game is open: the game plays its own music
 
 // The events that count as a "real tap" for the browser (pointerdown does NOT, with a finger).
 const TAP_EVENTS = ['pointerup', 'touchend', 'click', 'keydown'];
@@ -67,7 +68,7 @@ export function startAudio(settings) {
 // On each tap: if the sound is still asleep, wake it up. (Already awake: nothing happens.)
 function wakeUpAudio() {
   if (context.state === 'suspended') context.resume();
-  if (wanted.music.file && musicElement.src && musicElement.paused) {
+  if (!appMusicMuted && wanted.music.file && musicElement.src && musicElement.paused) {
     musicElement.play().catch(() => {});
   }
 }
@@ -82,9 +83,21 @@ async function loadSound(name, url) {
 function pauseWhenHidden() {
   if (document.hidden) {
     musicElement.pause();
-  } else if (wanted.music.file) {
+  } else if (wanted.music.file && !appMusicMuted) {
     musicElement.play().catch(() => {});
   }
+}
+
+// The sound engine of the app, for the game (it makes its own music and effects with it). null = not started.
+export function audioContext() {
+  return context;
+}
+
+// The game opens (true): the music of the app stops. The game closes (false): it comes back.
+export function muteAppMusic(muted) {
+  appMusicMuted = muted;
+  if (muted) musicElement.pause();
+  else if (wanted.music.file && musicElement.src) musicElement.play().catch(() => {});
 }
 
 // volume: from 0 (mute) to 1 (max)
@@ -113,6 +126,7 @@ export async function playMusic(music) {
   if (musicUrl) URL.revokeObjectURL(musicUrl);
   musicUrl = URL.createObjectURL(blob);
   musicElement.src = musicUrl;
+  if (appMusicMuted) return;
   musicElement.play().catch(() => {}); // refused before the first tap: wakeUpAudio() will retry
 }
 

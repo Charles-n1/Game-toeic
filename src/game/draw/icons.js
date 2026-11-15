@@ -57,6 +57,9 @@ const BED = ['U...........', 'U.WW........', 'UWWWUUUUUUU.', 'UUUUUUUUUUUU', 'UU
 const ARROW = ['.....W......', '....WWW.....', '...WWWWW....', '..WWWWWWW...', '.WWWWWWWWW..', '....WWW.....', '....WWW.....', '....WWW.....'];
 const DIAMOND = ['.....L......', '....LMM.....', '...LMMMM....', '..LMMMMMD...', '...MMMMD....', '....MMD.....', '.....D......'];
 const CROSS = ['RR......RR..', '.RR....RR...', '..RR..RR....', '...RRRR.....', '...RRRR.....', '..RR..RR....', '.RR....RR...', 'RR......RR..'];
+const PLAY = ['..W.........', '..WW........', '..WWW.......', '..WWWW......', '..WWWWW.....', '..WWWW......', '..WWW.......', '..WW........', '..W.........'];
+const GEAR = ['....GG......', '.G.GGGG.G...', '..GGGGGGG...', '.GGG..GGG...', 'GGG....GGG..', '.GGG..GGG...', '..GGGGGGG...', '.G.GGGG.G...', '....GG......'];
+const BIG_POTION = ['....NNNN....', '....GGGG....', '...GPPPPG...', '..GPPPPPPG..', '.GPPWPPPPPG.', '.GPWPPPPPPG.', '.GPPPPPPPPG.', '.GPPPPPPPPG.', '..GPPPPPPG..', '...GGGGGG...'];
 const BRIDGE = ['..NNNNNNNN..', '.NnNnNnNnNN.', 'NN........NN', 'N..........N', 'UUU......UUU', 'UUUU....UUUU'];
 
 // The colors shared by every picture. Each icon can change some of them.
@@ -84,6 +87,9 @@ const ICONS = {
   healthPotion: [POTION, { P: '#e8423f' }],
   manaPotion: [POTION, { P: '#3a7bff' }],
   speedPotion: [POTION, { P: '#4cc35a' }],
+  bigPotion: [BIG_POTION, { P: '#c8202a' }],
+  timePotion: [POTION, { P: '#ffd23f' }],
+  hintPotion: [POTION, { P: '#b48cff' }],
   bread: [BREAD, { C: '#d9a05a', c: '#a8743a', L: '#f2d29a' }],
   map1: [MAP, { P: '#c48c52' }],
   map2: [MAP, { P: '#7a4a24' }],
@@ -138,6 +144,8 @@ const ICONS = {
   dig: [PICKAXE, {}],
   chest: [CHEST, { D: '#6b3e1f', W: '#a0683a' }],
   menu: [MENU, {}],
+  resume: [PLAY, { W: '#7cfc9a' }],
+  options: [GEAR, { G: '#c9d1e0' }],
 
   // ---------- The world map ----------
   town: [TOWN, { R: '#e8423f', N: '#7a4a24' }],

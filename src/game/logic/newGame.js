@@ -1,5 +1,6 @@
 import { CATEGORIES, totalAnswers } from '../../data/categories';
-import { NPCS } from '../data/npcs';
+import { NPCS, HERO_LOOK } from '../data/npcs';
+import { heroLook } from '../data/hero';
 import { SPAWN } from '../data/zones';
 import { INTRO, GOAL_BLESSING, SCENES, CHAPTERS } from '../data/story';
 import { chooseFocus } from './learning';
@@ -42,6 +43,9 @@ export function makeRun() {
     questions: [], // the questions of the app (given by GamePage)
     goalRate: 70, // the success rate the player aims for (given by GamePage)
     onAnswer: () => {}, // tells the app about each answer (given by GamePage)
+    relaxed: false, // the relaxed mode of the options: +50% time to answer (given by GamePage)
+    textSpeed: 'normal', // how fast the dialogs write (given by GamePage)
+    cues: [], // the sounds the rules ask for, played by the screen (see cues.js)
   };
 }
 
@@ -63,8 +67,11 @@ function firstPeople() {
   return people;
 }
 
-function firstPlayer() {
+// hero: the choices of the player at the start { name, body, style, hair, outfit } (see data/hero.js).
+function firstPlayer(hero) {
   return {
+    name: hero.name,
+    look: heroLook(hero),
     x: SPAWN.x,
     y: SPAWN.y,
     dir: 'down',
@@ -93,17 +100,18 @@ function firstPlayer() {
 }
 
 // goalId: 'hero' | 'guardian' | 'peaceful' | 'wanderer'. score: the TOEIC reading score (5 to 495).
-// stats: the category stats of the app.
-export function newGame(goalId, score, stats) {
+// stats: the category stats of the app. hero: the name and the avatar. slot: the save slot (1 to 3).
+export function newGame(goalId, score, stats, hero, slot) {
   const game = {
     version: GAME_VERSION,
+    slot: slot,
     goal: goalId,
     score: score,
     chapter: 0, // position in the chapters of the goal
     ended: false,
     day: 1,
     hour: 9,
-    player: firstPlayer(),
+    player: firstPlayer(hero),
     mastery: firstMastery(stats, score),
     focus: { current: null, tally: { good: 0, bad: 0 }, mastered: {} },
     npcs: firstPeople(),
@@ -137,6 +145,8 @@ export function newGame(goalId, score, stats) {
 // Fills what is not saved. Used for a new game and for a loaded one.
 export function wakeUp(game) {
   if (typeof game.explored !== 'string') game.explored = emptyExplored(); // a save from before the world map
+  if (typeof game.player.name !== 'string') game.player.name = 'Hero'; // a save from before the avatars
+  if (!game.player.look) game.player.look = { ...HERO_LOOK };
   game.run = makeRun();
   placePeople(game);
   placeDungeonMonsters(game);
@@ -144,9 +154,10 @@ export function wakeUp(game) {
 
 function tellIntro(game) {
   const intro = INTRO.map((line) => line.replace('{score}', game.score));
+  const wakeUpLines = SCENES.wakeUp.lines.map((line) => line.replace('{name}', game.player.name));
   const first = CHAPTERS[game.goal][0];
   game.flags.wakeUp = true;
   say(game, null, [...intro, GOAL_BLESSING[game.goal]]);
-  say(game, 'aria', SCENES.wakeUp.lines);
+  say(game, 'aria', wakeUpLines);
   say(game, null, ['Chapter 1: ' + first.title + '\n' + first.text]);
 }

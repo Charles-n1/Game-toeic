@@ -1,0 +1,375 @@
+LEXIA - THE KINGDOM OF SILENCE
+An isekai game to become very good at the TOEIC
+==========================================================
+
+1. THE IDEA IN ONE SENTENCE
+---------------------------
+A top-down 2D RPG (Zelda-like, 16-bit pixel art) where you fight with your English:
+every fight is a series of TOEIC questions. The hidden goal of the game: make the player
+addicted, so they keep improving until they reach a very good TOEIC score.
+
+
+2. ENTERING THE GAME
+--------------------
+- The game opens from the TOEIC app (in its own window).
+- The player needs a score first: the one from the level test of the tutorial, or a score
+  typed by hand.
+- Then the player chooses their new life (their goal):
+    * defeat the Demon King;
+    * defeat a threatening enemy (protect the village);
+    * live a peaceful life;
+    * or just be here and do nothing special.
+- The story follows this goal.
+
+
+3. THE STORY
+------------
+- An isekai: the player dies in our world (running to their exam) and is reborn in a world
+  where words are weapons.
+- An epic story, with drama: characters die.
+- A long adventure, with many side quests.
+- Every few nights, the Demon King attacks the starting village (or a village nearby):
+  monsters come to kill the villagers.
+
+
+4. FIGHTS: THE HEART OF THE GAME
+--------------------------------
+- You fight with your English level: you must give the right answers.
+- The monster's life is a bar. A good answer removes part of it (half a heart by default).
+  A wrong answer lets the monster strike.
+- The faster and the more correct the answer, the sooner you strike, even if you are slow.
+- The time to answer depends on the speed of the player AND of the monster:
+  a much faster monster leaves much less time.
+- Hits can be critical.
+- The XP earned depends on the percentage of good answers in the fight.
+- Monsters can drop items.
+- Monsters have stats: health, attack, magic attack, resistance, magic resistance, speed.
+
+Difficulty by monster:
+- small monsters: short questions (RC 10, RC 8), easy to normal, sometimes hard;
+- big monsters: hard questions;
+- demons and the Demon King: the long reading texts (RC 55).
+
+
+5. LEARNING (WHAT MAKES THE GAME USEFUL)
+----------------------------------------
+- Each monster has a TYPE = a grammar category (gerunds, tenses, prepositions...).
+- The type shows on the monster (color, item...). E.g. pink slime = gerunds,
+  yellow slime = tenses.
+- The questions of a fight are of the monster's type.
+- The game trains first what the player needs to work on. When the goal is reached in a
+  category, the training switches automatically to the next one.
+- Like the "recovery" of the app: what was failed (or mastered) comes back at the right time.
+- The player's skills = the grammar categories. Magic is based on them too.
+- Every answer given in the game counts in the app's stats.
+
+
+6. THE HERO
+-----------
+- Levels, XP, upgradable equipment (weapons, armor...). A weapon increases the damage.
+- Potions.
+- Magic, which depends on their skills.
+- Elements: lightning, water, fire...
+- Many powers, with satisfying animations.
+- Two hidden powers:
+    * OBSIDIAN: create barriers, pets, soldiers and weapons made of obsidian that fight
+      with the hero;
+    * LIGHTNING: one-shot the monsters nearby, create a zone that increases their power,
+      throw a lightning ball...
+- The hero can have friends, companions (bots), pets, and recruit people to fight with them.
+
+
+7. DEATH
+--------
+- At the beginning, the player is only knocked out: a girl of the village carries them home.
+- After that, death is final: everything restarts from the beginning.
+
+
+8. LIFE IN THE WORLD
+--------------------
+- Talk with the NPCs and discover their lives.
+- NPCs form couples, have babies and families. Many interactions, like in real life.
+- Helping people raises the happiness of the village, and happiness helps in interactions.
+- Relationships with girls (many anime waifus).
+- Play games with the NPCs.
+- Negotiating with a merchant (e.g. the blacksmith) also uses the question fight system.
+- Dig the ground to find items.
+
+
+9. MONEY AND FARMING
+--------------------
+- The currency is called the LEXIS.
+- Lexis are earned by working, "the old way": helping others, planting carrots, writing,
+  killing monsters...
+- The game is long to farm, like in real life.
+- Maps are bought in shops.
+
+
+10. THE WORLD AND THE MAP
+-------------------------
+- A big map, with zones: villages, surroundings, dungeons, treasures.
+- A minimap, always available.
+- The map is more or less precise depending on the map the player owns.
+- A day / night cycle.
+- Dungeons.
+- Style of the world map (reference image): a painted island, a volcanic land with the
+  demon castle, a snowy region, forests, rivers with bridges, a desert, the sea. Place names
+  with icons, a legend (you, main quest, side quest, town, dungeon, shop, inn, point of
+  interest, bridge, blocked path), the player's party, a compass, and a panel with the
+  selected place and the quests.
+
+
+11. THE LOOK (ART DIRECTION)
+----------------------------
+- 16-bit pixel art, very beautiful, satisfying to look at.
+- Dark blue windows with a light border, menus with a cursor, a pixel font.
+- HUD: hero portrait, level, HP (red) and MP (blue) bars, current objective, minimap,
+  zone name.
+- Fight: the hero and the monster face to face, a red health bar above the monster,
+  an Attack / Defense / Item / Flee menu, the sentence to complete and 4 answers.
+- Dialogs: the character's portrait, their name in yellow, a choice menu (Talk, Shop,
+  Quest, Leave).
+- Stats menu: each category with its level (Lv. xx / 100) and a difficulty badge
+  (Easy, Normal, Difficult, Extreme).
+- Raid: the village on fire, demons, villagers on the ground.
+- Particles, animations. For the Demon King and the great enemies of the demon land:
+  the long texts (RC 55).
+
+
+12. THE CODE
+------------
+- Clean code, readable by a human, as simple as possible.
+- One function = one feature, with clear names.
+
+
+13. WHAT THE CURRENT VERSION DOES (may change, see part 2)
+---------------------------------------------------------
+- Answers are chosen among 4 options (the question bank is multiple choice), they are not
+  typed on the keyboard.
+- The fight menu is Attack / Magic / Item / Flee (Magic replaces Defense).
+- Aria can carry the hero home 3 times; after that, death erases the game (not the app's stats).
+- The Demon King attacks the village every 7 nights.
+- The door of the demon castle stays sealed until General Barbarism is defeated
+  (the "blocked path" of the map).
+- Without a map, you only see what you explored; Luna's maps show the roads, then the whole
+  island, then the treasures.
+
+
+==========================================================
+PART 2 - MISSING DETAILS (additions)
+==========================================================
+These are first proposals. Names marked (TBD) and all numbers can be changed after testing.
+When part 1 and part 2 disagree, part 2 is the newer decision.
+
+
+14. PITCH AND PLATFORM
+----------------------
+Pitch: "You are summoned into a fantasy world where your English is your weapon:
+every TOEIC question you answer is a strike against a monster."
+
+Platform: web browser (GitHub Pages), PC first. Mobile with touch controls later.
+Target players: people preparing for the TOEIC (around 400 to 900 points), 16+.
+
+
+15. CONTROLS
+------------
+PC keyboard:
+- Arrows or WASD: move
+- Enter or Space: talk / confirm
+- 1-4 or A-D: choose an answer in a fight
+- M: world map
+- I: inventory
+- Esc: pause menu
+Mouse: click answers and menu buttons.
+Mobile (later): on-screen joystick, tap the answers.
+
+
+16. HOW EACH LIFE ENDS (WIN CONDITIONS)
+---------------------------------------
+- Defeat the Demon King: win the final fight in the demon castle.
+- Defeat a threatening enemy: defeat the boss you chose at the end of its quest line.
+- Live in peace: own a house, reach 100% village happiness, and survive 3 raids.
+- Just be there: no ending. Free mode, the player stops when they want.
+After an ending: an epilogue that matches the chosen life, then credits.
+The player can keep playing afterwards (post-game).
+
+
+17. KNOCKED OUT VS REAL DEATH
+-----------------------------
+- Before the first big death in the story (end of chapter 2):
+  losing = knocked out. The girl carries you home. You lose 10% of your Lexis.
+- After that event: death is real and restarts the game from zero.
+- The game clearly warns the player when this change happens.
+- Learning progress (TOEIC stats, mistakes) is NEVER lost, even after a death.
+
+
+18. FIRST NUMBERS (to balance after tests)
+------------------------------------------
+Player:
+- HP: 100 at level 1, +10 per level
+- XP needed for the next level: 100 x current level
+
+Fights:
+- Good answer: 20 damage. Critical = x2 damage.
+- Critical: answer in less than 1/3 of the allowed time.
+- Strike first: answer in less than half of the allowed time.
+- Wrong answer or time over: the monster hits you.
+- Answer time = base time x (player speed / monster speed)
+  Base time: 20 s for a short question (RC 10 / RC 8), 45 s per question for a text (RC 55).
+- XP won = monster XP x % of good answers.
+
+Monsters:
+  Type           HP    Hit   Questions   XP    Lexis
+  Small (slime)   40    10    2-4         10    5
+  Medium         100    20    5-8         30    15
+  Boss           300    35    10-15      150    80
+  Demon (RC 55)  200    30    1 text      80    50
+
+Prices (Lexis):
+- Small potion: 20 / Big potion: 60
+- Weapons: 100 to 500
+- Region map: 150
+
+
+19. THE HERO
+------------
+- Name chosen at the start.
+- Pixel avatar: 2 bodies, 4 hair styles, 4 hair colors, 4 outfit colors.
+- No class at the start: your best grammar types decide your magic.
+  Example: strong in tenses = access to fire magic first.
+
+
+20. STORY (CHAPTERS)
+--------------------
+Prologue - The summoning
+  The level test is the summoning ritual. You wake up on the island beach.
+  The girl (name TBD) finds you and brings you to the village. You choose your life.
+
+Chapter 1 - The village
+  First fights against slimes. Meet the blacksmith. Buy the first map.
+  First raid: you are knocked out, the girl carries you home.
+
+Chapter 2 - Rivers and bridges
+  First dungeon. You discover the hidden power Lightning.
+  End of chapter: the old mentor (name TBD) dies protecting the village.
+  From now on, death is real.
+
+Chapter 3 - The snow mountains
+  Harder grammar. A villager family loses someone during a raid.
+
+Chapter 4 - The desert
+  You discover the hidden power Obsidian. You prepare the final attack.
+
+Chapter 5 - The demon castle
+  Demons ask RC 55 texts. Final fight against the Demon King.
+
+Epilogue: different for each chosen life.
+
+
+21. CONTENT LIST (first version)
+--------------------------------
+Zones (from the world map) and their grammar type:
+- Starting village: safe zone, no fights
+- Forest: gerunds / infinitives (pink slimes)
+- Rivers and bridges: tenses (yellow slimes)
+- Snow mountains: prepositions, conditionals
+- Desert: relative pronouns, word forms
+- Demon castle: everything mixed + RC 55 texts
+
+Dungeons (1 per zone):
+- Slime cave (forest)
+- Flooded ruins (rivers)
+- Ice crypt (snow)
+- Sand temple (desert)
+- Castle dungeon (demon castle)
+
+Side quests: 3 per zone at the start.
+Examples: find a lost child, bring iron to the blacksmith, clean the well of slimes.
+
+Items:
+- Potions: small HP, big HP, time potion (+5 s to answer), hint potion (removes 1 wrong answer)
+- Weapons: wooden sword > iron > steel > legendary
+- Armor: 3 levels
+- Maps: 1 per region, each makes the minimap more precise
+
+
+22. INTERFACE
+-------------
+Main menu: New game / Continue / Options / Credits
+
+Fight screen:
+- Player HP bar and monster HP bar
+- Monster grammar type icon
+- Timer bar
+- Question + 4 answers
+- Combo counter
+
+Exploration screen: HP, Lexis, time of day, minimap, current quest.
+
+Pause menu (Esc): Resume / Stats / Inventory / Map / Quests / Options / Save / Quit
+
+Options:
+- Music volume, effects volume, text speed
+- Relaxed mode: +50% answer time (for beginners)
+
+End-of-fight screen: XP, Lexis, % good answers, mistakes to review.
+
+Game over screens:
+- Knocked out: "You were carried home..."
+- Real death: "Your story ends here" + summary of your progress in English.
+
+
+23. SOUND
+---------
+Music: village (calm), exploration, fight, boss, raid, night, sad theme, ending.
+Effects: good answer, wrong answer, critical hit, level up, Lexis coin, menu click, footsteps.
+Sources: free assets (check each license) or made with free tools (BeepBox for music,
+jsfxr for effects).
+
+
+24. SAVING
+----------
+- Automatic save in the browser (localStorage) after each fight and when entering a village.
+- 3 save slots.
+- Export / import the save as a file, so it is not lost when changing browser.
+- After a real death, the game save of that slot is erased (learning stats are kept).
+
+
+25. LINK WITH THE TOEIC APP
+---------------------------
+Shared between the game and the app:
+- The TOEIC score
+- Stats by grammar type (good and bad answers)
+- Mistakes: a wrong answer in the game goes into the app's recovery list
+Game only: level, Lexis, items, story progress.
+Weak grammar types in the app appear more often as monsters in the game.
+
+
+26. MVP AND BUILD ORDER
+-----------------------
+MVP (v0.1) = the smallest playable version:
+- Start screen + score (level test or typed)
+- Starting village with 2 NPCs
+- Forest zone with pink and yellow slimes
+- Fight system: questions, timer, HP, critical, XP
+- Level up + Stats menu
+- Save in localStorage
+
+Then, in this order:
+- v0.2  Lexis, blacksmith, shop, potions, equipment
+- v0.3  World map, minimap, day/night cycle
+- v0.4  First dungeon, side quests, prologue + chapter 1
+- v0.5  Raids + knocked out system
+- v0.6  Magic, elements, hidden powers
+- v0.7  Village life: families, happiness, relationships, mini-games, digging
+- v0.8  Other zones and chapters 2 to 4
+- v0.9  Sound, animations, polish
+- v1.0  Demon castle, endings, real death system
+
+
+27. TESTS
+---------
+- After each version: play 15 minutes yourself and write down the bugs.
+- From the MVP: 2-3 testers (ideally people preparing the TOEIC).
+  Watch them play without helping. Ask: fun? too hard? too slow?
+- Targets: a small fight lasts about 1 minute, a boss about 10 minutes.

@@ -35,6 +35,12 @@
   font-family: inherit;
 }
 
+/* One screen of the game (the world, the title...): it fills the whole window. */
+.screen {
+  position: absolute;
+  inset: 0;
+}
+
 /* The canvas where the world is drawn: it fills the whole game. */
 .game-canvas {
   position: absolute;

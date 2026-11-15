@@ -12,6 +12,7 @@ import { updateParticles, dust } from './particles';
 import { isSoil, workField, dig, chestNear, openChest } from './farm';
 import { saveGame } from './save';
 import { exploreAround } from './explore';
+import { cue } from './cues';
 import { closedSealAt, explainSeal } from './seals';
 import { say, notify, removeOldToasts } from './messages';
 
@@ -50,15 +51,20 @@ function walk(game, input, dt) {
 
   const stepBefore = Math.floor(player.step);
   player.step += dt * 7;
-  if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) dust(game, player.x, player.y);
+  if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) {
+    dust(game, player.x, player.y);
+    cue(game, 'step');
+  }
 }
 
-// Entering a new zone: its name is shown, and it is remembered (for the map and the quests).
+// Entering a new zone: it is remembered (for the map and the quests). Entering a village saves the game.
 function noticeZone(game) {
   const zone = zoneAt(game.player.x, game.player.y);
   if (zone.id === game.run.zoneId) return;
+  const isArriving = game.run.zoneId !== null; // not the first frame after loading
   game.run.zoneId = zone.id;
   game.visited[zone.id] = true;
+  if (isArriving && zone.kind === 'village') saveGame(game);
 }
 
 // ---------- The action button ----------

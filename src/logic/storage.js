@@ -239,18 +239,41 @@ export function loadTestSession(questions) {
 
 // ---------- The game (the isekai world) ----------
 // It stays on the phone (not in the account). The game checks it when it reads it (see game/logic/save.js).
+// 3 save slots: 'game1', 'game2', 'game3'. The options of the game (volumes...) are shared by the slots.
 const GAME_KEY = 'game';
+const GAME_OPTIONS_KEY = 'gameOptions';
 
-export function saveGameData(game) {
-  writeJson(GAME_KEY, game);
+function slotKey(slot) {
+  return GAME_KEY + slot;
 }
 
-export function loadGameData() {
-  return readJson(GAME_KEY);
-}
-
-export function forgetGameData() {
+// The first versions had one save, without a slot: it becomes the slot 1 (once).
+function moveOldGameSave() {
+  const old = readJson(GAME_KEY);
+  if (old === null) return;
+  if (readJson(slotKey(1)) === null) writeJson(slotKey(1), old);
   removeJson(GAME_KEY);
+}
+
+export function saveGameData(slot, game) {
+  writeJson(slotKey(slot), game);
+}
+
+export function loadGameData(slot) {
+  moveOldGameSave();
+  return readJson(slotKey(slot));
+}
+
+export function forgetGameData(slot) {
+  removeJson(slotKey(slot));
+}
+
+export function saveGameOptions(options) {
+  writeJson(GAME_OPTIONS_KEY, options);
+}
+
+export function loadGameOptions() {
+  return readJson(GAME_OPTIONS_KEY);
 }
 
 // ---------- Account (cloud save) ----------

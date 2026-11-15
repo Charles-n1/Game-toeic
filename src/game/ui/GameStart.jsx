@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import Window from './Window';
 import PixelIcon from './PixelIcon';
-import useCanvas from './useCanvas';
-import { drawLandscape } from '../draw/scene';
+import Landscape from './Landscape';
+import HeroCreator from './HeroCreator';
+import { DEFAULT_HERO } from '../data/hero';
 import { GOALS } from '../data/story';
 import { CATEGORIES } from '../../data/categories';
 import { SECTION_MAX } from '../../goal';
@@ -36,33 +37,29 @@ function isValidScore(text) {
   return text !== '' && Number.isInteger(score) && score >= LOWEST_SCORE && score <= SECTION_MAX;
 }
 
-// The village of Lexia, slowly passing by behind the start screen.
-function Landscape() {
-  const canvasRef = useCanvas((ctx, width, height, time) => drawLandscape(ctx, width, height, time));
-  return <canvas ref={canvasRef} className="game-canvas" />;
-}
-
-// The door of the game. To enter, the goddess must know the level of the player:
+// A new game. The player makes their hero (name + avatar). Then the goddess must know their level:
 // from the level test (or any answer given in the app), or from a score typed here. Then the player picks a life.
-export default function GameStart({ stats, history, onStart, onTakeTest, onClose }) {
+// onStart(goalId, score, hero). onBack: back to the save slots.
+export default function GameStart({ stats, history, onStart, onTakeTest, onBack }) {
   const appScore = scoreFromApp(stats, history);
+  const [hero, setHero] = useState(DEFAULT_HERO);
   const [scoreText, setScoreText] = useState(appScore === null ? '' : String(appScore));
   const [goalId, setGoalId] = useState(null);
-  const canStart = isValidScore(scoreText) && goalId !== null;
+  const canStart = hero.name.trim() !== '' && isValidScore(scoreText) && goalId !== null;
 
   function typeScore(event) {
     setScoreText(event.target.value.replace(/\D/g, '').slice(0, 3)); // digits only
   }
 
   function start() {
-    onStart(goalId, Number(scoreText));
+    onStart(goalId, Number(scoreText), { ...hero, name: hero.name.trim() });
   }
 
   return (
-    <>
+    <div className="screen">
       <Landscape />
       <div className="start">
-        <button className="close" onClick={onClose} aria-label="close">
+        <button className="close" onClick={onBack} aria-label="back">
           ✕
         </button>
         <div style={styles.header}>
@@ -74,6 +71,10 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onClose
             A truck. A goddess. A world where every correct sentence is a sword stroke, and a Demon King steals the words of the living. Fight with your English:
             the monsters ask what YOU need to train.
           </span>
+        </Window>
+
+        <Window title="Your hero">
+          <HeroCreator hero={hero} onChange={setHero} />
         </Window>
 
         <Window title="Your level">
@@ -112,7 +113,7 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onClose
           Death is real here. Aria can save you 3 times. After that, everything restarts.
         </span>
       </div>
-    </>
+    </div>
   );
 }
 

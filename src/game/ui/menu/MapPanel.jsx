@@ -3,7 +3,7 @@ import useCanvas from '../useCanvas';
 import Bar from '../Bar';
 import Portrait from '../Portrait';
 import PixelIcon from '../PixelIcon';
-import { HERO_LOOK, npcOf } from '../../data/npcs';
+import { npcOf } from '../../data/npcs';
 import { drawLandscape } from '../../draw/scene';
 import { drawWorldMap, firstView, tilesPerPixel, clampView } from '../../draw/worldmap';
 import { placeHere, placeOf, mainQuestMark, sideQuestMarks } from '../../logic/places';
@@ -139,7 +139,7 @@ function Party({ game }) {
   return (
     <div className="grow">
       <span className="section">Party</span>
-      <PartyLine look={HERO_LOOK} name={'You · Lv. ' + player.level}>
+      <PartyLine look={player.look} name={player.name + ' · Lv. ' + player.level}>
         <Bar value={player.health / maxHealth(player)} color="#e8423f" height={7} />
         <Bar value={player.mana / maxMana(player)} color="#3a7bff" height={7} />
       </PartyLine>

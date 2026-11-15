@@ -1,4 +1,3 @@
-import { HERO_LOOK } from '../data/npcs';
 import { typeOf } from '../data/types';
 import { personSprite } from './people';
 import { monsterSprite } from './monsters';
@@ -100,7 +99,7 @@ export function drawBattle(ctx, game, camera, time) {
   const foeX = foe.x - (foeStrikes ? lunge(timing.foeAge) : 0);
   const frame = Math.floor(time * 3) % 2;
 
-  const heroSprite = personSprite(HERO_LOOK, 'right', 0, true);
+  const heroSprite = personSprite(game.player.look, 'right', 0, true);
   if (!isHit(timing.foeAge, foeStrikes)) drawSprite(ctx, heroSprite, heroX, hero.y, camera);
 
   if (!isGone(fight)) {

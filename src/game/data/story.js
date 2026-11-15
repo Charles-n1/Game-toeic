@@ -117,6 +117,7 @@ export const SCENES = {
     speaker: 'aria',
     lines: [
       'Oh! You are awake! I am Aria. I found you in the meadow, under a falling star.',
+      'Your name is... {name}? A strange name. I like it.',
       'This is Lexia. The house behind you is empty: it is yours now.',
       'Outside the village, the monsters fight with words. Answer right, and fast, to strike first.',
       'Their color is their type. Pink loves gerunds, yellow loves tenses... You will learn.',

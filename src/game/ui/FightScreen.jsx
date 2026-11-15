@@ -4,17 +4,18 @@ import Window from './Window';
 import PixelIcon from './PixelIcon';
 import StatusPanel from './StatusPanel';
 import Passage from '../../components/Passage';
-import { playSound } from '../../sounds';
+import { playEffect } from '../audio/effects';
 import { TYPES, typeOf, weaknessOf } from '../data/types';
 import { ITEMS } from '../data/items';
 import { answer, nextRound, endFight, flee, xpOfFight, SPELL_MANA } from '../logic/fight';
 import { spellRank } from '../logic/learning';
-import { usePotion, countItem } from '../logic/player';
+import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
 import { battlePlaces } from '../draw/battle';
 
 const AUTO_NEXT = 1100; // milliseconds: after a GOOD answer, the next question comes by itself
-const POTIONS = ['healthPotion', 'bread', 'manaPotion', 'speedPotion'];
+const POTIONS = ['healthPotion', 'bigPotion', 'bread', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
+const ANSWER_KEYS = ['1', '2', '3', '4', 'a', 'b', 'c', 'd']; // 1 = a, 2 = b...
 
 // One sentence that tells what the last answer did.
 function storyOf(last) {
@@ -26,23 +27,26 @@ function storyOf(last) {
 }
 
 // The sparks, the numbers, the shaking and the sounds of an answer.
-function celebrate(game, last, color) {
+function celebrate(game, last, color, combo) {
   const places = battlePlaces(game);
   if (last.damage > 0) {
     burst(game, places.foe.x, places.foe.y - 0.8, color, last.critical ? 36 : 16);
     floatText(game, places.foe.x + 0.6, places.foe.y - 0.6, String(last.damage), last.critical ? '#ffd23f' : '#ffffff');
   }
+  if (combo >= 2) floatText(game, places.foe.x, places.foe.y - 2.2, 'COMBO x' + combo, '#7cfc9a');
   if (last.taken > 0) {
     burst(game, places.hero.x, places.hero.y - 0.8, '#ff5a6e', 12);
     floatText(game, places.hero.x - 0.6, places.hero.y - 0.6, '−' + last.taken, '#ff8a95');
     game.run.shakeUntil = Date.now() + 250;
   }
   if (last.critical) game.run.flashUntil = Date.now() + 90;
-  playSound(last.isCorrect ? 'success' : 'wrong');
+  playEffect(last.critical ? 'critical' : last.isCorrect ? 'good' : 'wrong');
+  if (last.taken > 0) playEffect('hit');
 }
 
 // How an answer button looks once the question is answered.
 function answerClass(fight, index) {
+  if (fight.phase === 'ask' && fight.hidden.includes(index)) return 'answer answer-closed'; // removed by a hint potion
   if (fight.phase === 'ask') return 'answer';
   if (index === fight.question.correct_index) return 'answer answer-good';
   return fight.last && index === fight.last.index ? 'answer answer-bad' : 'answer answer-closed';
@@ -94,7 +98,7 @@ function Commands({ game, fight, refresh, onFlee }) {
         </button>
         {potions.length === 0 && <span className="small">No potion.</span>}
         {potions.map((id) => (
-          <button key={id} className="menu-item" onClick={() => drink(id)}>
+          <button key={id} className="menu-item" disabled={!canUsePotion(game, id)} onClick={() => drink(id)}>
             <PixelIcon name={id} size={14} />
             <span>×{countItem(player, id)}</span>
           </button>
@@ -123,7 +127,25 @@ function Commands({ game, fight, refresh, onFlee }) {
   );
 }
 
-// The end of a fight: what was won or lost.
+// The questions answered wrong, with the right answer and the explanation. They are in the recovery of the app.
+function Mistakes({ mistakes }) {
+  if (mistakes.length === 0) return null;
+  return (
+    <div style={styles.mistakes}>
+      <span className="section">Mistakes to review</span>
+      {mistakes.map((question) => (
+        <div key={question.id} className="line" style={styles.mistake}>
+          <span>{question.question}</span>
+          <span className="result-good">→ {question.answers[question.correct_index]}</span>
+          <span className="small">{question.justification}</span>
+        </div>
+      ))}
+      <span className="small">They are in your recovery list: they will come back.</span>
+    </div>
+  );
+}
+
+// The end of a fight: what was won or lost, and the mistakes to review.
 function Ending({ fight, onContinue }) {
   const opponent = fight.opponent;
   const percent = fight.asked === 0 ? 0 : Math.round((fight.correct / fight.asked) * 100);
@@ -140,6 +162,8 @@ function Ending({ fight, onContinue }) {
           +{xpOfFight(fight)} XP ({percent}% of {opponent.xp}) · +{opponent.lexis} Lexis
         </span>
       )}
+      {fight.bestCombo >= 2 && <span style={styles.center}>Best combo: x{fight.bestCombo}</span>}
+      <Mistakes mistakes={fight.mistakes} />
       <button className="px-button px-gold" style={styles.next} onClick={onContinue}>
         Continue
       </button>
@@ -157,13 +181,14 @@ function QuestionWindow({ fight, onAnswer, onNext }) {
   return (
     <div className="window grow">
       <Bar value={timeLeft} color={timeLeft > 0.5 ? '#7cfc9a' : timeLeft > 0.25 ? '#ffd23f' : '#ff5a6e'} height={8} />
+      {fight.combo >= 2 && <span className="result-good" style={styles.combo}>Combo x{fight.combo}</span>}
       <span className="question" style={styles.question}>
         {question.question}
       </span>
       <div className={'answers' + (isLong ? ' answers-long' : '')}>
         {question.answers.map((label, index) => (
-          <button key={index} className={answerClass(fight, index)} disabled={!isAsking} onClick={() => onAnswer(index)}>
-            {label}
+          <button key={index} className={answerClass(fight, index)} disabled={!isAsking || fight.hidden.includes(index)} onClick={() => onAnswer(index)}>
+            <span className="small">{'ABCD'[index]}</span> {label}
           </button>
         ))}
       </div>
@@ -206,21 +231,23 @@ export default function FightScreen({ game, refresh }) {
     setTick((count) => count + 1);
   }
 
-  // Keyboard: 1 2 3 4 to answer, Enter to continue.
+  // Keyboard: 1 2 3 4 (or A B C D) to answer, Enter or Space to continue.
   function pressKey(event) {
-    if (['1', '2', '3', '4'].includes(event.key)) submit(Number(event.key) - 1);
-    if (event.key === 'Enter') goOn();
+    const key = event.key.toLowerCase();
+    if (ANSWER_KEYS.includes(key)) submit(ANSWER_KEYS.indexOf(key) % 4);
+    if (key === 'enter' || key === ' ') goOn();
   }
 
   // index: the answer picked (null = too late).
   function submit(index) {
     const current = game.run.fight;
     if (!current || current.phase !== 'ask') return;
+    if (index !== null && current.hidden.includes(index)) return; // removed by a hint potion
     answer(game, current, index);
     const last = current.last;
-    celebrate(game, last, typeOf(current.opponent.category).color);
-    if (current.phase === 'won') playSound('victory');
-    if (current.phase === 'lost') playSound('loose1');
+    celebrate(game, last, typeOf(current.opponent.category).color, current.combo);
+    if (current.phase === 'won') playEffect('victory');
+    if (current.phase === 'lost') playEffect('defeat');
     if (current.phase === 'result' && last.isCorrect) setTimeout(() => autoNext(current, last), AUTO_NEXT);
     refresh();
   }
@@ -242,7 +269,7 @@ export default function FightScreen({ game, refresh }) {
   function runAway() {
     if (opponent.duel) fight.phase = 'lost';
     else flee(game, fight);
-    if (fight.last && fight.last.fleeFailed) celebrate(game, fight.last, type.color);
+    if (fight.last && fight.last.fleeFailed) celebrate(game, fight.last, type.color, 0);
     refresh();
   }
 
@@ -342,6 +369,21 @@ const styles = {
   },
   next: {
     marginTop: 8,
+  },
+  combo: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    fontSize: 15,
+  },
+  mistakes: {
+    marginTop: 8,
+    maxHeight: '34vh',
+    overflowY: 'auto',
+  },
+  mistake: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 3,
   },
   center: {
     textAlign: 'center',

@@ -32,6 +32,7 @@ function carryHome(game) {
   game.run.monsters = game.run.monsters.filter((monster) => monster.key || monster.raid); // the wild ones are far now
   sleepUntilMorning(game);
   const left = player.blessings === 0 ? 'I have no strength left to carry you again. Next time... there is no next time.' : 'I can still carry you ' + player.blessings + ' time(s). Not more.';
+  say(game, null, ['You were carried home...']);
   say(game, 'aria', ['You fell. I carried you home. You are heavy, you know?', left]);
 }
 
@@ -41,7 +42,7 @@ export function knockOut(game) {
   if (isSaved) {
     carryHome(game);
   } else {
-    forgetGame(); // the save is erased: the next game starts from zero
+    forgetGame(game.slot); // the save of this slot is erased: the next game starts from zero
     game.run.screen = 'over';
   }
 }

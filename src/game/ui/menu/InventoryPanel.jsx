@@ -1,7 +1,7 @@
 import PixelIcon from '../PixelIcon';
 import { ITEMS } from '../../data/items';
 import { npcOf } from '../../data/npcs';
-import { usePotion, countItem } from '../../logic/player';
+import { usePotion, canUsePotion, countItem } from '../../logic/player';
 import { sendHome } from '../../logic/people';
 
 // What an item does, in a few words.
@@ -59,7 +59,7 @@ export default function InventoryPanel({ game, refresh }) {
             {ITEMS[itemId].text && <span className="small">{ITEMS[itemId].text}</span>}
           </div>
           {ITEMS[itemId].kind === 'potion' && (
-            <button className="px-button" onClick={() => useItem(itemId)}>
+            <button className="px-button" disabled={!canUsePotion(game, itemId)} onClick={() => useItem(itemId)}>
               Use
             </button>
           )}

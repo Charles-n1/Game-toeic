@@ -1,4 +1,4 @@
-import { NPCS, npcOf, HERO_LOOK } from '../data/npcs';
+import { NPCS, npcOf } from '../data/npcs';
 import { HOUSES, PROPS, SEALS, zoneAt } from '../data/zones';
 import { typeOf } from '../data/types';
 import { MAP_SIZE, TILE, tileAt, noise, CHESTS } from '../world/map';
@@ -284,7 +284,7 @@ function monsterDrawings(game, view, time) {
 
 function heroDrawing(game, view) {
   const player = game.player;
-  return personDrawing(HERO_LOOK, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view);
+  return personDrawing(player.look, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view);
 }
 
 // ---------- Effects ----------

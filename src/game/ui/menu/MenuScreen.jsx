@@ -6,29 +6,36 @@ import InventoryPanel from './InventoryPanel';
 import PowersPanel from './PowersPanel';
 import QuestsPanel from './QuestsPanel';
 import MapPanel from './MapPanel';
+import OptionsPanel from '../OptionsPanel';
 import { saveGame } from '../../logic/save';
 import { notify } from '../../logic/messages';
 
 // The entries of the menu. icon: see draw/icons.js
 const ENTRIES = [
+  { tab: 'resume', label: 'Resume' },
   { tab: 'stats', label: 'Stats' },
   { tab: 'inventory', label: 'Inventory' },
   { tab: 'powers', label: 'Powers' },
   { tab: 'quests', label: 'Quests' },
   { tab: 'map', label: 'Map' },
+  { tab: 'options', label: 'Options' },
   { tab: 'save', label: 'Save' },
   { tab: 'quit', label: 'Quit' },
 ];
 
-const PANELS = { stats: StatsPanel, inventory: InventoryPanel, powers: PowersPanel, quests: QuestsPanel, map: MapPanel };
+const PANELS = { stats: StatsPanel, inventory: InventoryPanel, powers: PowersPanel, quests: QuestsPanel, map: MapPanel, options: OptionsPanel };
 
 // The pause menu: the list of entries, then the window of the chosen one. game.run.menuTab: null = the list.
-// onQuit: back to the app.
+// onQuit: back to the title menu (the game is saved first).
 export default function MenuScreen({ game, refresh, onClose, onQuit }) {
   const tab = game.run.menuTab;
   const Panel = PANELS[tab];
 
   function open(entry) {
+    if (entry.tab === 'resume') {
+      onClose();
+      return;
+    }
     if (entry.tab === 'quit') {
       onQuit();
       return;
@@ -72,10 +79,6 @@ export default function MenuScreen({ game, refresh, onClose, onQuit }) {
             <span>{entry.label}</span>
           </button>
         ))}
-        <div style={styles.separator} />
-        <button className="menu-item" onClick={onClose}>
-          <span>Back to the game</span>
-        </button>
       </div>
     </div>
   );

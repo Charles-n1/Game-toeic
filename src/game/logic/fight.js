@@ -4,6 +4,7 @@ import { pickQuestion, recordAnswer, monsterCategory, spellRank } from './learni
 import { speedOf, strikePower, armorOf, criticalChance, gainXp } from './player';
 import { lootMonster } from './loot';
 import { knockOut } from './death';
+import { saveGame } from './save';
 import { isInStormField } from './powers';
 import { floatText } from './particles';
 
@@ -14,6 +15,8 @@ import { floatText } from './particles';
 export const SPELL_MANA = 2; // the cost of a grammar spell
 const DUEL_MISTAKES = 3;
 const ALLY_DAMAGE = 10; // each friend and each obsidian soldier adds this to a strike
+const COMBO_BONUS = 0.1; // each good answer in a row adds 10% to the damage...
+const COMBO_MAX = 5; // ...up to +50%
 const MIN_DAMAGE = 10;
 
 function clamp(value, min, max) {
@@ -38,7 +41,8 @@ export function timeLimit(game, fight) {
   const speedRatio = clamp(speedOf(player) / fight.opponent.speed, 0.5, 1.6);
   const potion = player.haste ? 1.5 : 1;
   const storm = fight.inStorm ? 1.3 : 1;
-  return examSeconds(fight.question) * speedRatio * potion * storm * 1000;
+  const relaxed = game.run.relaxed ? 1.5 : 1; // the relaxed mode of the options
+  return examSeconds(fight.question) * speedRatio * potion * storm * relaxed * 1000;
 }
 
 // Who strikes first? A slow hero with a FAST answer still wins: answering at once doubles their speed.
@@ -54,6 +58,7 @@ function askNext(game, fight) {
   fight.question = pickQuestion(game, opponent, fight.usedIds, lastText);
   if (opponent.tier === 'demon') opponent.category = fight.question.category; // a demon takes the type of its long text
   fight.usedIds.push(fight.question.id);
+  fight.hidden = []; // the wrong answers removed by a hint potion
   fight.limit = timeLimit(game, fight);
   fight.startedAt = Date.now();
   fight.phase = 'ask';
@@ -70,6 +75,9 @@ export function startFight(game, opponent) {
     inStorm: isInStormField(game),
     last: null, // what happened with the last answer
     question: null,
+    combo: 0, // good answers in a row
+    bestCombo: 0,
+    mistakes: [], // the questions answered wrong (shown at the end, to review them)
   };
   game.run.fight = fight;
   game.run.screen = 'fight';
@@ -94,7 +102,8 @@ function playerHit(game, fight) {
     blocked = opponent.magicResistance;
   }
   const critical = Math.random() < criticalChance(player);
-  const damage = varied(Math.max(MIN_DAMAGE, power * (1 - blocked))) * (critical ? 2 : 1);
+  const combo = 1 + COMBO_BONUS * Math.min(COMBO_MAX, fight.combo - 1);
+  const damage = varied(Math.max(MIN_DAMAGE, power * (1 - blocked) * combo)) * (critical ? 2 : 1);
   return { damage: damage, critical: critical };
 }
 
@@ -130,6 +139,8 @@ export function answer(game, fight, index) {
 
   fight.asked += 1;
   if (isCorrect) fight.correct += 1;
+  countCombo(fight, isCorrect);
+  if (!isCorrect) fight.mistakes.push(question);
   recordAnswer(game, question, isCorrect);
   payForSpell(game, fight);
 
@@ -149,6 +160,12 @@ export function answer(game, fight, index) {
   fight.last = last;
   fight.mode = 'strike';
   fight.phase = phaseAfter(game, fight);
+}
+
+// Good answers in a row make a combo; a mistake breaks it.
+function countCombo(fight, isCorrect) {
+  fight.combo = isCorrect ? fight.combo + 1 : 0;
+  fight.bestCombo = Math.max(fight.bestCombo, fight.combo);
 }
 
 // Running away: easier when the player is faster. Failing costs a hit. Nobody runs from a boss or a duel.
@@ -201,4 +218,5 @@ export function endFight(game) {
   } else if (fight.phase === 'lost') {
     knockOut(game);
   }
+  if (game.run.screen !== 'over') saveGame(game); // after each fight (not after a real death: the save is gone)
 }

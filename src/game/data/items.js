@@ -19,8 +19,12 @@ export const ITEMS = {
   windBoots: { name: 'Wind Boots', icon: '👟', kind: 'boots', speed: 5, price: 600 },
 
   healthPotion: { name: 'Health Potion', icon: '🧪', kind: 'potion', heal: 60, price: 15, text: '+60 HP' },
+  bigPotion: { name: 'Big Health Potion', icon: '🧪', kind: 'potion', heal: 150, price: 60, text: '+150 HP' },
   manaPotion: { name: 'Mana Potion', icon: '🔮', kind: 'potion', mana: 5, price: 20, text: '+5 mana' },
   speedPotion: { name: 'Speed Potion', icon: '💨', kind: 'potion', haste: true, price: 30, text: '+50% time in a fight' },
+  // inFight: only during a question of a fight.
+  timePotion: { name: 'Time Potion', icon: '⏳', kind: 'potion', inFight: true, extraTime: 5, price: 25, text: '+5 s for the question (in a fight)' },
+  hintPotion: { name: 'Hint Potion', icon: '💡', kind: 'potion', inFight: true, hint: true, price: 40, text: 'Removes 1 wrong answer (in a fight)' },
   bread: { name: 'Warm Bread', icon: '🍞', kind: 'potion', heal: 20, price: 6, text: '+20 HP' },
 
   map1: { name: 'Village Map', icon: '🗺️', kind: 'map', level: 1, price: 60, text: 'Shows the villages and the roads' },
@@ -44,7 +48,7 @@ export const UPGRADES = {
 
 // What each kind of shop sells.
 export const SHOPS = {
-  clinic: ['healthPotion', 'manaPotion', 'speedPotion'],
+  clinic: ['healthPotion', 'bigPotion', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'],
   bakery: ['bread', 'carrotSeed'],
   market: ['map1', 'map2', 'map3', 'ring', 'healthPotion', 'manaPotion'],
 };

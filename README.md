@@ -21,8 +21,13 @@ An isekai in 2D where every fight is a TOEIC question. To enter: do the level te
   Talk, help (quests), give gifts, recruit, date, marry. Plant carrots, dig treasures, work as a scribe, negotiate prices.
 - **Death**: Aria carries you home 3 times. After that, dying erases the game (not your stats).
 
-Keys: arrows / WASD to walk, `Space` or `E` to act, `1`-`4` to answer, `Esc` menu, `C` stats, `B` bag, `P` powers,
-`J` journal, `M` map.
+- **Menus**: a title menu (Continue / New game / Options / Credits), 3 save slots, and each save can be exported to a
+  file and imported back. Options: music and effects volume, text speed, relaxed mode (+50% time to answer).
+- **Your hero**: a name and an avatar (body, hair style, hair color, outfit).
+- **Sound**: chiptune music and effects, played live by the game (no sound file).
+
+Keys: arrows / WASD to walk, `Space` or `E` to act, `1`-`4` or `A`-`D` to answer, `Esc` menu, `I` inventory,
+`C` stats, `P` powers, `J` journal, `M` map, `O` options.
 
 The code is in `src/game/`: `data/` (monsters, people, story...), `logic/` (the rules, one file per subject),
 `draw/` (the pixel art, drawn with code: "text pictures" where one letter = one pixel) and `ui/` (the screens).

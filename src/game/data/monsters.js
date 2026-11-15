@@ -33,6 +33,8 @@ export const TIERS = {
 // What a monster may leave on the ground when it dies: [item, chance].
 export const DROPS = [
   ['healthPotion', 0.12],
+  ['timePotion', 0.04],
+  ['hintPotion', 0.04],
   ['flower', 0.1],
   ['oldCoin', 0.05],
   ['manaPotion', 0.05],

@@ -3,7 +3,7 @@ import { OUTLINE, darker, lighter } from './palette';
 
 // The people walking on the map, in pixel art. A person is made of text pictures (one letter = one pixel):
 // a head, a torso and legs, then the hair style and the extras (beard, fox ears, horns...) painted on top.
-// A "look" is: { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, sword? }
+// A "look" is: { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, skirt?, scarf?, sword? }
 // style: 'short' | 'long' | 'twin' | 'pony' | 'bun' | 'bald' | 'spiky'
 
 // The letters of the pictures. Each look gives them its own colors (see colorsOf).
@@ -149,6 +149,11 @@ const EXTRAS = {
     up: { y: -2, rows: ['..X..........X..', '..XX........XX..', '...XX......XX...'] },
     side: { y: -2, rows: ['.X......X.......', '.XX.....XX......', '..XX.....XX.....'] },
   },
+  skirt: {
+    down: { y: 18, rows: ['..cCCCCCCCCCCc..', '..CCCCCCCCCCCC..', '...cccccccccc...'] },
+    up: { y: 18, rows: ['..cCCCCCCCCCCc..', '..CCCCCCCCCCCC..', '...cccccccccc...'] },
+    side: { y: 18, rows: ['.....cCCCCCCc...', '....cCCCCCCCCc..', '....cccccccccc..'] },
+  },
   scarf: {
     down: { y: 0, rows: [] },
     up: { y: 13, rows: ['......TT........', '......TTT.......', '.......TT.......'] },
@@ -214,7 +219,7 @@ function personGrid(look, view, step, battle) {
   drawPicture(grid, legs, colors, LEFT, TOP + shift + 12 + torso.length);
   const overlay = (table) => table && table[view] && { ...table[view], y: table[view].y + shift };
   if (!(look.style === 'long' && view === 'up')) paintOverlay(grid, overlay(STYLES[look.style]), colors);
-  ['beard', 'ears', 'horns', 'scarf'].filter((extra) => look[extra]).forEach((extra) => paintOverlay(grid, overlay(EXTRAS[extra]), colors));
+  ['beard', 'ears', 'horns', 'skirt', 'scarf'].filter((extra) => look[extra]).forEach((extra) => paintOverlay(grid, overlay(EXTRAS[extra]), colors));
   if (battle && look.sword) paintOverlay(grid, SWORD, colors);
   return grid;
 }

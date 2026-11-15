@@ -2,6 +2,8 @@ import { ITEMS } from '../data/items';
 import { SCENES } from '../data/story';
 import { say, notify } from './messages';
 import { burst } from './particles';
+import { cue } from './cues';
+import { pickRandom } from '../../logic/random';
 
 // Health and mana grow with the level. Health is in HP: 100 at level 1, +10 per level.
 export function maxHealth(player) {
@@ -58,6 +60,7 @@ function levelUp(game) {
   player.level += 1;
   healFully(player);
   notify(game, '⭐ Level ' + player.level + '!', '#ffd23f');
+  cue(game, 'levelUp');
   burst(game, player.x, player.y, '#ffd23f', 40);
   if (player.level === 3) awaken(game, 'obsidian', SCENES.obsidian);
 }
@@ -92,17 +95,33 @@ export function removeItem(player, itemId, count = 1) {
 
 export function earnLexis(game, amount) {
   game.player.lexis += amount;
+  if (amount > 0) cue(game, 'coin');
 }
 
-// Drinks a potion (or eats bread). Returns false if there is none.
+// Can this potion be used now? The time and hint potions only work during a question of a fight.
+export function canUsePotion(game, itemId) {
+  if (countItem(game.player, itemId) === 0) return false;
+  if (!ITEMS[itemId].inFight) return true;
+  return game.run.fight !== null && game.run.fight.phase === 'ask';
+}
+
+// The hint: one wrong answer of the question disappears.
+function hideWrongAnswer(fight) {
+  const wrong = [0, 1, 2, 3].filter((index) => index !== fight.question.correct_index && !fight.hidden.includes(index));
+  if (wrong.length > 1) fight.hidden.push(pickRandom(wrong));
+}
+
+// Drinks a potion (or eats bread). Returns false if it can not be used now.
 export function usePotion(game, itemId) {
   const player = game.player;
   const item = ITEMS[itemId];
-  if (countItem(player, itemId) === 0) return false;
+  if (!canUsePotion(game, itemId)) return false;
   removeItem(player, itemId);
   if (item.heal) heal(player, item.heal);
   if (item.mana) restoreMana(player, item.mana);
   if (item.haste) player.haste = true; // used by the next fight (or the current one)
+  if (item.extraTime) game.run.fight.limit += item.extraTime * 1000;
+  if (item.hint) hideWrongAnswer(game.run.fight);
   return true;
 }
 

@@ -1,7 +1,6 @@
 import Bar from './Bar';
 import Portrait from './Portrait';
 import PixelIcon from './PixelIcon';
-import { HERO_LOOK } from '../data/npcs';
 import { maxHealth, maxMana } from '../logic/player';
 
 // One line: "HP  48 / 70" and its bar.
@@ -25,11 +24,13 @@ export default function StatusPanel({ game }) {
   return (
     <div className="row" style={styles.panel}>
       <div className="window" style={styles.face}>
-        <Portrait look={HERO_LOOK} size={64} />
+        <Portrait look={player.look} size={64} />
       </div>
       <div className="window" style={styles.stats}>
         <div className="row between">
-          <span style={styles.level}>Lv. {player.level}</span>
+          <span style={styles.level}>
+            {player.name} <span className="gold">Lv. {player.level}</span>
+          </span>
           <div className="row" style={styles.lexis}>
             <PixelIcon name="lexis" size={14} />
             <span>{player.lexis}</span>
