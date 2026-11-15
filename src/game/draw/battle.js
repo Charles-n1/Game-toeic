@@ -107,15 +107,32 @@ function foeShift(last, ages, reach) {
   return { x: x, y: y };
 }
 
+// How the hero strikes: a jump on a critical hit, a power attack in a combo, else a simple slash.
+function strikeStyle(fight) {
+  if (fight.last.critical) return 'Jump';
+  return fight.combo >= 3 ? 'Combo' : '';
+}
+
+// The picture of the hero while they strike: wind up, dash, slash.
+function strikePose(fight, age) {
+  const style = strikeStyle(fight);
+  if (age < WIND_UP) return 'windup' + style;
+  if (age < WIND_UP + DASH) return 'dash' + style;
+  return 'slash' + style;
+}
+
 // The picture of the hero right now.
 function heroPose(fight, ages, time) {
   const last = fight.last;
   const strikes = last && last.damage > 0;
-  if (fight.phase === 'lost' && !fight.opponent.duel && last && ages.heroHit >= 0) return 'ko';
+  const isHit = last && last.taken > 0 && ages.heroHit >= 0 && ages.heroHit < HURT_TIME;
+  const drinking = fight.drankAt ? Date.now() - fight.drankAt : Infinity;
+  if (fight.phase === 'lost' && !fight.opponent.duel && last && ages.heroHit >= 0) return ages.heroHit < 250 ? 'fall' : 'ko';
   if (fight.phase === 'won' && ages.hero > heroMoveTime(last.mode)) return 'victory';
-  if (fight.drankAt && Date.now() - fight.drankAt < DRINK_TIME) return 'drink';
-  if (last && last.taken > 0 && ages.heroHit >= 0 && ages.heroHit < HURT_TIME) return 'hurt';
-  if (strikes && last.mode === 'strike' && ages.hero >= 0 && ages.hero < STRIKE_TIME - BACK / 2) return ages.hero < WIND_UP ? 'windup' : 'slash';
+  if (fight.phase === 'fled') return 'roll';
+  if (drinking < DRINK_TIME) return drinking < DRINK_TIME / 2 ? 'drink' : 'cheer';
+  if (isHit) return last.isCorrect ? 'guard' : 'hurt'; // a good but slow answer: the hero blocks half of the blow
+  if (strikes && last.mode === 'strike' && ages.hero >= 0 && ages.hero < STRIKE_TIME - BACK / 2) return strikePose(fight, ages.hero);
   if (strikes && last.mode !== 'strike' && ages.hero >= 0 && ages.hero < CAST_TIME) return 'cast';
   return Math.floor(time * 2.5) % 2 ? 'ready1' : 'ready0';
 }
@@ -354,7 +371,7 @@ export function drawBattle(ctx, game, camera, time) {
   if (last && last.taken > 0) drawHurtMarks(ctx, hero.x, hero.y - 18, ages.heroHit);
   if (fight.drankAt) drawHealing(ctx, hero.x, hero.y, Date.now() - fight.drankAt);
   if (pose === 'victory') drawVictory(ctx, hero.x, hero.y, time);
-  if (pose === 'ko') drawGhost(ctx, hero.x, hero.y, ages.heroHit);
+  if (pose === 'ko') drawGhost(ctx, hero.x, hero.y, ages.heroHit - 250);
 }
 
 // ---------- What the hero shouts ----------
@@ -375,7 +392,7 @@ function shoutOf(fight, ages) {
 export function writeBattleWords(ctx, game, camera, scale, time) {
   const stage = stageOf(game, camera, time);
   const words = shoutOf(stage.fight, stage.ages);
-  if (!words || stage.pose === 'ko') return;
+  if (!words || stage.pose === 'ko' || stage.pose === 'fall') return;
   const size = Math.max(13, Math.round(scale * 4.2));
   ctx.font = 'bold ' + size + 'px "Pixelify Sans", monospace';
   const width = ctx.measureText(words).width + size * 1.2;

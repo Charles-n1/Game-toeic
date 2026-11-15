@@ -1,8 +1,12 @@
 import { portraitCanvas } from '../draw/portraits';
+import { usesHeroArt } from '../data/hero';
+import heroPortraitUrl from '../assets/hero/hero-portrait.png';
 
 const urls = new Map(); // look -> the picture, made once
 
+// The default hero has the face of the sprite sheet (art/hero-sheet.png); the others are drawn with code.
 function urlOf(look) {
+  if (usesHeroArt(look)) return heroPortraitUrl;
   if (!urls.has(look)) urls.set(look, portraitCanvas(look).toDataURL());
   return urls.get(look);
 }

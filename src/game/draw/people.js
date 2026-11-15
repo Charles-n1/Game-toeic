@@ -1,5 +1,7 @@
 import { makeGrid, dot, fillRect, fillBall, toneOf, drawLine, drawPicture, addOutline, mirrored, toCanvas, once, paintCloth, fillTriangle, colorAt } from './pixels';
 import { OUTLINE, mix, darker, lighter, rampOf } from './palette';
+import { usesHeroArt } from '../data/hero';
+import { isHeroArtReady, heroArtSprite } from './heroArt';
 
 // The people of the world, in pixel art, drawn with shapes: a shaded head, big anime eyes, a hair style,
 // a tunic, arms, legs and boots. The light comes from the top-left.
@@ -86,6 +88,21 @@ const ARM_ENDS = {
   flail: [-5, 3],
   victory: [3, -10],
   drink: [5, -3],
+};
+
+// The poses of the fight that the drawn hero shows like another one (the hero of the sprite sheet has them all).
+const SAME_AS = {
+  dash: 'slash',
+  windupCombo: 'windup',
+  dashCombo: 'slash',
+  slashCombo: 'slash',
+  windupJump: 'windup',
+  dashJump: 'slash',
+  slashJump: 'slash',
+  guard: 'hurt',
+  fall: 'hurt',
+  cheer: 'drink',
+  roll: 'hurt',
 };
 
 // A raised arm is painted over the head (else the head would hide it).
@@ -398,7 +415,7 @@ function stamp(target, source, dx) {
 // The body is painted in 3 layers: what is behind (cape, long hair), the legs, and the upper body
 // (which leans forward or back with the pose). Returns { grid, hand } (hand: where the sword is held, side view).
 function personGrid(look, view, poseName) {
-  const pose = POSES[poseName];
+  const pose = POSES[poseName] || POSES[SAME_AS[poseName]];
   const colors = colorsOf(look);
   const body = bodyOf(look, pose.lift);
   const lean = view === 'side' ? pose.lean || 0 : 0;
@@ -471,6 +488,7 @@ function lyingSprite(look) {
 // Returns { canvas, ax, ay, hand, sword }: (ax, ay) touches the ground; in a fight, the sword is held at `hand`
 // with the angle `sword` (see swordSprite).
 export function personSprite(look, dir, pose = 'stand') {
+  if (usesHeroArt(look) && isHeroArtReady()) return heroArtSprite(dir, pose);
   return once('person' + lookId(look) + dir + pose, () => {
     if (pose === 'ko') return lyingSprite(look);
     const view = dir === 'left' || dir === 'right' ? 'side' : dir;
@@ -478,7 +496,7 @@ export function personSprite(look, dir, pose = 'stand') {
     const isMirror = dir === 'left';
     const grid = isMirror ? mirrored(picture.grid) : picture.grid;
     const hand = picture.hand && (isMirror ? [W - 1 - picture.hand[0], picture.hand[1]] : picture.hand);
-    const angle = POSES[pose].sword;
+    const angle = (POSES[pose] || POSES[SAME_AS[pose]]).sword;
     return {
       canvas: toCanvas(addOutline(grid, OUTLINE)),
       ax: isMirror ? W - 1 - PERSON_ANCHOR.x : PERSON_ANCHOR.x,

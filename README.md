@@ -35,6 +35,9 @@ The code is in `src/game/`: `data/` (monsters, people, story...), `logic/` (the 
 `draw/` (the pixel art, painted with code: shaded balls, tubes and cloth lit from the top-left, dithered between
 the tones of a color ramp; a few small icons are "text pictures" where one letter = one pixel) and `ui/` (the screens).
 On a computer the screens are laid out side by side, like a console RPG; on a phone they are stacked.
+The default hero (spiky brown hair, blue outfit) is drawn from a real sprite sheet: `art/hero-sheet.png` is cut by
+`python3 tools/cut_hero_sheet.py` (Pillow, numpy, scipy) into `src/game/assets/hero/` (an atlas, the list of its
+pictures and a portrait). Run it again after changing the sheet; the boxes of the pictures are listed in the script.
 The pixel font is Pixelify Sans (SIL Open Font License, see `src/game/assets/fonts/OFL.txt`).
 
 ## On iPhone

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import useCanvas from './useCanvas';
 import Portrait from './Portrait';
-import { BODIES, HAIR_STYLES, HAIR_COLORS, OUTFIT_COLORS, heroLook } from '../data/hero';
+import { BODIES, HAIR_STYLES, HAIR_COLORS, OUTFIT_COLORS, heroLook, usesHeroArt } from '../data/hero';
 import { personSprite, walkPose } from '../draw/people';
 
 const NAME_LENGTH = 12;
@@ -61,6 +61,9 @@ export default function HeroCreator({ hero, onChange }) {
             Your name
           </span>
           <input className="field" style={styles.name} value={hero.name} onChange={typeName} placeholder="Ren" aria-label="name" />
+          <span className="small" style={styles.label}>
+            {usesHeroArt(look) ? '★ The hand-drawn hero of Lexia' : 'Spiky brown hair + blue outfit: the hand-drawn hero'}
+          </span>
         </div>
       </div>
       <Choices label="Body" items={BODIES} value={hero.body} onPick={(index) => change('body', index)} />

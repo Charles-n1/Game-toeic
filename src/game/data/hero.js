@@ -19,6 +19,12 @@ const SKIN = '#f3d2b3';
 // The choices of a new hero (indexes in the lists above).
 export const DEFAULT_HERO = { name: '', body: 0, style: 0, hair: 0, outfit: 0 };
 
+// The first choices (spiky brown hair, the blue outfit, trousers) are the hero of the sprite sheet
+// (art/hero-sheet.png): real drawings instead of the pictures made with code. See draw/heroArt.js.
+export function usesHeroArt(look) {
+  return look.style === 'spiky' && look.hair === HAIR_COLORS[0] && look.outfit === OUTFIT_COLORS[0] && !look.skirt;
+}
+
 // hero: { name, body, style, hair, outfit } -> the look used to draw them.
 export function heroLook(hero) {
   const outfit = OUTFIT_COLORS[hero.outfit];

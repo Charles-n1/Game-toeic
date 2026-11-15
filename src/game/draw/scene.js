@@ -392,6 +392,11 @@ function drawSmoke(ctx, game, view, time) {
 
 function lightsOf(game, view) {
   const lights = [{ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 60 }];
+  if (game.run.fight) {
+    // a fight at night: a big light on the two fighters (and on the friends behind the hero)
+    const middle = game.player.x + battleGap(game) / 2;
+    lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
+  }
   for (const prop of PROPS.filter((item) => (item.kind === 'lamp' || item.kind === 'torch') && isNear(view, item.x, item.y, 1, 1))) {
     lights.push({ x: (prop.x + 0.5) * T - view.x, y: (prop.y + 1) * T - 20 - view.y, radius: 44, warm: true });
   }
@@ -469,9 +474,16 @@ function showBuffer(ctx, width, height, scale) {
   ctx.drawImage(buffer, 0, 0, buffer.width * scale, buffer.height * scale);
 }
 
+// In a fight, the camera comes closer (bigger pixels): the fighters fill the screen. The world must stay
+// at least 200 pixels of art wide (room for the friends behind the hero and the opponent).
+function fightScale(width, height) {
+  const scale = pixelScale(width, height);
+  return Math.max(scale, Math.min(Math.round(scale * 1.35), Math.floor(width / 200)));
+}
+
 // The world around the player. width, height: the size of the screen canvas. time: seconds.
 export function drawScene(ctx, game, width, height, time) {
-  const scale = pixelScale(width, height);
+  const scale = game.run.fight ? fightScale(width, height) : pixelScale(width, height);
   const art = prepareBuffer(width, height, scale);
   const view = viewOf(game, buffer.width, buffer.height);
   const fight = game.run.fight;
