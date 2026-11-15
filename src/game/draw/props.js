@@ -1,5 +1,5 @@
-import { makeGrid, dot, fillRect, fillEllipse, drawLine, drawPicture, sprinkle, addOutline, toCanvas, once, spriteOf, colorAt } from './pixels';
-import { OUTLINE, WOOD, SNOW, darker, lighter } from './palette';
+import { makeGrid, dot, fillRect, fillEllipse, fillBall, toneOf, drawLine, drawPicture, sprinkle, randomOf, addOutline, addRimShade, toCanvas, once, spriteOf, colorAt } from './pixels';
+import { OUTLINE, WOOD, darker, lighter, LEAF_RAMP, LIGHT_LEAF_RAMP, PINE_RAMP, WOOD_RAMP, STONE_RAMP, SNOW_RAMP, ROOF_RAMPS } from './palette';
 
 // Everything that stands on the ground: trees, rocks, houses, lamps... Each one is a "sprite":
 // { canvas, ax, ay } where (ax, ay) is the point of the picture that touches the ground (its feet).
@@ -21,87 +21,105 @@ function addShadow(grid, cx, cy, rx, ry) {
 
 // ---------- Trees ----------
 
-const LEAVES = { deep: '#256b34', mid: '#3b9440', light: '#62b84a', bright: '#8fd35c', outline: '#14301c' };
+// A crown of leaves made of many round clumps, each one shaded (lit on its top-left). The clumps are painted from
+// the top (behind) to the bottom (in front), and the lower ones are darker: they are in the shade of the others.
+// crown: the ellipse of the crown { cx, cy, rx, ry }. size: [smallest, biggest] radius of a clump.
+export function paintCrown(grid, crown, clumps, size, ramp, salt) {
+  fillBall(grid, crown.cx, crown.cy, crown.rx * 0.88, crown.ry * 0.88, ramp, { ambient: 0.05, brightness: 0.5 }); // no hole inside
+  const list = [];
+  for (let i = 0; i < clumps; i++) {
+    const angle = randomOf(i, salt, 40) * Math.PI * 2;
+    const distance = Math.sqrt(randomOf(salt, i, 41)) * 0.78;
+    const radius = size[0] + randomOf(i, salt, 42) * (size[1] - size[0]);
+    list.push({ x: crown.cx + Math.cos(angle) * crown.rx * distance, y: crown.cy + Math.sin(angle) * crown.ry * distance, r: radius });
+  }
+  list.sort((a, b) => a.y - b.y);
+  for (const clump of list) {
+    const depth = (clump.y - (crown.cy - crown.ry)) / (crown.ry * 2); // 0 at the top, 1 at the bottom
+    fillBall(grid, clump.x, clump.y, clump.r, clump.r * 0.85, ramp, { ambient: 0.12, brightness: 1.2 - depth * 0.5 });
+  }
+}
 
-// A leafy tree: a trunk, then the leaves in 3 layers (dark, middle, light), then little leaf pixels.
-// blobs: the round parts of the leaves [cx, cy, rx, ry]. size: [width, height] of the picture.
-function leafyTree(size, trunk, blobs, salt) {
-  const [width, height] = size;
+// A round trunk (lit on the left) with roots, and a few lines of bark.
+function paintTrunk(grid, cx, top, bottom, width) {
+  for (let y = top; y <= bottom; y++) {
+    const spread = y > bottom - 2 ? 2 : 0; // the roots
+    for (let x = Math.floor(cx - width / 2 - spread); x < cx + width / 2 + spread; x++) {
+      const nx = (x + 0.5 - cx) / (width / 2 + spread);
+      dot(grid, x, y, toneOf(WOOD_RAMP, 0.62 - nx * 0.4, x, y));
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    const x = Math.floor(cx - width / 4 + i * 2);
+    drawLine(grid, x, top + 2 + i * 3, x, top + 5 + i * 3, WOOD_RAMP[1]);
+  }
+}
+
+// A leafy tree. look: { size: [w, h], crown, clumps, clumpSize, trunk: [top, bottom, width], ramp }
+function leafyTree(look, salt) {
+  const [width, height] = look.size;
   const grid = makeGrid(width, height);
-  const [tx, ty, tw, th] = trunk;
-  fillRect(grid, tx, ty, tw, th, WOOD.base);
-  fillRect(grid, tx + tw - 2, ty, 2, th, WOOD.dark);
-  fillRect(grid, tx, ty, 1, th, WOOD.light);
-  fillRect(grid, tx - 2, ty + th - 2, 2, 2, WOOD.dark); // the roots
-  fillRect(grid, tx + tw, ty + th - 2, 2, 2, WOOD.dark);
-  blobs.forEach(([cx, cy, rx, ry]) => fillEllipse(grid, cx, cy, rx, ry, LEAVES.deep));
-  blobs.forEach(([cx, cy, rx, ry]) => fillEllipse(grid, cx - 1, cy - 1.5, rx - 1.5, ry - 1.5, LEAVES.mid));
-  blobs.forEach(([cx, cy, rx, ry]) => fillEllipse(grid, cx - rx * 0.35, cy - ry * 0.45, rx * 0.45, ry * 0.35, LEAVES.light));
-  sprinkle(grid, LEAVES.deep, 0.1, salt, LEAVES.mid);
-  sprinkle(grid, LEAVES.bright, 0.12, salt + 1, LEAVES.light);
-  sprinkle(grid, LEAVES.light, 0.05, salt + 2, LEAVES.mid);
-  const outlined = addOutline(grid, LEAVES.outline);
-  addShadow(outlined, tx + tw / 2, ty + th - 1, tw + 4, 2.5);
-  return outlined;
+  const [top, bottom, trunkWidth] = look.trunk;
+  paintTrunk(grid, look.crown.cx, top, bottom, trunkWidth);
+  paintCrown(grid, look.crown, look.clumps, look.clumpSize, look.ramp, salt);
+  const outlined = addOutline(grid, OUTLINE);
+  addShadow(outlined, look.crown.cx, bottom, look.crown.rx * 0.75, 3);
+  return sprite(toCanvas(outlined), Math.round(look.crown.cx), bottom);
 }
 
-// The big trees of Verbwood. variant: 0 or 1.
+const OAK = { size: [54, 62], crown: { cx: 27, cy: 24, rx: 23, ry: 20 }, clumps: 24, clumpSize: [5.5, 9], trunk: [36, 58, 9], ramp: LEAF_RAMP };
+const ROUND = { size: [40, 48], crown: { cx: 20, cy: 18, rx: 16, ry: 14 }, clumps: 15, clumpSize: [4.5, 7], trunk: [27, 45, 7], ramp: LIGHT_LEAF_RAMP };
+
+// The big trees of Verbwood. variant: 0, 1 or 2.
 export function oakTree(variant) {
-  return once('oak' + variant, () => {
-    const blobs = [
-      [16, 14, 13, 10],
-      [7, 17, 6, 6],
-      [25, 17, 6, 6],
-      [10, 8, 7, 6],
-      [22, 8, 7, 6],
-      [16, 5, 7, 5],
-      [10, 22, 6, 4],
-      [22, 22, 6, 4],
-    ];
-    const shifted = variant ? blobs.map(([x, y, rx, ry]) => [x + (x > 16 ? 1 : -1), y, rx, ry + 0.5]) : blobs;
-    return sprite(toCanvas(leafyTree([33, 38], [13, 24, 6, 12], shifted, 20 + variant)), 16, 35);
+  return once('oak' + variant, () => leafyTree(OAK, 20 + variant * 7));
+}
+
+// The smaller round trees of the meadows and the villages. variant: 0, 1 or 2.
+export function roundTree(variant = 0) {
+  return once('round' + variant, () => leafyTree(ROUND, 50 + variant * 7));
+}
+
+// A bush: a few clumps, sometimes with berries or flowers. Nobody is stopped by it. variant: 0 to 3.
+export function bush(variant) {
+  return once('bush' + variant, () => {
+    const grid = makeGrid(26, 20);
+    paintCrown(grid, { cx: 13, cy: 11, rx: 10, ry: 6.5 }, 6, [3.5, 5.5], LIGHT_LEAF_RAMP, 80 + variant);
+    const fruit = ['#e8423f', '#ffffff', '#ff6fa8', null][variant];
+    for (let i = 0; fruit && i < 4; i++) dot(grid, 6 + Math.floor(randomOf(i, variant, 81) * 14), 7 + Math.floor(randomOf(variant, i, 82) * 7), fruit);
+    const outlined = addOutline(grid, OUTLINE);
+    addShadow(outlined, 13, 17, 10, 2);
+    return sprite(toCanvas(outlined), 13, 17);
   });
 }
 
-// The smaller round trees of the meadows and the villages.
-export function roundTree() {
-  return once('round', () => {
-    const blobs = [
-      [12, 11, 10, 8],
-      [6, 14, 5, 5],
-      [18, 14, 5, 5],
-      [12, 5, 6, 4],
-    ];
-    return sprite(toCanvas(leafyTree([25, 30], [10, 18, 5, 10], blobs, 30)), 12, 27);
-  });
+// One floor of branches of a pine: lit on the left, with snow on its top and pointed tips at the bottom.
+function paintPineFloor(grid, cx, top, bottom, half) {
+  for (let y = top; y <= bottom; y++) {
+    const width = Math.round(((y - top + 1) / (bottom - top + 1)) * half);
+    for (let x = cx - width; x <= cx + width; x++) {
+      if (y === bottom && (x + y) % 3 === 0) continue; // the tips of the branches
+      const nx = (x - cx) / (width + 0.5);
+      const isSnow = y - top < 2 || (y - top < 3 && nx < -0.2);
+      const light = 0.7 - nx * 0.35 - ((y - top) / (bottom - top)) * 0.3;
+      dot(grid, x, y, isSnow ? toneOf(SNOW_RAMP, light + 0.2, x, y) : toneOf(PINE_RAMP, light, x, y));
+    }
+  }
 }
 
-const PINE = { dark: '#1d5c46', mid: '#2b7a57', light: '#3f9a66', outline: '#0f2a24' };
-
-// A pine of Frostpeak Pass: 3 floors of branches, with snow on each one.
+// A pine of Frostpeak Pass: 3 floors of branches with snow.
 export function pineTree() {
   return once('pine', () => {
-    const grid = makeGrid(21, 34);
-    fillRect(grid, 8, 26, 4, 6, WOOD.dark);
-    fillRect(grid, 8, 26, 1, 6, WOOD.base);
-    const floors = [
-      [2, 9, 4],
-      [9, 17, 7],
-      [16, 27, 10],
-    ]; // [top row, bottom row, half width at the bottom]
-    floors.forEach(([top, bottom, half]) => {
-      for (let y = top; y <= bottom; y++) {
-        const width = Math.round(((y - top + 1) / (bottom - top + 1)) * half);
-        fillRect(grid, 10 - width, y, width * 2 + 1, 1, PINE.mid);
-        fillRect(grid, 10 + 1, y, width, 1, PINE.dark); // the shadow side
-        if (y - top < 2) fillRect(grid, 10 - width, y, width * 2 + 1, 1, SNOW.base); // the snow on the top
-      }
-      fillRect(grid, 10 - half, bottom, half, 1, SNOW.shade); // snow on the tips
-    });
-    sprinkle(grid, PINE.light, 0.08, 40, PINE.mid);
-    const outlined = addOutline(grid, PINE.outline);
-    addShadow(outlined, 10, 32, 7, 2);
-    return sprite(toCanvas(outlined), 10, 32);
+    const grid = makeGrid(30, 46);
+    paintTrunk(grid, 15, 34, 43, 5);
+    [
+      [2, 13, 6],
+      [10, 24, 10],
+      [20, 36, 14],
+    ].forEach(([top, bottom, half]) => paintPineFloor(grid, 15, top, bottom, half));
+    const outlined = addOutline(grid, OUTLINE);
+    addShadow(outlined, 15, 43, 10, 2.5);
+    return sprite(toCanvas(outlined), 15, 43);
   });
 }
 
@@ -124,7 +142,7 @@ export function deadTree() {
     branches.forEach(([x0, y0, x1, y1]) => drawLine(grid, x0, y0, x1, y1, bark));
     fillRect(grid, 6, 24, 7, 2, bark);
     sprinkle(grid, '#5a4655', 0.15, 50, bark);
-    const outlined = addOutline(grid, OUTLINE);
+    const outlined = addOutline(addRimShade(grid), OUTLINE);
     addShadow(outlined, 9.5, 26, 6, 1.5);
     return sprite(toCanvas(outlined), 9, 26);
   });
@@ -147,40 +165,25 @@ const CACTUS_ROWS = [
 // The cacti of Sunscorch Desert.
 export function cactus() {
   return once('cactus', () => {
-    const canvas = spriteOf(CACTUS_ROWS, { G: '#3f9a4a', L: '#7cc45a' }, '#163a1e');
+    const canvas = spriteOf(CACTUS_ROWS, { G: '#3f9a4a', L: '#7cc45a' }, '#163a1e', true);
     return sprite(canvas, 5, 12);
   });
 }
 
 // ---------- Rocks ----------
 
-const STONE = { dark: '#6d6a72', mid: '#8e8a93', light: '#b7b3bb', outline: '#2a2730' };
-
-function boulderGrid() {
-  const grid = makeGrid(18, 15);
-  fillEllipse(grid, 9, 9, 8, 5.5, STONE.dark);
-  fillEllipse(grid, 8, 8, 6.5, 4.5, STONE.mid);
-  fillEllipse(grid, 6, 6.5, 3, 2, STONE.light);
-  dot(grid, 12, 9, STONE.dark);
-  dot(grid, 13, 10, STONE.dark);
-  return grid;
-}
-
-// cover: what grows on the rock ('moss', 'snow' or null).
+// cover: what is on the rock: 'moss', 'snow' or null.
 export function rock(cover) {
   return once('rock' + cover, () => {
-    const grid = boulderGrid();
-    if (cover === 'moss') {
-      fillEllipse(grid, 7, 4.5, 4, 1.5, '#4f9a3c');
-      sprinkle(grid, '#76c04e', 0.3, 60, '#4f9a3c');
-    }
-    if (cover === 'snow') {
-      fillEllipse(grid, 8, 4.5, 6, 2, SNOW.base);
-      fillRect(grid, 4, 5, 9, 1, SNOW.shade);
-    }
-    const outlined = addOutline(grid, STONE.outline);
-    addShadow(outlined, 9, 14, 8, 1.5);
-    return sprite(toCanvas(outlined), 9, 14);
+    const grid = makeGrid(24, 19);
+    fillBall(grid, 7, 12, 5.5, 4.5, STONE_RAMP);
+    fillBall(grid, 17, 12, 6, 4.5, STONE_RAMP);
+    fillBall(grid, 12, 9, 9, 7, STONE_RAMP, { ambient: 0.2 });
+    if (cover === 'moss') fillBall(grid, 10, 4.5, 5.5, 2.5, LIGHT_LEAF_RAMP, { ambient: 0.3 });
+    if (cover === 'snow') fillBall(grid, 12, 4.5, 8, 3, SNOW_RAMP, { ambient: 0.4 });
+    const outlined = addOutline(grid, OUTLINE);
+    addShadow(outlined, 12, 17, 10, 2);
+    return sprite(toCanvas(outlined), 12, 17);
   });
 }
 
@@ -210,64 +213,80 @@ export function iceCrystal() {
 
 // ---------- Houses ----------
 
-const ROOFS = {
-  red: { base: '#c8452f', dark: '#932f20', light: '#e2694d' },
-  blue: { base: '#3f6fc6', dark: '#2b4f96', light: '#6d97e0' },
-};
-const PLASTER = { base: '#f0e2c2', shade: '#d5c29c' };
-const TIMBER = '#6e4425';
-const FOUNDATION = { base: '#9c9388', dark: '#7a7166' };
+const PLASTER_RAMP = ['#bfa57a', '#d4bd93', '#e6d3ad', '#f2e4c6', '#faf0dc'];
+const GLASS_RAMP = ['#2f5f8f', '#3f7fb5', '#5a9fd6', '#8cc5ee', '#d6f1ff'];
+
+// A beam of wood, lit on its top-left.
+function paintBeam(grid, x, y, w, h) {
+  for (let row = y; row < y + h; row++) {
+    for (let column = x; column < x + w; column++) {
+      const edge = (column === x ? 0.2 : 0) + (row === y ? 0.15 : 0) - (column === x + w - 1 ? 0.2 : 0);
+      dot(grid, column, row, toneOf(WOOD_RAMP, 0.38 + edge, column, row));
+    }
+  }
+}
 
 function paintWindow(grid, x, y) {
-  fillRect(grid, x, y, 9, 9, TIMBER);
-  fillRect(grid, x + 1, y + 1, 7, 7, '#6fb6e6');
-  dot(grid, x + 2, y + 2, '#d6f1ff');
-  dot(grid, x + 3, y + 2, '#d6f1ff');
-  dot(grid, x + 2, y + 3, '#d6f1ff');
-  fillRect(grid, x + 4, y + 1, 1, 7, TIMBER);
-  fillRect(grid, x + 1, y + 4, 7, 1, TIMBER);
-  fillRect(grid, x - 1, y + 9, 11, 2, WOOD.dark); // the flower box
-  [0, 2, 4, 6, 8].forEach((i) => dot(grid, x + i, y + 8, i % 4 === 0 ? '#ff5a7a' : '#ffd84a'));
+  paintBeam(grid, x, y, 10, 10);
+  for (let row = 1; row < 9; row++) {
+    for (let column = 1; column < 9; column++) dot(grid, x + column, y + row, toneOf(GLASS_RAMP, 0.85 - (row + column) * 0.04, x + column, y + row));
+  }
+  dot(grid, x + 2, y + 2, '#ffffff');
+  dot(grid, x + 3, y + 2, '#ffffff');
+  dot(grid, x + 2, y + 3, '#ffffff');
+  paintBeam(grid, x + 4, y + 1, 2, 8);
+  paintBeam(grid, x + 1, y + 4, 8, 2);
+  paintBeam(grid, x - 1, y + 10, 12, 2); // the flower box
+  for (let i = 0; i < 6; i++) fillBall(grid, x + 1 + i * 1.8, y + 9.5, 1.3, 1.1, i % 2 ? ['#a8182f', '#e8423f', '#ff8a8a'] : ['#b88a12', '#ffd23f', '#fff2a8']);
 }
 
 function paintDoor(grid) {
-  fillRect(grid, 17, 39, 14, 21, TIMBER);
-  fillRect(grid, 19, 41, 10, 19, WOOD.base);
-  [21, 24, 27].forEach((x) => fillRect(grid, x, 41, 1, 19, WOOD.dark));
-  fillRect(grid, 19, 41, 10, 1, WOOD.light);
-  dot(grid, 26, 51, '#ffd23f');
+  paintBeam(grid, 16, 38, 16, 22);
+  for (let y = 40; y < 60; y++) {
+    for (let x = 18; x < 30; x++) {
+      const plank = (x - 18) % 4;
+      dot(grid, x, y, plank === 3 ? WOOD_RAMP[1] : toneOf(WOOD_RAMP, 0.62 - plank * 0.1 - (y - 40) * 0.008, x, y));
+    }
+  }
+  fillBall(grid, 26.5, 51.5, 1.4, 1.4, ['#8a6a12', '#e8b83a', '#fff2a8']);
 }
 
 // The front of the house: plaster, timber beams, a stone foundation.
 function paintWalls(grid) {
-  fillRect(grid, 3, 30, 58, 30, PLASTER.base);
-  fillRect(grid, 3, 30, 58, 3, PLASTER.shade); // the shadow of the roof
-  [3, 33, 59].forEach((x) => fillRect(grid, x, 30, 2, 30, TIMBER));
-  fillRect(grid, 3, 46, 58, 2, TIMBER);
-  fillRect(grid, 3, 56, 58, 4, FOUNDATION.base);
-  for (let x = 5; x < 60; x += 6) fillRect(grid, x, 56, 1, 4, FOUNDATION.dark);
-  fillRect(grid, 3, 59, 58, 1, FOUNDATION.dark);
+  for (let y = 30; y < 56; y++) {
+    for (let x = 3; x < 61; x++) dot(grid, x, y, toneOf(PLASTER_RAMP, 0.72 - (y < 34 ? (34 - y) * 0.12 : 0) + randomOf(x, y, 60) * 0.08, x, y));
+  }
+  [3, 32, 59].forEach((x) => paintBeam(grid, x, 30, 3, 26));
+  paintBeam(grid, 3, 45, 58, 2);
+  for (let i = 0; i < 10; i++) {
+    const left = 3 + i * 6 - (i % 2) * 3;
+    for (let y = 56; y < 60; y++) {
+      for (let x = Math.max(3, left); x < Math.min(61, left + 5); x++) dot(grid, x, y, toneOf(STONE_RAMP, 0.7 - (y - 56) * 0.12 - (x - left) * 0.04, x, y));
+    }
+  }
 }
 
-// A front roof with rows of tiles, and a chimney behind it.
-function paintRoof(grid, colors) {
-  fillRect(grid, 45, 0, 6, 12, FOUNDATION.base);
-  fillRect(grid, 45, 0, 6, 2, FOUNDATION.dark);
+// A front roof with rows of tiles (each row lit on its top), and a stone chimney behind it.
+function paintRoof(grid, ramp) {
+  for (let y = 0; y < 12; y++) for (let x = 45; x < 51; x++) dot(grid, x, y, toneOf(STONE_RAMP, 0.7 - (x - 45) * 0.08, x, y));
   for (let y = 6; y <= 31; y++) {
     const inset = Math.round((31 - y) * 0.3);
-    fillRect(grid, inset, y, 64 - inset * 2, 1, colors.base);
-    if (y % 4 === 1) fillRect(grid, inset, y, 64 - inset * 2, 1, colors.dark);
-    const offset = Math.floor(y / 4) % 2 === 0 ? 0 : 3;
-    for (let x = inset + offset; x < 64 - inset; x += 6) dot(grid, x, y, colors.dark);
+    const inRow = (y - 6) % 4; // 0 = the top of a row of tiles
+    const offset = Math.floor((y - 6) / 4) % 2 === 0 ? 0 : 3;
+    for (let x = inset; x < 64 - inset; x++) {
+      const isSeam = (x - inset + offset) % 6 === 0;
+      const light = 0.78 - inRow * 0.14 - (x / 64) * 0.15 - (isSeam ? 0.25 : 0);
+      dot(grid, x, y, toneOf(ramp, light, x, y));
+    }
   }
-  fillRect(grid, 8, 6, 48, 1, colors.light);
-  fillRect(grid, 0, 31, 64, 1, colors.dark);
+  fillRect(grid, 9, 6, 46, 1, ramp[5]); // the ridge
+  fillRect(grid, 0, 31, 64, 1, ramp[0]); // the eave
 }
 
 // The board hanging next to the door, with the picture of the shop (see SIGNS).
 function paintSign(grid, sign) {
-  fillRect(grid, 34, 33, 11, 11, WOOD.dark);
-  fillRect(grid, 35, 34, 9, 9, WOOD.light);
+  paintBeam(grid, 34, 33, 11, 11);
+  fillRect(grid, 35, 34, 9, 9, WOOD_RAMP[5]);
   drawPicture(grid, SIGNS[sign], SIGN_COLORS, 35, 34);
 }
 
@@ -275,14 +294,14 @@ function paintSign(grid, sign) {
 export function houseSprite(house) {
   return once('house' + house.roof + house.sign, () => {
     const grid = makeGrid(64, 60);
-    paintRoof(grid, ROOFS[house.roof]);
+    paintRoof(grid, ROOF_RAMPS[house.roof]);
     paintWalls(grid);
     paintDoor(grid);
     paintWindow(grid, 6, 34);
     paintWindow(grid, 48, 34);
     if (house.sign) paintSign(grid, house.sign);
     else paintWindow(grid, 36, 34);
-    return sprite(toCanvas(addOutline(grid, '#2a1c16')), 0, 60);
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 0, 60);
   });
 }
 
@@ -329,7 +348,7 @@ export function lampPost() {
       '..IIIII..',
     ];
     const colors = { K: IRON.base, Y: '#ffd36b', W: '#fff6d0', I: IRON.light };
-    return sprite(spriteOf(rows, colors, OUTLINE), 5, 19);
+    return sprite(spriteOf(rows, colors, OUTLINE, true), 5, 19);
   });
 }
 
@@ -359,7 +378,7 @@ export function torch(frame) {
     fillRect(grid, 3, 8, 4, 2, IRON.base);
     fillRect(grid, 4, 10, 2, 13, WOOD.dark);
     fillRect(grid, 4, 10, 1, 13, WOOD.base);
-    return sprite(toCanvas(addOutline(grid, OUTLINE)), 5, 23);
+    return sprite(toCanvas(addOutline(addRimShade(grid), OUTLINE)), 5, 23);
   });
 }
 
@@ -374,7 +393,7 @@ export function fence() {
     fillRect(grid, 0, 4, 16, 2, WOOD.light);
     fillRect(grid, 0, 9, 16, 2, WOOD.base);
     fillRect(grid, 0, 5, 16, 1, WOOD.base);
-    return sprite(toCanvas(addOutline(grid, '#3a2414')), 8, 13);
+    return sprite(toCanvas(addOutline(addRimShade(grid), '#3a2414')), 8, 13);
   });
 }
 
@@ -392,7 +411,7 @@ export function fountain(frame) {
     spray.forEach((x) => drawLine(grid, 16, 4, x, 16, '#a9dbff'));
     fillRect(grid, 15, 2, 2, 3, '#e2f4ff');
     [8, 20, 24].forEach((x, i) => dot(grid, x + frame, 20 + (i % 2), '#e2f4ff'));
-    const outlined = addOutline(grid, '#3a3440');
+    const outlined = addOutline(addRimShade(grid), '#3a3440');
     return sprite(toCanvas(outlined), 16, 29);
   });
 }
@@ -408,7 +427,7 @@ export function marketStall() {
     fillRect(grid, 1, 18, 30, 2, WOOD.light);
     const goods = ['#ff8c2b', '#e8423f', '#ffd84a', '#7cc45a', '#ff8c2b', '#b48cff'];
     goods.forEach((color, i) => fillEllipse(grid, 6 + i * 4, 16, 2, 2, color));
-    return sprite(toCanvas(addOutline(grid, '#3a2414')), 16, 28);
+    return sprite(toCanvas(addOutline(addRimShade(grid), '#3a2414')), 16, 28);
   });
 }
 
@@ -421,7 +440,7 @@ export function barrels() {
     fillRect(grid, 5, 2, 1, 14, WOOD.dark);
     fillRect(grid, 10, 2, 1, 14, WOOD.dark);
     fillEllipse(grid, 8, 3, 5, 1.5, WOOD.light);
-    return sprite(toCanvas(addOutline(grid, '#3a2414')), 8, 15);
+    return sprite(toCanvas(addOutline(addRimShade(grid), '#3a2414')), 8, 15);
   });
 }
 
@@ -433,7 +452,7 @@ export function crates() {
     drawLine(grid, 2, 4, 13, 13, WOOD.dark);
     drawLine(grid, 13, 4, 2, 13, WOOD.dark);
     fillRect(grid, 1, 8, 14, 1, WOOD.dark);
-    return sprite(toCanvas(addOutline(grid, '#3a2414')), 8, 14);
+    return sprite(toCanvas(addOutline(addRimShade(grid), '#3a2414')), 8, 14);
   });
 }
 
@@ -446,7 +465,7 @@ export function signpost() {
     dot(grid, 13, 4, WOOD.base); // the arrow tip
     dot(grid, 14, 4, WOOD.base);
     fillRect(grid, 3, 4, 7, 1, WOOD.deep);
-    return sprite(toCanvas(addOutline(grid, '#3a2414')), 8, 19);
+    return sprite(toCanvas(addOutline(addRimShade(grid), '#3a2414')), 8, 19);
   });
 }
 
@@ -482,7 +501,7 @@ export function chest(isOpen) {
       'DWWWWWWWWWWWWWWD',
       'DDDDDDDDDDDDDDDD',
     ];
-    return sprite(spriteOf(isOpen ? open : closed, CHEST, '#2a1c16'), 9, 12);
+    return sprite(spriteOf(isOpen ? open : closed, CHEST, '#2a1c16', true), 9, 12);
   });
 }
 
@@ -512,6 +531,30 @@ export function bubble(mark) {
     const question = ['.WWWWW.', 'WWKKKWW', 'WWWWKWW', 'WWWKKWW', 'WWWWWWW', 'WWWKWWW', '.WWWWW.', '...W...'];
     const colors = { W: '#ffffff', K: mark === '?' ? '#2f9e44' : '#d6302f' };
     return sprite(spriteOf(mark === '?' ? question : exclamation, colors, OUTLINE), 4, 10);
+  });
+}
+
+// ---------- Emotes: a feeling in a white bubble over a head ----------
+
+const EMOTE_BUBBLE = ['.WWWWWWW.', 'WWWWWWWWW', 'WWWWWWWWW', 'WWWWWWWWW', 'WWWWWWWWW', 'WWWWWWWWW', '.WWWWWWW.', '..WW.....', '..W......'];
+
+// The picture inside the bubble (7 x 5). R red, B blue, Y gold, K dark.
+const EMOTE_ICONS = {
+  '!': ['...R...', '...R...', '...R...', '.......', '...R...'],
+  '?': ['..BBB..', '.....B.', '...BB..', '.......', '...B...'],
+  heart: ['.RR.RR.', 'RRRRRRR', '.RRRRR.', '..RRR..', '...R...'],
+  note: ['...KKK.', '...K..K', '...K...', '.KKK...', '.KKK...'],
+  sparkle: ['...Y...', '..YYY..', 'YYYYYYY', '..YYY..', '...Y...'],
+  sweat: ['...B...', '..BBB..', '.BBBBB.', '.BBBBB.', '..BBB..'],
+  dots: ['.......', '.......', '.K.K.K.', '.......', '.......'],
+};
+
+export function emoteBubble(icon) {
+  return once('emote' + icon, () => {
+    const grid = makeGrid(11, 11);
+    drawPicture(grid, EMOTE_BUBBLE, { W: '#ffffff' }, 1, 1);
+    drawPicture(grid, EMOTE_ICONS[icon], { R: '#e8323f', B: '#3a7bff', Y: '#f5b81c', K: '#1c1726' }, 2, 2);
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 4, 10);
   });
 }
 

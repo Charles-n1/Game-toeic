@@ -7,9 +7,10 @@ import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
 import { cropAt, isCropReady, closestTreasure } from '../logic/farm';
 import { isSealOpen } from '../logic/seals';
 import { TILE_PX, groundTile, flowersDecal } from './tiles';
-import { personSprite, walkFrame, obsidianSoldier, obsidianCat } from './people';
+import { personSprite, walkPose, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
-import { drawBattle } from './battle';
+import { drawBattle, battleGap, writeBattleWords } from './battle';
+import { activeEmotes } from '../logic/emotes';
 import { drawLights } from './lights';
 import { makeGrid, fillEllipse, toCanvas, once } from './pixels';
 import * as props from './props';
@@ -22,9 +23,11 @@ const T = TILE_PX;
 const buffer = document.createElement('canvas');
 const NAME_RANGE = 2.5; // tiles: the names of the people this close are written above them
 
-// How many screen pixels for one pixel of the art. A phone (~400 px wide) gets 3.
-export function pixelScale(width) {
-  return Math.max(2, Math.min(4, Math.round(width / 150)));
+// How many screen pixels for one pixel of the art. A phone (420 px wide) gets 3 (about 9 tiles across),
+// a computer (900 px high) gets 4 (about 14 tiles high, like a console RPG).
+export function pixelScale(width, height = width) {
+  const isWide = width > height;
+  return Math.max(2, Math.min(6, Math.round(Math.min(width, height) / (isWide ? 210 : 150))));
 }
 
 function clamp(value, min, max) {
@@ -41,7 +44,7 @@ function put(ctx, sprite, x, y, view) {
 // The player stays in the middle. In a fight, the two fighters stand in the top third (the questions are below).
 function viewOf(game, width, height) {
   const fight = game.run.fight;
-  const centerX = (game.player.x + (fight ? 1.25 : 0)) * T;
+  const centerX = (game.player.x + (fight ? battleGap(game) / 2 : 0)) * T;
   const centerY = (game.player.y - 0.6) * T;
   const worldSize = MAP_SIZE * T;
   let x = clamp(centerX - width / 2, 0, worldSize - width);
@@ -85,14 +88,22 @@ function drawGround(ctx, game, view, time) {
 function standingSprite(x, y) {
   const tile = tileAt(x, y);
   const biome = zoneAt(x, y).biome;
-  if (tile === TILE.TREE && biome === 'forest') return props.oakTree(noise(x, y, 3) < 0.5 ? 0 : 1);
+  if (tile === TILE.TREE && biome === 'forest') return props.oakTree(Math.floor(noise(x, y, 3) * 3));
   if (tile === TILE.TREE && biome === 'mountain') return props.pineTree();
   if (tile === TILE.TREE && biome === 'desert') return props.cactus();
-  if (tile === TILE.TREE) return props.roundTree();
+  if (tile === TILE.TREE) return props.roundTree(Math.floor(noise(x, y, 3) * 3));
   if (tile === TILE.DEAD_TREE) return props.deadTree();
   if (tile === TILE.ROCK && biome === 'mountain') return noise(x, y, 5) < 0.45 ? props.iceCrystal() : props.rock('snow');
   if (tile === TILE.ROCK) return props.rock(biome === 'coast' || biome === 'desert' ? null : 'moss');
+  if (isBushy(x, y, tile, biome)) return props.bush(Math.floor(noise(x, y, 45) * 4));
   return null;
+}
+
+// Bushes grow on some tiles of grass (only to look at: nobody is stopped by them).
+const BUSHES = { forest: 0.12, meadow: 0.04, plains: 0.05, lake: 0.04, village: 0.015 };
+
+function isBushy(x, y, tile, biome) {
+  return (tile === TILE.GRASS || tile === TILE.FLOWER) && noise(x, y, 44) < (BUSHES[biome] || 0);
 }
 
 // Each drawing: { y (the line of its feet, in tiles: who is lower is drawn later, in front), draw }.
@@ -215,12 +226,13 @@ function questMark(game, npc) {
   return offeredQuest(game, npc.id) ? '!' : null;
 }
 
-function personDrawing(look, place, view, extra) {
+// salt: a number of this person, so that everyone breathes at their own moment.
+function personDrawing(look, place, view, time, salt, extra) {
   return {
     y: place.y,
     draw: (ctx) => {
       put(ctx, shadow(), place.x * T, place.y * T, view);
-      put(ctx, personSprite(look, place.dir || 'down', walkFrame(place.step, place.walking)), place.x * T, place.y * T, view);
+      put(ctx, personSprite(look, place.dir || 'down', walkPose(place.step, place.walking, time, salt)), place.x * T, place.y * T, view);
       if (extra) extra(ctx);
     },
   };
@@ -234,7 +246,7 @@ function npcDrawings(game, view, time) {
     const place = game.run.people[npc.id];
     const mark = questMark(game, npc);
     const bob = Math.round(Math.sin(time * 4) * 1.5);
-    return personDrawing(npc.look, place, view, (ctx) => {
+    return personDrawing(npc.look, place, view, time, npc.x, (ctx) => {
       if (mark) put(ctx, props.bubble(mark), place.x * T, place.y * T - 30 + bob, view);
     });
   });
@@ -242,7 +254,7 @@ function npcDrawings(game, view, time) {
 
 function followerDrawings(game, view, time) {
   return game.run.followers.map((follower) => {
-    if (follower.kind === 'person') return personDrawing(npcOf(follower.id).look, follower, view);
+    if (follower.kind === 'person') return personDrawing(npcOf(follower.id).look, follower, view, time, follower.x);
     const sprite = follower.kind === 'soldier' ? obsidianSoldier(Math.floor(time * 4)) : obsidianCat();
     return { y: follower.y, draw: (ctx) => put(ctx, sprite, follower.x * T, follower.y * T, view) };
   });
@@ -263,10 +275,15 @@ function smallHealthBar(ctx, monster, x, y) {
   ctx.fillRect(x - 7, y + 1, Math.max(1, Math.round((14 * monster.health) / monster.maxHealth)), 1);
 }
 
+// During a fight, the other monsters keep away from the fighters (they would hide them).
+function isNearTheFight(game, monster) {
+  return game.run.fight && Math.hypot(monster.x - game.player.x - 2, monster.y - game.player.y) < 6;
+}
+
 function monsterDrawings(game, view, time) {
   const opponent = game.run.fight ? game.run.fight.opponent : null;
   return game.run.monsters
-    .filter((monster) => monster !== opponent && isNear(view, monster.x - 1, monster.y - 2, 2, 2))
+    .filter((monster) => monster !== opponent && !isNearTheFight(game, monster) && isNear(view, monster.x - 1, monster.y - 3, 3, 3))
     .map((monster) => ({
       y: monster.y,
       draw: (ctx) => {
@@ -282,9 +299,19 @@ function monsterDrawings(game, view, time) {
     }));
 }
 
-function heroDrawing(game, view) {
+// The emotes over the heads: they pop up, then stay a moment.
+function drawEmotes(ctx, game, view) {
+  for (const item of activeEmotes(game)) {
+    const place = item.who === 'hero' ? game.player : game.run.people[item.who];
+    if (!place) continue;
+    const pop = Math.max(0, Math.round((item.until - Date.now() - 1450) / 50)); // the first moment: higher
+    put(ctx, props.emoteBubble(item.icon), place.x * T + 6, place.y * T - 30 - pop, view);
+  }
+}
+
+function heroDrawing(game, view, time) {
   const player = game.player;
-  return personDrawing(player.look, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view);
+  return personDrawing(player.look, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view, time, 0);
 }
 
 // ---------- Effects ----------
@@ -444,7 +471,7 @@ function showBuffer(ctx, width, height, scale) {
 
 // The world around the player. width, height: the size of the screen canvas. time: seconds.
 export function drawScene(ctx, game, width, height, time) {
-  const scale = pixelScale(width);
+  const scale = pixelScale(width, height);
   const art = prepareBuffer(width, height, scale);
   const view = viewOf(game, buffer.width, buffer.height);
   const fight = game.run.fight;
@@ -452,9 +479,11 @@ export function drawScene(ctx, game, width, height, time) {
   drawGround(art, game, view, time);
   drawStorm(art, game, view, time);
   drawTreasureHint(art, game, view, time);
-  const living = [...npcDrawings(game, view, time), ...followerDrawings(game, view, time), ...monsterDrawings(game, view, time)];
-  if (!fight) living.push(heroDrawing(game, view));
+  const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
+  const living = [...npcDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
+  if (!fight) living.push(heroDrawing(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...living]);
+  if (!fight) drawEmotes(art, game, view);
   if (fight) drawBattle(art, game, view, time);
   drawBalls(art, game, view);
   drawParticleSquares(art, game.run.particles, view);
@@ -465,6 +494,7 @@ export function drawScene(ctx, game, width, height, time) {
   showBuffer(ctx, width, height, scale);
   writeNames(ctx, game, view, scale);
   writeFloatingTexts(ctx, game, view, scale);
+  if (fight) writeBattleWords(ctx, game, view, scale, time);
   drawAlerts(ctx, game, width, height, time);
 }
 
@@ -472,7 +502,7 @@ export function drawScene(ctx, game, width, height, time) {
 // or the small picture of a place on the world map. center: { x, y } in tiles (null = Lexia, moving).
 // scale: screen pixels per pixel of the art (null = the usual one).
 export function drawLandscape(ctx, width, height, time, center = null, scale = null) {
-  scale = scale || pixelScale(width);
+  scale = scale || pixelScale(width, height);
   const art = prepareBuffer(width, height, scale);
   const centerX = center ? center.x * T : (64 + Math.sin(time * 0.04) * 8) * T;
   const centerY = center ? center.y * T : 70 * T;

@@ -9,7 +9,9 @@ Train for the TOEIC reading part: training with justifications, timed tests, spa
 An isekai in 2D where every fight is a TOEIC question. To enter: do the level test, or type your reading score.
 
 - **Fights**: a good answer strikes (half a heart by default), a bad one lets the monster strike. Answer fast to strike first.
-  The time to answer depends on your speed against the monster's.
+  The time to answer depends on your speed against the monster's. Everything is animated: the hero winds up, dashes
+  and slashes (a crescent of light, golden on a critical hit), casts spells, drinks potions, is pushed back when hit,
+  raises the sword when they win and falls when knocked out. The friends of the party fight behind the hero.
 - **Types**: the color of a monster is its grammar category (pink = gerunds, yellow = tenses...). Most monsters are of
   the category you must train. When your goal is reached in it, the training swaps to your next weakness, and the
   category comes back later. Failed questions come back too, like in Recovery. Every answer counts in the app's stats.
@@ -30,7 +32,9 @@ Keys: arrows / WASD to walk, `Space` or `E` to act, `1`-`4` or `A`-`D` to answer
 `C` stats, `P` powers, `J` journal, `M` map, `O` options.
 
 The code is in `src/game/`: `data/` (monsters, people, story...), `logic/` (the rules, one file per subject),
-`draw/` (the pixel art, drawn with code: "text pictures" where one letter = one pixel) and `ui/` (the screens).
+`draw/` (the pixel art, painted with code: shaded balls, tubes and cloth lit from the top-left, dithered between
+the tones of a color ramp; a few small icons are "text pictures" where one letter = one pixel) and `ui/` (the screens).
+On a computer the screens are laid out side by side, like a console RPG; on a phone they are stacked.
 The pixel font is Pixelify Sans (SIL Open Font License, see `src/game/assets/fonts/OFL.txt`).
 
 ## On iPhone

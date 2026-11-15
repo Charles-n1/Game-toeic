@@ -114,7 +114,11 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
     <div className="screen">
       <canvas ref={canvasRef} className="game-canvas" />
       {screen === 'play' && <Hud game={game} input={input} onAction={doAction} onMenu={openMenu} />}
-      {screen === 'dialog' && <DialogBox game={game} refresh={refresh} />}
+      {screen === 'dialog' && (
+        <div className="ui-layer">
+          <DialogBox game={game} refresh={refresh} />
+        </div>
+      )}
       {screen === 'fight' && <FightScreen game={game} refresh={refresh} />}
       {screen === 'shop' && <ShopScreen game={game} refresh={refresh} onClose={close} />}
       {screen === 'menu' && <MenuScreen game={game} refresh={refresh} onClose={close} onQuit={quit} />}

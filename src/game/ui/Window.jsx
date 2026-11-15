@@ -1,6 +1,7 @@
 // A window of the game: dark blue, a light frame, and its title written on the top edge.
 // gold: a golden frame (the important windows). onClose: shows a ✕ in the corner.
-export default function Window({ title, gold, onClose, style, children }) {
+// scroll: the inside scrolls when it is too long (the title stays on the edge).
+export default function Window({ title, gold, onClose, scroll, style, children }) {
   return (
     <div className={'window slide-up' + (gold ? ' window-gold' : '')} style={{ ...(title ? styles.withTitle : null), ...style }}>
       {title && (
@@ -13,7 +14,7 @@ export default function Window({ title, gold, onClose, style, children }) {
           ✕
         </button>
       )}
-      {children}
+      {scroll ? <div className="window-body">{children}</div> : children}
     </div>
   );
 }

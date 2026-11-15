@@ -1,228 +1,456 @@
-import { makeGrid, drawPicture, drawLine, fillRect, addOutline, mirrored, toCanvas, once } from './pixels';
-import { OUTLINE, darker, lighter } from './palette';
+import { makeGrid, dot, fillRect, fillBall, toneOf, drawLine, drawPicture, addOutline, mirrored, toCanvas, once, paintCloth, fillTriangle, colorAt } from './pixels';
+import { OUTLINE, mix, darker, lighter, rampOf } from './palette';
 
-// The people walking on the map, in pixel art. A person is made of text pictures (one letter = one pixel):
-// a head, a torso and legs, then the hair style and the extras (beard, fox ears, horns...) painted on top.
-// A "look" is: { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, skirt?, scarf?, sword? }
+// The people of the world, in pixel art, drawn with shapes: a shaded head, big anime eyes, a hair style,
+// a tunic, arms, legs and boots. The light comes from the top-left.
+// A "look": { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, skirt?, scarf?, sword? }
 // style: 'short' | 'long' | 'twin' | 'pony' | 'bun' | 'bald' | 'spiky'
+// The hero also has a cape (scarf: true) of the color of the trim.
 
-// The letters of the pictures. Each look gives them its own colors (see colorsOf).
-// H hair, h hair shadow, L hair shine, S skin, s skin shadow, l skin shine, D eye, W white, E iris, K blush,
-// C clothes, c clothes shadow, T trim (collar, belt, scarf), P pants, B boots, X horn, Z inside of an ear,
-// V blade, G blade edge, Y gold, N handle.
+const W = 36;
+const H = 40;
+const CX = 18; // the middle of the body
+const FEET = 34; // the row of the soles
 
-const HEADS = {
-  down: [
-    '................',
-    '.....HHHHHH.....',
-    '...HHHHHHHHHH...',
-    '..HHHLLHHHHHHH..',
-    '..HHLLHHHHHHHH..',
-    '..HHHHHHHHHHHH..',
-    '..HHSHHHHHHSHh..',
-    '..HSSSSSSSSSSh..',
-    '..HSDWSSSSDWSh..',
-    '..hSEESSSSEESh..',
-    '..hSKSSssSSKSh..',
-    '...sSSSSSSSSs...',
-  ],
-  up: [
-    '................',
-    '.....HHHHHH.....',
-    '...HHHHHHHHHH...',
-    '..HHHHHHHHHHHH..',
-    '..HHHHHLLHHHHH..',
-    '..HHHHLLHHHHHH..',
-    '..HHHHHHHHHHHH..',
-    '..HHHHHHHHHHHH..',
-    '..HHHHHHHHHHHH..',
-    '..hHHHHHHHHHHh..',
-    '..ShhHHHHHHhhS..',
-    '....sSSSSSSs....',
-  ],
-  side: [
-    '................',
-    '....HHHHHH......',
-    '..HHHHHHHHHH....',
-    '.HHHHHHHHLLHH...',
-    '.HHHHHHHLLHHHH..',
-    '.HHHHHHHHHHHHH..',
-    '.HHHHHHHHHSHHH..',
-    '.HHHHHHSSSSSSH..',
-    '.hHHHHSSSSDWSS..',
-    '.hHHHSSSSSEESS..',
-    '..hHSSSSSSKSS...',
-    '...hsSSSSSs.....',
-  ],
-};
+// ---------- Colors ----------
 
-const TORSOS = {
-  down: [
-    '.....TTTTTT.....',
-    '...CCCTTTTCCC...',
-    '..CCCCCTTCCCCC..',
-    '..CcCCCCCCCCcC..',
-    '..ScCCCCCCCCcS..',
-    '...TTTTTTTTTT...',
-    '...cCCCCCCCCc...',
-  ],
-  up: [
-    '.....TTTTTT.....',
-    '...CCCCCCCCCC...',
-    '..CCCCCCCCCCCC..',
-    '..CcCCCCCCCCcC..',
-    '..ScCCCCCCCCcS..',
-    '...TTTTTTTTTT...',
-    '...cCCCCCCCCc...',
-  ],
-  side: [
-    '......TTTT......',
-    '.....CCCCCC.....',
-    '.....CCCCCCC....',
-    '.....CCcCCCC....',
-    '.....cCSCCCc....',
-    '.....TTTTTTT....',
-    '.....cCCCCCc....',
-  ],
-};
-
-// The legs: [standing, walking]. Front and back views walk with the left foot, then the right one (mirror).
-const LEGS = {
-  front: [
-    ['....PPPPPPPP....', '....PPP..PPP....', '....PPP..PPP....', '....BBB..BBB....', '................'],
-    ['....PPPPPPPP....', '....PPP..PPP....', '....BBB..PPP....', '.........BBB....', '................'],
-  ],
-  side: [
-    ['......PPPPP.....', '......PPPP......', '......PPPP......', '......BBBBB.....', '................'],
-    ['......PPPPP.....', '.....PP..PP.....', '....PP....PP....', '...BBB.....BBB..', '................'],
-  ],
-};
-
-// The hair styles and the extras, painted over the person: { down, up, side } -> { x, y, rows }.
-// x, y: where the picture starts (y = -2 is above the head).
-const STYLES = {
-  long: {
-    down: { y: 6, rows: ['.H............H.', '.HH..........HH.', '.HH..........HH.', '.hH..........Hh.', '.hH..........Hh.', '.hHH........HHh.', '.hHH........HHh.', '.hHH........HHh.', '..hH........Hh..', '..hh........hh..'] },
-    up: { y: 9, rows: ['..HHHHHHHHHHHH..', '..HHHHHHHHHHHH..', '..HHHHHHHHHHHH..', '..HHHHHHHHHHHH..', '..hHHHHHHHHHHh..', '..hHHHHHHHHHHh..', '...hHHHHHHHHh...', '....hhhhhhhh....'] },
-    side: { y: 6, rows: ['.HH.............', 'HHH.............', 'HHH.............', 'HhH.............', 'HhHH............', 'HhHH............', '.hHHH...........', '.hHHH...........', '..hHH...........', '..hh............'] },
-  },
-  twin: {
-    down: { y: 4, rows: ['.T............T.', 'HHH..........HHH', 'HH............HH', 'HH............HH', 'Hh............hH', 'Hh............hH', 'hh............hh', 'hh............hh', '.h............h.'] },
-    up: { y: 4, rows: ['.T............T.', 'HHH..........HHH', 'HH............HH', 'HH............HH', 'Hh............hH', 'Hh............hH', 'hh............hh', 'hh............hh', '.h............h.'] },
-    side: { y: 4, rows: ['.T..............', 'HHH.............', 'HH..............', 'HH..............', 'Hh..............', 'Hh..............', 'hh..............', 'hh..............', '.h..............'] },
-  },
-  pony: {
-    down: { y: 4, rows: ['..............T.', '..............HH', '..............HH', '..............Hh', '..............h.'] },
-    up: { y: 8, rows: ['......TTTT......', '......HHHH......', '......HHHH......', '......HhHH......', '.......hH.......', '.......hh.......'] },
-    side: { y: 3, rows: ['.T..............', 'HHH.............', 'HHH.............', 'Hh..............', 'Hh..............', 'h...............'] },
-  },
-  bun: {
-    down: { y: -1, rows: ['......HHHH......', '.....HLHHHH.....'] },
-    up: { y: -1, rows: ['......HHHH......', '.....HLHHHH.....'] },
-    side: { y: -1, rows: ['...HHHH.........', '..HLHHH.........'] },
-  },
-  bald: {
-    down: { y: 1, rows: ['.....SSSSSS.....', '...SSllSSSSSS...', '..HSlSSSSSSSSH..', '..HSSSSSSSSSSH..', '..HSSSSSSSSSSH..', '..HHSSSSSSSSHh..'] },
-    up: { y: 1, rows: ['.....SSSSSS.....', '...SSSSllSSSS...', '..SSSSllSSSSSS..', '..SSSSSSSSSSSS..', '..HSSSSSSSSSSH..', '..HHSSSSSSSSHH..'] },
-    side: { y: 1, rows: ['....SSSSSS......', '..SSSSSllSSS....', '.HSSSSSSllSSS...', '.HSSSSSSSSSSSS..', '.HHSSSSSSSSSSS..', '.HHHHHHHSSSSSS..'] },
-  },
-  spiky: {
-    down: { y: -1, rows: ['....H..H..H.....', '...HH.HHH.HHH...', '..HHH......HHH..'] },
-    up: { y: -1, rows: ['....H..H..H.....', '...HH.HHH.HHH...', '..HHH......HHH..'] },
-    side: { y: -1, rows: ['...H..H.........', '.HH.HHH.H.......', 'HHH.............', 'HH..............'] },
-  },
-};
-
-const EXTRAS = {
-  beard: {
-    down: { y: 9, rows: ['..H..........H..', '..HH..HHHH..HH..', '...HHHHHHHHHH...', '....HHHHHHHH....', '.....HHHHHH.....', '......HHHH......'] },
-    up: { y: 0, rows: [] },
-    side: { y: 10, rows: ['......HHHHHHH...', '....HHHHHHHH....', '.....HHHHHH.....', '......HHHH......'] },
-  },
-  ears: {
-    down: { y: -2, rows: ['..HH........HH..', '..HZH......HZH..', '..HZHH....HHZH..'] },
-    up: { y: -2, rows: ['..HH........HH..', '..HHH......HHH..', '..HHHH....HHHH..'] },
-    side: { y: -2, rows: ['..HH....HH......', '..HZH...HZH.....', '..HZHH..HZHH....'] },
-  },
-  horns: {
-    down: { y: -2, rows: ['..X..........X..', '..XX........XX..', '...XX......XX...'] },
-    up: { y: -2, rows: ['..X..........X..', '..XX........XX..', '...XX......XX...'] },
-    side: { y: -2, rows: ['.X......X.......', '.XX.....XX......', '..XX.....XX.....'] },
-  },
-  skirt: {
-    down: { y: 18, rows: ['..cCCCCCCCCCCc..', '..CCCCCCCCCCCC..', '...cccccccccc...'] },
-    up: { y: 18, rows: ['..cCCCCCCCCCCc..', '..CCCCCCCCCCCC..', '...cccccccccc...'] },
-    side: { y: 18, rows: ['.....cCCCCCCc...', '....cCCCCCCCCc..', '....cccccccccc..'] },
-  },
-  scarf: {
-    down: { y: 0, rows: [] },
-    up: { y: 13, rows: ['......TT........', '......TTT.......', '.......TT.......'] },
-    side: { y: 12, rows: ['...TT...........', '..TTT...........', '..TT............'] },
-  },
-};
-
-// The sword held forward, in a fight (side view only).
-const SWORD = { x: 7, y: 14, rows: ['.Y.........', 'NYVVVVVVVVV', '.YGGGGGGGG.'] };
+// The skin gets warm shadows (a bit of red), not grey ones.
+function skinRampOf(skin) {
+  return [mix(skin, '#5e2a26', 0.5), mix(skin, '#7a3a32', 0.32), mix(skin, '#8a4a3a', 0.14), skin, lighter(skin, 0.3)];
+}
 
 function colorsOf(look) {
   return {
-    H: look.hair,
-    h: darker(look.hair, 0.3),
-    L: lighter(look.hair, 0.4),
-    S: look.skin,
-    s: darker(look.skin, 0.16),
-    l: lighter(look.skin, 0.45),
-    D: '#1c1726',
-    W: '#ffffff',
-    E: look.eyes,
-    K: '#f2989a',
-    C: look.outfit,
-    c: darker(look.outfit, 0.3),
-    T: look.trim,
-    P: look.pants || '#3b3652',
-    B: look.boots || '#5a3a22',
-    X: '#3a2c3e',
-    Z: '#ffb3c8',
-    V: '#eef3fa',
-    G: '#9aa6b8',
-    Y: '#e8b83a',
-    N: '#6b4423',
+    hair: rampOf(look.hair),
+    skin: skinRampOf(look.skin),
+    outfit: rampOf(look.outfit),
+    trim: rampOf(look.trim),
+    pants: rampOf(look.pants || '#3b3652'),
+    boots: rampOf(look.boots || '#5a3a22'),
+    eyes: look.eyes,
   };
 }
 
-// The picture is painted in a bigger grid: room for the ears above, and for the sword on the right.
-const GRID_WIDTH = 26;
-const GRID_HEIGHT = 30;
-const LEFT = 4;
-const TOP = 3;
-
-function paintOverlay(grid, overlay, colors) {
-  if (overlay) drawPicture(grid, overlay.rows, colors, LEFT + (overlay.x || 0), TOP + overlay.y);
+// The light of a pixel inside a ball (0 to 1), or -1 if it is outside. Lit on the top-left.
+function ballLight(ball, x, y) {
+  const nx = (x + 0.5 - ball.cx) / ball.rx;
+  const ny = (y + 0.5 - ball.cy) / ball.ry;
+  const flat = nx * nx + ny * ny;
+  if (flat > 1) return -1;
+  return 0.15 + 0.85 * Math.max(0, -0.5 * nx - 0.65 * ny + 0.58 * Math.sqrt(1 - flat));
 }
 
-// A child is smaller: two rows of the torso are taken away.
-function torsoOf(look, view) {
-  const rows = TORSOS[view];
-  return look.small ? rows.filter((row, index) => index !== 3 && index !== 6) : rows;
+// Paints the pixels of a ball that pass `keep(x, y)` (a part of the hair, the face...).
+function paintBallPart(grid, ball, ramp, keep = () => true, brightness = 1) {
+  for (let y = Math.floor(ball.cy - ball.ry); y <= ball.cy + ball.ry; y++) {
+    for (let x = Math.floor(ball.cx - ball.rx); x <= ball.cx + ball.rx; x++) {
+      const light = ballLight(ball, x, y);
+      if (light >= 0 && keep(x, y)) dot(grid, x, y, toneOf(ramp, light * brightness, x, y));
+    }
+  }
 }
 
-// view: 'down' | 'up' | 'side' (looking right). step: 0 standing, 1 walking. battle: holding the sword forward.
-function personGrid(look, view, step, battle) {
+// ---------- Poses: the pictures of the animations ----------
+
+// One picture of an animation.
+// lift: the body goes up (+) or down (−), in pixels. lean: the upper body moves forward (+) or back (−) (side view).
+// legs: 'together' | 'walkA' | 'walkB' | 'stance' | 'lunge'. arms: see ARM_ENDS. cape: how far the cape flies (0 to 3).
+// face: 'normal' | 'shout' | 'hurt' | 'happy'.
+// sword: in a fight, the angle of the sword in the hand (degrees: 0 = forward, −90 = up), drawn by battle.js.
+// No angle: the sword stays on the back (or at the hip).
+const POSES = {
+  stand: { lift: 0, legs: 'together', arms: 'down', cape: 0 },
+  breath: { lift: -1, legs: 'together', arms: 'down', cape: 1 },
+  walk0: { lift: 0, legs: 'walkA', arms: 'swingA', cape: 1 },
+  walk1: { lift: 1, legs: 'together', arms: 'down', cape: 2 },
+  walk2: { lift: 0, legs: 'walkB', arms: 'swingB', cape: 1 },
+  walk3: { lift: 1, legs: 'together', arms: 'down', cape: 2 },
+  ready0: { lift: -1, lean: 1, legs: 'stance', arms: 'ready', cape: 1, sword: -40 },
+  ready1: { lift: -2, lean: 1, legs: 'stance', arms: 'ready', cape: 2, sword: -35 },
+  windup: { lift: 0, lean: -2, legs: 'stance', arms: 'raised', cape: 1, face: 'shout', sword: -125 },
+  slash: { lift: -2, lean: 3, legs: 'lunge', arms: 'forward', cape: 3, face: 'shout', sword: 30 },
+  cast: { lift: 0, lean: 1, legs: 'stance', arms: 'forward', cape: 3, face: 'shout', sword: -15 },
+  hurt: { lift: 0, lean: -3, legs: 'stance', arms: 'flail', cape: 0, face: 'hurt', sword: 120 },
+  victory: { lift: 1, legs: 'together', arms: 'victory', cape: 2, face: 'happy', sword: -90 },
+  drink: { lift: 0, legs: 'together', arms: 'drink', cape: 1, face: 'happy' },
+};
+
+// Where the hand is, from the shoulder (side view, looking right), for each way of holding the arm.
+const ARM_ENDS = {
+  down: [0, 7],
+  swingA: [2, 6],
+  swingB: [-2, 6],
+  ready: [6, 3],
+  raised: [2, -9],
+  forward: [8, 1],
+  flail: [-5, 3],
+  victory: [3, -10],
+  drink: [5, -3],
+};
+
+// A raised arm is painted over the head (else the head would hide it).
+const ARMS_IN_FRONT = ['raised', 'victory', 'drink'];
+
+// Where each foot is, from the hip (side view): the far leg and the near leg.
+const SIDE_FEET = {
+  together: { far: 0, near: 0 },
+  walkA: { far: -3, near: 3 },
+  walkB: { far: 3, near: -3 },
+  stance: { far: -4, near: 4 },
+  lunge: { far: -8, near: 6 },
+};
+
+// The walk, the breath and the fight, picture after picture.
+const WALK = ['walk0', 'walk1', 'walk2', 'walk3'];
+
+// ---------- The body ----------
+
+// Where the parts of the body are. A child has a shorter body (the same big head). lift: up (+) or down (−).
+function bodyOf(look, lift) {
+  const short = look.small ? 3 : 0;
+  const top = 4 + short - lift; // the top of the head
+  return {
+    head: { cx: CX, cy: top + 8, rx: 8.5, ry: 7.8 },
+    torsoTop: top + 15,
+    torsoBottom: top + 23 - short,
+    legTop: top + 24 - short,
+    bootTop: FEET - 2,
+  };
+}
+
+// A thick line of cloth (an arm, a leg seen from the side), lit on its left.
+function paintStroke(grid, [x0, y0], [x1, y1], width, ramp) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+  for (let i = 0; i <= steps; i++) {
+    const cx = x0 + ((x1 - x0) * i) / steps;
+    const cy = y0 + ((y1 - y0) * i) / steps;
+    for (let dy = 0; dy < width; dy++) {
+      for (let dx = 0; dx < width; dx++) {
+        const x = Math.round(cx - width / 2 + dx);
+        const y = Math.round(cy - width / 2 + dy);
+        dot(grid, x, y, toneOf(ramp, 0.75 - (dx / width) * 0.35, x, y));
+      }
+    }
+  }
+}
+
+// The same ramp, one tone darker (the leg that is farther, in the shade of the body).
+function shadedRamp(ramp) {
+  return [ramp[0], ...ramp.slice(0, -1)];
+}
+
+// The legs and the boots, seen from the side. The far leg is darker.
+function paintSideLegs(grid, colors, legs, body, lean) {
+  const hip = 17.5 + Math.round(lean / 2);
+  const feet = SIDE_FEET[legs];
+  [
+    [feet.far, shadedRamp(colors.pants), shadedRamp(colors.boots)],
+    [feet.near, colors.pants, colors.boots],
+  ].forEach(([foot, pants, boots]) => {
+    paintStroke(grid, [hip, body.legTop + 1], [17.5 + foot, body.bootTop - 1], 4, pants);
+    paintCloth(grid, Math.round(15.5 + foot), body.bootTop, Math.round(20.5 + foot), FEET, boots); // the toes point forward
+  });
+}
+
+// The legs and the boots, seen from the front or the back: one foot forward (lower) while walking.
+function paintFrontLegs(grid, colors, legs, body) {
+  const forward = { walkA: 1, walkB: -1 }[legs] || 0;
+  const legBottom = body.bootTop - 1;
+  paintCloth(grid, 13, body.legTop, 16, legBottom + forward, colors.pants);
+  paintCloth(grid, 19, body.legTop, 22, legBottom - forward, colors.pants);
+  paintCloth(grid, 12, body.bootTop + forward, 16, FEET + forward, colors.boots);
+  paintCloth(grid, 19, body.bootTop - forward, 23, FEET - forward, colors.boots);
+}
+
+function paintTorso(grid, look, colors, view, body) {
+  const [left, right] = view === 'side' ? [14, 22] : [12, 23];
+  paintCloth(grid, left, body.torsoTop, right, body.torsoBottom, colors.outfit);
+  fillRect(grid, left, body.torsoTop, 1, 1, null); // round shoulders
+  fillRect(grid, right, body.torsoTop, 1, 1, null);
+  const belt = body.torsoBottom - 2;
+  paintCloth(grid, left, belt, right, belt, colors.trim);
+  if (look.skirt) paintCloth(grid, left - 1, belt + 1, right + 1, body.torsoBottom + 3, colors.outfit);
+  else paintCloth(grid, left - 1, belt + 1, right + 1, body.torsoBottom, colors.outfit); // the bottom of the tunic
+}
+
+// The arm seen from the side: the sleeve and the hand. Returns where the hand is.
+function paintSideArm(grid, colors, arms, body) {
+  const shoulder = [CX, body.torsoTop + 1];
+  const [dx, dy] = ARM_ENDS[arms];
+  const hand = [shoulder[0] + dx, shoulder[1] + dy];
+  paintStroke(grid, shoulder, [shoulder[0] + dx * 0.75, shoulder[1] + dy * 0.75], 3, colors.outfit);
+  paintCloth(grid, hand[0] - 1, hand[1] - 1, hand[0], hand[1], colors.skin);
+  if (arms === 'drink') paintPotion(grid, hand);
+  return hand;
+}
+
+// A small blue potion in the hand (the hero drinks).
+function paintPotion(grid, [x, y]) {
+  fillRect(grid, x + 1, y - 4, 2, 4, '#3a7bff');
+  dot(grid, x + 1, y - 3, '#bfe0ff');
+  fillRect(grid, x + 1, y - 5, 2, 1, '#8a5a2e');
+}
+
+// The two arms seen from the front or the back. swing: −1, 0 or 1 (they move while walking).
+function paintFrontArms(grid, colors, arms, body) {
+  const swing = { swingA: 1, swingB: -1 }[arms] || 0;
+  const top = body.torsoTop + 1;
+  const bottom = body.torsoBottom - 2;
+  paintCloth(grid, 10, top - swing, 11, bottom - swing, colors.outfit);
+  paintCloth(grid, 10, bottom + 1 - swing, 11, bottom + 2 - swing, colors.skin);
+  paintCloth(grid, 24, top + swing, 25, bottom + swing, colors.outfit);
+  paintCloth(grid, 24, bottom + 1 + swing, 25, bottom + 2 + swing, colors.skin);
+}
+
+// ---------- The hero's cape, scarf and sword ----------
+
+// The cape seen from the side: it flies behind, higher when the hero runs or strikes (flutter: 0 to 3).
+function paintSideCape(grid, colors, body, flutter) {
+  const top = body.torsoTop;
+  const bottom = body.torsoBottom + 4;
+  const tip = [9 - flutter * 2, bottom - flutter * 2];
+  fillTriangle(grid, [16, top], tip, [17, bottom], (x, y) => toneOf(colors.trim, 0.72 - (17 - x) * 0.04, x, y));
+  drawLine(grid, 15, top + 3, Math.round((tip[0] + 17) / 2), Math.round((tip[1] + bottom) / 2), colors.trim[1]); // a fold
+}
+
+// The cape seen from the front (behind the body) or the back (over it). sway: its bottom moves while walking.
+function paintFlatCape(grid, colors, view, body, sway) {
+  const [left, right] = view === 'up' ? [11, 24] : [9, 26];
+  const top = body.torsoTop;
+  const bottom = body.torsoBottom + 4;
+  for (let y = top; y <= bottom; y++) {
+    const shift = Math.round((sway * (y - top)) / (bottom - top));
+    for (let x = left + shift; x <= right + shift; x++) {
+      dot(grid, x, y, toneOf(colors.trim, 0.75 - ((x - left - shift) / (right - left)) * 0.4 - ((y - top) / (bottom - top)) * 0.15, x, y));
+    }
+  }
+}
+
+function paintScarf(grid, colors, view, body) {
+  const y = body.torsoTop - 1;
+  if (view === 'side') {
+    paintCloth(grid, 15, y, 22, y + 1, colors.trim);
+    paintCloth(grid, 12, y + 1, 15, y + 3, colors.trim); // its tail flies behind
+    return;
+  }
+  paintCloth(grid, 13, y, 22, y + 1, colors.trim);
+}
+
+const BLADE = ['#6d7686', '#c9d1e0', '#eef3fa'];
+
+// The sword when it is not in the hand: its handle over the shoulder, across the back, or at the hip.
+function paintSheathedSword(grid, view, body) {
+  if (view === 'down') {
+    fillRect(grid, 25, body.torsoTop - 4, 2, 4, '#6b4423');
+    fillRect(grid, 24, body.torsoTop - 1, 4, 1, '#e8b83a');
+  }
+  if (view === 'up') drawLine(grid, 11, body.torsoBottom + 2, 24, body.torsoTop - 3, BLADE[1]);
+  if (view === 'side') fillRect(grid, 12, body.torsoBottom - 2, 4, 1, '#6b4423');
+}
+
+// ---------- The head ----------
+
+// How far a lock of the fringe falls on the forehead, for the column x (0 to 3 pixels).
+function lockDepth(x) {
+  return [3, 1, 0, 2, 3, 0, 2][(x * 3) % 7];
+}
+
+const EYE_ROWS = ['DDD', 'WEE', 'EEE', 'dEd'];
+const MOUTH = '#5a1a22';
+
+// The eye and the mouth seen from the side, with the feeling of the pose.
+function paintSideFace(grid, colors, eye, eyeTop, face) {
+  if (face === 'happy') {
+    // closed eyes, like a ^
+    dot(grid, 22, eyeTop + 2, eye.D);
+    dot(grid, 23, eyeTop + 1, eye.D);
+    dot(grid, 24, eyeTop + 2, eye.D);
+  } else if (face === 'hurt') {
+    // eyes shut tight, like a >
+    dot(grid, 22, eyeTop, eye.D);
+    dot(grid, 23, eyeTop + 1, eye.D);
+    dot(grid, 24, eyeTop + 2, eye.D);
+    dot(grid, 23, eyeTop + 3, eye.D);
+    dot(grid, 22, eyeTop + 4, eye.D);
+  } else {
+    drawPicture(grid, EYE_ROWS, eye, 22, eyeTop);
+  }
+  if (face === 'shout') drawLine(grid, 22, eyeTop - 1, 25, eyeTop, eye.D); // a frowning brow
+  dot(grid, 27, eyeTop + 2, colors.skin[3]); // the nose
+  if (face === 'normal') dot(grid, 24, eyeTop + 5, colors.skin[1]);
+  else fillRect(grid, 24, eyeTop + 5, 2, face === 'happy' ? 1 : 2, MOUTH); // an open mouth
+  dot(grid, 23, eyeTop + 4, '#f0908f'); // the blush
+}
+
+function paintFace(grid, colors, view, body, face) {
+  const eyeTop = Math.round(body.head.cy);
+  const eye = { D: '#1c1726', W: '#ffffff', E: colors.eyes, d: darker(colors.eyes, 0.45) };
+  if (view === 'side') {
+    paintSideFace(grid, colors, eye, eyeTop, face);
+    return;
+  }
+  drawPicture(grid, EYE_ROWS, eye, 12, eyeTop);
+  drawPicture(grid, EYE_ROWS, eye, 21, eyeTop);
+  fillRect(grid, 17, eyeTop + 5, 2, 1, colors.skin[1]); // the mouth
+  dot(grid, 11, eyeTop + 4, '#f0908f'); // the blush
+  dot(grid, 24, eyeTop + 4, '#f0908f');
+}
+
+// The hair that is behind the head and the body (long hair, tails, bun).
+function paintHairBack(grid, look, colors, view, body) {
+  const head = body.head;
+  const hair = colors.hair;
+  if (look.style === 'long' && view === 'side') paintBallPart(grid, { cx: head.cx - 4, cy: head.cy + 7, rx: 6, ry: 10 }, hair, () => true, 0.85);
+  else if (look.style === 'long') paintBallPart(grid, { cx: head.cx, cy: head.cy + 8, rx: 10.5, ry: 11 }, hair, () => true, 0.85);
+  if (look.style === 'twin') {
+    const sides = view === 'side' ? [head.cx - 10] : [head.cx - 11.5, head.cx + 11.5];
+    sides.forEach((x) => paintBallPart(grid, { cx: x, cy: head.cy + 5, rx: 3.2, ry: 7 }, hair));
+  }
+  if (look.style === 'pony') {
+    const tail = { down: { cx: head.cx + 10, cy: head.cy + 2 }, up: { cx: head.cx, cy: head.cy + 11 }, side: { cx: head.cx - 10, cy: head.cy + 1 } }[view];
+    paintBallPart(grid, { ...tail, rx: 3, ry: 6.5 }, hair);
+  }
+  if (look.style === 'bun') paintBallPart(grid, { cx: view === 'side' ? head.cx - 5 : head.cx, cy: head.cy - 8.5, rx: 4.2, ry: 3.4 }, hair);
+}
+
+// The skin of the head and the hair on it. (The face is painted between the two.)
+function paintHead(grid, colors, view, body) {
+  const head = body.head;
+  paintBallPart(grid, head, colors.skin);
+  if (view === 'side') dot(grid, 27, Math.round(head.cy) + 2, colors.skin[3]);
+}
+
+// The hair over the head: a cap with a fringe of locks; seen from the back, it covers the whole head.
+function paintHairCap(grid, look, colors, view, body) {
+  const head = body.head;
+  const cap = { cx: head.cx - (view === 'side' ? 1 : 0), cy: head.cy - 1.5, rx: head.rx + 1.3, ry: head.ry + 0.2 };
+  const fringe = (x) => head.cy - 2.5 + lockDepth(x);
+  let keep;
+  if (look.style === 'bald') keep = (x, y) => y > head.cy - 4 && y < head.cy + 3 && Math.abs(x + 0.5 - head.cx) > 6.5; // only on the sides
+  else if (view === 'up') keep = (x, y) => y < head.cy + 6.5;
+  else if (view === 'side') keep = (x, y) => y < fringe(x) || (x < head.cx - 1 && y < head.cy + 6);
+  else keep = (x, y) => y < fringe(x) || (Math.abs(x + 0.5 - head.cx) > 6.5 && y < head.cy + 6);
+  paintBallPart(grid, cap, colors.hair, keep);
+  if (look.style === 'spiky') paintSpikes(grid, colors, view, head);
+}
+
+function paintSpikes(grid, colors, view, head) {
+  const top = head.cy - head.ry;
+  const spikes =
+    view === 'side'
+      ? [
+          [10, 5, 6],
+          [13, 1, 7],
+          [17, 0, 6],
+          [7, 9, 4],
+        ]
+      : [
+          [10, 4, 5],
+          [14, 0, 5],
+          [19, 0, 5],
+          [24, 3, 5],
+          [27, 7, 4],
+          [8, 7, 4],
+        ];
+  for (const [x, y, size] of spikes) {
+    fillTriangle(grid, [x - size / 2, top + 6], [x + size / 2, top + 6], [x + (x < head.cx ? -1 : 1), top + y - 4], (px, py) => toneOf(colors.hair, 0.85 - (py - top) * 0.04, px, py));
+  }
+}
+
+// Fox ears, horns, a beard.
+function paintExtras(grid, look, colors, view, body) {
+  const head = body.head;
+  const top = Math.round(head.cy - head.ry);
+  if (look.ears) {
+    [
+      [head.cx - 6, -1],
+      [head.cx + 6, 1],
+    ].forEach(([x, side]) => {
+      fillTriangle(grid, [x - 3, top + 4], [x + 3, top + 4], [x + side * 2, top - 4], (px, py) => toneOf(colors.hair, 0.8, px, py));
+      fillTriangle(grid, [x - 1.5, top + 3], [x + 1.5, top + 3], [x + side * 1.5, top - 1], () => '#ffb3c8');
+    });
+  }
+  if (look.horns) {
+    [
+      [head.cx - 5, -1],
+      [head.cx + 5, 1],
+    ].forEach(([x, side]) => fillTriangle(grid, [x - 2, top + 3], [x + 2, top + 3], [x + side * 4, top - 5], (px, py) => toneOf(['#1c1420', '#3a2c3e', '#5a4860'], 0.6, px, py)));
+  }
+  if (look.beard && view !== 'up') {
+    const cx = view === 'side' ? head.cx + 4 : head.cx;
+    paintBallPart(grid, { cx: cx, cy: head.cy + 6.5, rx: view === 'side' ? 5 : 6.5, ry: 3.6 }, colors.hair);
+  }
+}
+
+// ---------- The person ----------
+
+// Copies the painted cells of `source` onto `target`, moved by dx pixels.
+function stamp(target, source, dx) {
+  for (let y = 0; y < source.height; y++) {
+    for (let x = 0; x < source.width; x++) {
+      const color = colorAt(source, x, y);
+      if (color) dot(target, x + dx, y, color);
+    }
+  }
+}
+
+// One picture of a person. view: 'down' | 'up' | 'side' (looking right). pose: a name of POSES.
+// The body is painted in 3 layers: what is behind (cape, long hair), the legs, and the upper body
+// (which leans forward or back with the pose). Returns { grid, hand } (hand: where the sword is held, side view).
+function personGrid(look, view, poseName) {
+  const pose = POSES[poseName];
   const colors = colorsOf(look);
-  const grid = makeGrid(GRID_WIDTH, GRID_HEIGHT);
-  const torso = torsoOf(look, view);
-  const legs = LEGS[view === 'side' ? 'side' : 'front'][step];
-  const shift = look.small ? 2 : 0; // a child stands lower in the picture: the feet stay at the same place
-  if (look.style === 'long' && view === 'up') paintOverlay(grid, STYLES.long.up, colors);
-  drawPicture(grid, HEADS[view], colors, LEFT, TOP + shift);
-  drawPicture(grid, torso, colors, LEFT, TOP + shift + 12);
-  drawPicture(grid, legs, colors, LEFT, TOP + shift + 12 + torso.length);
-  const overlay = (table) => table && table[view] && { ...table[view], y: table[view].y + shift };
-  if (!(look.style === 'long' && view === 'up')) paintOverlay(grid, overlay(STYLES[look.style]), colors);
-  ['beard', 'ears', 'horns', 'skirt', 'scarf'].filter((extra) => look[extra]).forEach((extra) => paintOverlay(grid, overlay(EXTRAS[extra]), colors));
-  if (battle && look.sword) paintOverlay(grid, SWORD, colors);
-  return grid;
+  const body = bodyOf(look, pose.lift);
+  const lean = view === 'side' ? pose.lean || 0 : 0;
+  const face = pose.face || 'normal';
+  const sway = { walkA: 1, walkB: -1 }[pose.legs] || 0;
+
+  const behind = makeGrid(W, H);
+  if (look.scarf && view === 'side') paintSideCape(behind, colors, body, pose.cape);
+  if (look.scarf && view === 'down') paintFlatCape(behind, colors, view, body, sway);
+  paintHairBack(behind, look, colors, view, body);
+
+  const upper = makeGrid(W, H);
+  paintTorso(upper, look, colors, view, body);
+  if (look.scarf && view === 'up') paintFlatCape(upper, colors, view, body, sway);
+  if (look.sword && pose.sword === undefined) paintSheathedSword(upper, view, body);
+  const armInFront = view === 'side' && ARMS_IN_FRONT.includes(pose.arms);
+  let hand = view === 'side' && !armInFront ? paintSideArm(upper, colors, pose.arms, body) : null;
+  if (view !== 'side') paintFrontArms(upper, colors, pose.arms, body);
+  if (look.scarf) paintScarf(upper, colors, view, body);
+  paintHead(upper, colors, view, body);
+  if (view !== 'up') paintFace(upper, colors, view, body, face);
+  paintHairCap(upper, look, colors, view, body);
+  paintExtras(upper, look, colors, view, body);
+  if (armInFront) hand = paintSideArm(upper, colors, pose.arms, body);
+
+  const grid = makeGrid(W, H);
+  stamp(grid, behind, lean);
+  if (view === 'side') paintSideLegs(grid, colors, pose.legs, body, lean);
+  else paintFrontLegs(grid, colors, pose.legs, body);
+  stamp(grid, upper, lean);
+  return { grid: grid, hand: hand ? [hand[0] + lean, hand[1]] : null };
 }
+
+// The picture turned a quarter to the left: the person lies on their back, the head on the left (knocked out).
+function lyingDown(grid) {
+  const result = makeGrid(grid.height, grid.width);
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) dot(result, y, grid.width - 1 - x, colorAt(grid, x, y));
+  }
+  return result;
+}
+
+// The lowest row with something painted (where a lying body touches the ground).
+function lowestRow(grid) {
+  for (let y = grid.height - 1; y >= 0; y--) {
+    for (let x = 0; x < grid.width; x++) if (colorAt(grid, x, y)) return y;
+  }
+  return grid.height - 1;
+}
+
+// The point of the picture that stands on the ground (between the feet).
+export const PERSON_ANCHOR = { x: CX, y: FEET + 1 };
 
 // A number for each look, to remember its pictures.
 const lookIds = new WeakMap();
@@ -233,64 +461,111 @@ function lookId(look) {
   return lookIds.get(look);
 }
 
-// The point of the picture that stands on the ground (between the feet).
-export const PERSON_ANCHOR = { x: LEFT + 8, y: TOP + 23 };
+// The knocked out person, lying on the ground.
+function lyingSprite(look) {
+  const grid = lyingDown(personGrid(look, 'side', 'hurt').grid);
+  return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: Math.round(grid.width / 2), ay: lowestRow(grid) + 1, hand: null, sword: undefined };
+}
 
-// dir: 'down' | 'up' | 'left' | 'right'. frame: 0 standing, 1 left foot, 2 standing, 3 right foot (a walk).
-// battle: true = the fighting pose (side view, sword forward).
-export function personSprite(look, dir, frame, battle = false) {
-  const key = 'person' + lookId(look) + dir + frame + battle;
-  return once(key, () => {
+// dir: 'down' | 'up' | 'left' | 'right'. pose: a name of POSES ('stand', 'walk0'...), or 'ko' (lying on the ground).
+// Returns { canvas, ax, ay, hand, sword }: (ax, ay) touches the ground; in a fight, the sword is held at `hand`
+// with the angle `sword` (see swordSprite).
+export function personSprite(look, dir, pose = 'stand') {
+  return once('person' + lookId(look) + dir + pose, () => {
+    if (pose === 'ko') return lyingSprite(look);
     const view = dir === 'left' || dir === 'right' ? 'side' : dir;
-    const step = frame % 2;
-    let grid = personGrid(look, view, step, battle);
-    const isMirror = dir === 'left' || (view !== 'side' && frame === 3); // the right foot = the left foot in a mirror
-    if (isMirror) grid = mirrored(grid);
-    const anchorX = isMirror ? GRID_WIDTH - 1 - PERSON_ANCHOR.x : PERSON_ANCHOR.x;
-    return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: anchorX, ay: PERSON_ANCHOR.y };
+    const picture = personGrid(look, view, pose);
+    const isMirror = dir === 'left';
+    const grid = isMirror ? mirrored(picture.grid) : picture.grid;
+    const hand = picture.hand && (isMirror ? [W - 1 - picture.hand[0], picture.hand[1]] : picture.hand);
+    const angle = POSES[pose].sword;
+    return {
+      canvas: toCanvas(addOutline(grid, OUTLINE)),
+      ax: isMirror ? W - 1 - PERSON_ANCHOR.x : PERSON_ANCHOR.x,
+      ay: PERSON_ANCHOR.y,
+      hand: hand,
+      sword: angle === undefined ? undefined : isMirror ? 180 - angle : angle,
+    };
   });
 }
 
-// The frame of a walk: `step` grows while the person walks (see logic). Standing still: frame 0.
-export function walkFrame(step, isWalking) {
-  return isWalking ? Math.floor(step) % 4 : 0;
+// The pose of someone on the map. step: grows while they walk (see logic). time: seconds (they breathe
+// when they stand still; `salt` makes everyone breathe at their own moment).
+export function walkPose(step, isWalking, time = 0, salt = 0) {
+  if (isWalking) return WALK[Math.floor(step) % 4];
+  return Math.floor(time * 1.4 + salt) % 2 ? 'breath' : 'stand';
+}
+
+// ---------- The sword in the hand (fights) ----------
+
+// The colors of each blade: [shade, light, shine].
+const BLADES = {
+  woodSword: ['#5a3a1e', '#a0683a', '#c98f55'],
+  ironSword: ['#5d6676', '#b9c2d2', '#eef3fa'],
+  steelSword: ['#4f5a70', '#c9d4e6', '#ffffff'],
+  mithrilSword: ['#2f6f9a', '#8fd6ff', '#e8fbff'],
+  lexiconBlade: ['#9a6a10', '#ffd24a', '#fff6c8'],
+};
+
+// The sword, turned to `angle` (degrees: 0 = forward to the right, −90 = up), held by its grip at the middle
+// of the picture. weapon: the id of the sword (its colors).
+export function swordSprite(angle, weapon) {
+  const step = Math.round(angle / 15) * 15;
+  return once('sword' + step + weapon, () => {
+    const size = 35;
+    const c = 17; // the grip, in the middle
+    const grid = makeGrid(size, size);
+    const turn = (step * Math.PI) / 180;
+    const [ux, uy] = [Math.cos(turn), Math.sin(turn)]; // along the blade
+    const [nx, ny] = [-uy, ux]; // across the blade
+    const at = (along, across) => [Math.round(c + ux * along + nx * across), Math.round(c + uy * along + ny * across)];
+    const blade = BLADES[weapon] || BLADES.ironSword;
+    for (let i = -3; i <= 0; i++) dot(grid, ...at(i, 0), '#6b4423'); // the grip
+    for (let i = 3; i <= 14; i++) {
+      dot(grid, ...at(i, 0), blade[2]); // the shining edge and the shaded edge
+      dot(grid, ...at(i, 1), blade[1]);
+    }
+    dot(grid, ...at(15, 0.5), blade[2]); // the tip
+    for (let i = -2; i <= 3; i++) dot(grid, ...at(2, i), '#e8b83a'); // the guard
+    return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: c, ay: c };
+  });
 }
 
 // ---------- The obsidian friends ----------
 
-const SOLDIER_ROWS = [
-  '......LL......',
-  '.....LDDD.....',
-  '....LDDDDD....',
-  '....DVVVVD....',
-  '....DDDDDD....',
-  '.....DDDD.....',
-  '...LDDDDDDD...',
-  '..LDDDDDDDDD..',
-  '..DDDLDDDDDD..',
-  '..DDDDDDDDDD..',
-  '...DDDDDDDD...',
-  '....DD..DD....',
-  '....DD..DD....',
-  '...DDD..DDD...',
-];
+const OBSIDIAN = ['#0d0a14', '#1a1428', '#271e3c', '#372a52', '#4b3b6e', '#6a5a9a'];
+const GLOW = '#c9a8ff';
 
+// A soldier of black glass, with a spear and glowing eyes. frame: it breathes.
 export function obsidianSoldier(frame) {
   return once('soldier' + (frame % 2), () => {
-    const grid = makeGrid(18, 20);
-    drawPicture(grid, SOLDIER_ROWS, { L: '#6a5aa0', D: '#251d38', V: '#c9a8ff' }, 1, frame % 2 ? 4 : 5);
-    drawLine(grid, 15, 1, 15, 18, '#4a3b7a');
-    fillRect(grid, 14, 0, 3, 2, '#c9a8ff');
-    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 8, ay: 19 };
+    const grid = makeGrid(20, 26);
+    const lift = frame % 2;
+    paintCloth(grid, 6, 17, 8, 24, OBSIDIAN); // the legs
+    paintCloth(grid, 10, 17, 12, 24, OBSIDIAN);
+    fillBall(grid, 9.5, 13 - lift, 5.5, 5.5, OBSIDIAN, { ambient: 0.25 }); // the body
+    fillBall(grid, 9.5, 6 - lift, 4.5, 4.5, OBSIDIAN, { ambient: 0.3 }); // the helmet
+    fillRect(grid, 7, 6 - lift, 6, 1, GLOW); // the eyes behind the visor
+    drawLine(grid, 16, 1, 16, 25, OBSIDIAN[4]); // the spear
+    fillRect(grid, 15, 0, 3, 3, GLOW);
+    fillBall(grid, 15, 13 - lift, 1.6, 1.6, OBSIDIAN); // the hand
+    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 9, ay: 25 };
   });
 }
 
-const CAT_ROWS = ['D...D.....', 'DD.DD.....', 'DVDVD....D', 'DDDDD...D.', '.DDDDDDDD.', '.DDDDDDDD.', '.D.D..D.D.'];
-
+// The cat of black glass, with violet eyes. It looks to the right.
 export function obsidianCat() {
   return once('cat', () => {
-    const grid = makeGrid(12, 9);
-    drawPicture(grid, CAT_ROWS, { D: '#251d38', V: '#c9a8ff' }, 1, 1);
-    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 6, ay: 8 };
+    const grid = makeGrid(20, 15);
+    drawLine(grid, 4, 9, 2, 3, OBSIDIAN[3]); // the tail
+    drawLine(grid, 3, 9, 1, 3, OBSIDIAN[2]);
+    [6, 8, 12, 14].forEach((x) => paintCloth(grid, x, 10, x + 1, 13, OBSIDIAN)); // the legs
+    fillBall(grid, 10, 9, 6, 3.6, OBSIDIAN, { ambient: 0.25 }); // the body
+    fillTriangle(grid, [13, 4], [13, 0], [16, 3], (x, y) => toneOf(OBSIDIAN, 0.7, x, y)); // the ears
+    fillTriangle(grid, [16, 3], [19, 0], [19, 5], (x, y) => toneOf(OBSIDIAN, 0.45, x, y));
+    fillBall(grid, 16, 6, 3.8, 3.4, OBSIDIAN, { ambient: 0.3 }); // the head
+    dot(grid, 17, 6, GLOW); // the eye
+    dot(grid, 19, 7, OBSIDIAN[5]); // the nose
+    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 10, ay: 14 };
   });
 }

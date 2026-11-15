@@ -6,6 +6,7 @@ import OptionsScreen from './ui/OptionsScreen';
 import CreditsScreen from './ui/CreditsScreen';
 import GameWorld from './ui/GameWorld';
 import { GameOptionsContext } from './ui/gameOptions';
+import useScreen from './ui/useScreen';
 import { newGame } from './logic/newGame';
 import { loadGame, saveGame } from './logic/save';
 import { loadOptions, saveOptions } from './logic/options';
@@ -14,6 +15,11 @@ import { playSong, stopSong } from './audio/music';
 import { setVolumes } from './audio/synth';
 import { playEffect } from './audio/effects';
 import './ui/game.css';
+
+// On a big screen, the windows of the game are drawn bigger: 1 on a phone, up to 2 on a big screen.
+function uiZoom(shape) {
+  return Math.max(1, Math.min(2, shape.width / 760, shape.height / 600));
+}
 
 // The window of the game "Lexia": an isekai where the fights are TOEIC questions. It covers the whole app.
 // The screens: 'title' (the main menu) -> 'slots' (the 3 saves) -> 'create' (a new hero) -> 'play' (the world).
@@ -26,6 +32,7 @@ export default function GamePage({ questions, stats, history, goalRate, onAnswer
   const [game, setGame] = useState(null);
   const [slot, setSlot] = useState(1); // the slot of the new game being created
   const [options, setOptions] = useState(loadOptions);
+  const shape = useScreen();
 
   useEffect(takeOverTheSound, []);
   useEffect(applyVolumes, [options.musicVolume, options.effectsVolume]);
@@ -101,7 +108,7 @@ export default function GamePage({ questions, stats, history, goalRate, onAnswer
 
   return (
     <GameOptionsContext value={{ options: options, changeOption: changeOption }}>
-      <div className="game" onClickCapture={clickSound}>
+      <div className={'game' + (shape.wide ? ' wide' : '') + (shape.touch ? ' touch' : '')} style={{ '--ui': uiZoom(shape) }} onClickCapture={clickSound}>
         {renderScreen()}
       </div>
     </GameOptionsContext>

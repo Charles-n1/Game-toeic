@@ -313,11 +313,16 @@ function drawLabel(ctx, frame, place, isSelected) {
   return box;
 }
 
+// Is this tile on the map shown? (the names of the places outside it are not written: they would pile up on the edges)
+function isInFrame(frame, x, y) {
+  return x >= frame.left && x <= frame.left + frame.visible && y >= frame.top && y <= frame.top + frame.visible;
+}
+
 function drawPlaces(ctx, game, frame, view, selectedId) {
   const boxes = [];
   for (const place of PLACES) {
     const showLand = place.kind !== 'land' || view.zoom >= 2;
-    if (showLand && isKnown(game, place.x, place.y)) boxes.push(drawLabel(ctx, frame, place, place.id === selectedId));
+    if (showLand && isInFrame(frame, place.x, place.y) && isKnown(game, place.x, place.y)) boxes.push(drawLabel(ctx, frame, place, place.id === selectedId));
   }
   return boxes;
 }

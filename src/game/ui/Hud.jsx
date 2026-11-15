@@ -3,6 +3,7 @@ import TouchStick from './TouchStick';
 import StatusPanel from './StatusPanel';
 import PixelIcon from './PixelIcon';
 import useCanvas from './useCanvas';
+import useScreen from './useScreen';
 import { typeOf } from '../data/types';
 import { zoneAt } from '../data/zones';
 import { drawMiniMap } from '../draw/worldmap';
@@ -12,12 +13,12 @@ import { daysBeforeRaid } from '../logic/raid';
 import { currentChapter } from '../logic/chapters';
 import { actionIcon } from '../logic/update';
 
-// The small map in the corner. Tap it: the big map.
-function MiniMap({ game, onOpen }) {
+// The small map in the corner. Tap it: the big map. size: in pixels.
+function MiniMap({ game, size, onOpen }) {
   const canvasRef = useCanvas((ctx, width, height, time) => drawMiniMap(ctx, game, width, time));
   return (
-    <button className="window minimap" onClick={onOpen} aria-label="map">
-      <canvas ref={canvasRef} style={styles.miniCanvas} />
+    <button className="window minimap" style={{ width: size + 4, height: size + 4 }} onClick={onOpen} aria-label="map">
+      <canvas ref={canvasRef} style={{ width: size, height: size }} />
     </button>
   );
 }
@@ -54,19 +55,68 @@ function Objective({ game }) {
 
 // Everything drawn on top of the world: the hero, the goal, the map, the clock, the buttons.
 // onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
+// What the action key does now, in a word (for the keyboard help).
+const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig' };
+
+// The help of the keyboard, on a computer (instead of the joystick and the big buttons).
+function KeyHelp({ game }) {
+  return (
+    <div className="window keys" style={styles.keys}>
+      <span>
+        <span className="key">E</span>
+        {ACTION_WORDS[actionIcon(game)]}
+      </span>
+      <span>
+        <span className="key">M</span>Map
+      </span>
+      <span>
+        <span className="key">Esc</span>Menu
+      </span>
+    </div>
+  );
+}
+
+// The joystick and the big buttons, on a touch screen.
+function TouchControls({ game, input, onAction, onMenu }) {
+  return (
+    <>
+      <div style={styles.stick}>
+        <TouchStick input={input} />
+      </div>
+      <div style={styles.buttons}>
+        <button className="px-button" style={styles.menu} onClick={() => onMenu(null)} aria-label="menu">
+          <PixelIcon name="menu" size={14} />
+          <span>Menu</span>
+        </button>
+        <button className="px-button px-action" onClick={onAction} aria-label="action">
+          <PixelIcon name={actionIcon(game)} size={42} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Everything drawn on top of the world: the hero, the goal, the map, the clock, the controls.
+// On a wide screen the goal goes to the top-right, next to the map (like a console RPG).
+// onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
 export default function Hud({ game, input, onAction, onMenu }) {
   const raid = raidText(game);
   const zone = zoneAt(game.player.x, game.player.y);
+  const screen = useScreen();
+  const showTouch = screen.touch || !screen.wide;
 
   return (
     <div className="hud">
       <div style={styles.left}>
         <StatusPanel game={game} />
-        <Objective game={game} />
+        {!screen.wide && <Objective game={game} />}
       </div>
 
       <div style={styles.right}>
-        <MiniMap game={game} onOpen={() => onMenu('map')} />
+        <div className="row" style={styles.topRight}>
+          {screen.wide && <Objective game={game} />}
+          <MiniMap game={game} size={screen.wide ? 120 : 84} onOpen={() => onMenu('map')} />
+        </div>
         <div className="window" style={styles.clock}>
           <span style={styles.clockText}>
             {isNight(game) ? '☾' : '☀'} {clockText(game)}
@@ -83,21 +133,10 @@ export default function Hud({ game, input, onAction, onMenu }) {
         ))}
       </div>
 
-      <div className="window" style={styles.zone}>
+      <div className="window" style={{ ...styles.zone, bottom: showTouch ? 158 : 12 }}>
         <span>{zone.name}</span>
       </div>
-      <div style={styles.stick}>
-        <TouchStick input={input} />
-      </div>
-      <div style={styles.buttons}>
-        <button className="px-button" style={styles.menu} onClick={() => onMenu(null)} aria-label="menu">
-          <PixelIcon name="menu" size={14} />
-          <span>Menu</span>
-        </button>
-        <button className="px-button px-action" onClick={onAction} aria-label="action">
-          <PixelIcon name={actionIcon(game)} size={42} />
-        </button>
-      </div>
+      {showTouch ? <TouchControls game={game} input={input} onAction={onAction} onMenu={onMenu} /> : <KeyHelp game={game} />}
     </div>
   );
 }
@@ -112,6 +151,7 @@ const styles = {
   },
   objective: {
     padding: '6px 9px',
+    maxWidth: 340,
   },
   goal: {
     fontSize: 14,
@@ -131,9 +171,14 @@ const styles = {
     alignItems: 'flex-end',
     gap: 8,
   },
-  miniCanvas: {
-    width: 84,
-    height: 84,
+  topRight: {
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  keys: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
   },
   clock: {
     padding: '4px 8px',

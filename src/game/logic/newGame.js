@@ -25,6 +25,7 @@ export function makeRun() {
     people: {}, // where each person is: { aria: { x, y, ... } }
     followers: [],
     particles: [],
+    emotes: [], // the small bubbles over the heads (see emotes.js)
     barriers: [], // obsidian walls: [{ x, y, until }]
     balls: [], // lightning balls and fireballs flying
     storm: null, // the storm field: { x, y, radius, until }

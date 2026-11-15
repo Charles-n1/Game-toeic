@@ -3,6 +3,7 @@ import Bar from './Bar';
 import Window from './Window';
 import PixelIcon from './PixelIcon';
 import StatusPanel from './StatusPanel';
+import useScreen from './useScreen';
 import Passage from '../../components/Passage';
 import { playEffect } from '../audio/effects';
 import { TYPES, typeOf, weaknessOf } from '../data/types';
@@ -11,7 +12,7 @@ import { answer, nextRound, endFight, flee, xpOfFight, SPELL_MANA } from '../log
 import { spellRank } from '../logic/learning';
 import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
-import { battlePlaces } from '../draw/battle';
+import { battlePlaces, hitMoments } from '../draw/battle';
 
 const AUTO_NEXT = 1100; // milliseconds: after a GOOD answer, the next question comes by itself
 const POTIONS = ['healthPotion', 'bigPotion', 'bread', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
@@ -26,22 +27,29 @@ function storyOf(last) {
   return { good: false, text: last.taken > 0 ? why + ' −' + last.taken + ' HP' : why };
 }
 
-// The sparks, the numbers, the shaking and the sounds of an answer.
+// The sparks, the number and the flash on the opponent, when the hero's blow lands.
+function hitFoe(game, places, last, color, combo) {
+  burst(game, places.foe.x, places.foe.y - 0.8, color, last.critical ? 36 : 16);
+  floatText(game, places.foe.x + 0.6, places.foe.y - 0.6, String(last.damage), last.critical ? '#ffd23f' : '#ffffff');
+  if (combo >= 2) floatText(game, places.foe.x, places.foe.y - 2.2, 'COMBO x' + combo, '#7cfc9a');
+  if (last.critical) game.run.flashUntil = Date.now() + 90;
+}
+
+// The sparks, the number, the shaking and the sound on the hero, when the opponent's blow lands.
+function hitHero(game, places, last) {
+  burst(game, places.hero.x, places.hero.y - 0.8, '#ff5a6e', 12);
+  floatText(game, places.hero.x - 0.6, places.hero.y - 0.6, '−' + last.taken, '#ff8a95');
+  game.run.shakeUntil = Date.now() + 250;
+  playEffect('hit');
+}
+
+// The sound of the answer at once, then each blow when it lands (see the time line in draw/battle.js).
 function celebrate(game, last, color, combo) {
   const places = battlePlaces(game);
-  if (last.damage > 0) {
-    burst(game, places.foe.x, places.foe.y - 0.8, color, last.critical ? 36 : 16);
-    floatText(game, places.foe.x + 0.6, places.foe.y - 0.6, String(last.damage), last.critical ? '#ffd23f' : '#ffffff');
-  }
-  if (combo >= 2) floatText(game, places.foe.x, places.foe.y - 2.2, 'COMBO x' + combo, '#7cfc9a');
-  if (last.taken > 0) {
-    burst(game, places.hero.x, places.hero.y - 0.8, '#ff5a6e', 12);
-    floatText(game, places.hero.x - 0.6, places.hero.y - 0.6, '−' + last.taken, '#ff8a95');
-    game.run.shakeUntil = Date.now() + 250;
-  }
-  if (last.critical) game.run.flashUntil = Date.now() + 90;
+  const moments = hitMoments(last);
   playEffect(last.critical ? 'critical' : last.isCorrect ? 'good' : 'wrong');
-  if (last.taken > 0) playEffect('hit');
+  if (last.damage > 0) setTimeout(() => hitFoe(game, places, last, color, combo), moments.foe);
+  if (last.taken > 0) setTimeout(() => hitHero(game, places, last), moments.hero);
 }
 
 // How an answer button looks once the question is answered.
@@ -274,11 +282,12 @@ export default function FightScreen({ game, refresh }) {
   }
 
   const isOver = ['won', 'lost', 'fled'].includes(fight.phase);
+  const wide = useScreen().wide;
   const title = opponent.duel ? opponent.title + ' with ' + opponent.name : 'Defeat ' + opponent.name + '!';
 
   return (
     <div className="hud">
-      <div style={styles.top}>
+      <div style={{ ...styles.top, ...(wide ? styles.topWide : null) }}>
         <StatusPanel game={game} />
         <div className="window" style={styles.foe}>
           <span>
@@ -326,6 +335,11 @@ const styles = {
     left: 8,
     right: 8,
     gap: 8,
+  },
+  topWide: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   foe: {
     alignSelf: 'flex-start',

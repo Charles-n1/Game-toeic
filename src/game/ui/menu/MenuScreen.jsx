@@ -1,6 +1,7 @@
 import Window from '../Window';
 import PixelIcon from '../PixelIcon';
 import StatusPanel from '../StatusPanel';
+import useScreen from '../useScreen';
 import StatsPanel from './StatsPanel';
 import InventoryPanel from './InventoryPanel';
 import PowersPanel from './PowersPanel';
@@ -27,8 +28,26 @@ const PANELS = { stats: StatsPanel, inventory: InventoryPanel, powers: PowersPan
 
 // The pause menu: the list of entries, then the window of the chosen one. game.run.menuTab: null = the list.
 // onQuit: back to the title menu (the game is saved first).
+// The list of the entries. current: the tab shown on the right (wide screens), highlighted.
+function EntryList({ current, onOpen, style }) {
+  return (
+    <div className="window window-gold slide-up" style={{ ...styles.list, ...style }}>
+      {ENTRIES.map((entry, index) => (
+        <button key={entry.tab} className={'menu-item' + ((current ? entry.tab === current : index === 0) ? ' selected' : '')} onClick={() => onOpen(entry)}>
+          <PixelIcon name={entry.tab} size={28} />
+          <span>{entry.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// The pause menu. On a phone: the list, then the window of the chosen entry (with a "Menu" button to go back).
+// On a wide screen: the list on the left and the window on the right, like a console RPG (the map takes all the room).
+// game.run.menuTab: the chosen entry (null = none yet). onQuit: back to the title menu (the game is saved first).
 export default function MenuScreen({ game, refresh, onClose, onQuit }) {
-  const tab = game.run.menuTab;
+  const wide = useScreen().wide;
+  const tab = game.run.menuTab || (wide ? 'stats' : null);
   const Panel = PANELS[tab];
 
   function open(entry) {
@@ -51,49 +70,54 @@ export default function MenuScreen({ game, refresh, onClose, onQuit }) {
   }
 
   function backToList() {
-    game.run.menuTab = null;
+    game.run.menuTab = wide ? 'stats' : null;
     refresh();
   }
 
-  if (Panel) {
-    const title = tab === 'map' ? 'World Map' : ENTRIES.find((entry) => entry.tab === tab).label;
+  const title = tab === 'map' ? 'World Map' : tab ? ENTRIES.find((entry) => entry.tab === tab).label : '';
+  const panel = Panel && (
+    <Window title={title} gold onClose={onClose} scroll={wide && tab !== 'map'}>
+      {(!wide || tab === 'map') && (
+        <button className="px-button" style={styles.back} onClick={backToList}>
+          ◀ Menu
+        </button>
+      )}
+      <Panel game={game} refresh={refresh} onClose={onClose} />
+    </Window>
+  );
+
+  if (wide && tab !== 'map') {
     return (
-      <div className="overlay">
-        <Window title={title} gold onClose={onClose}>
-          <button className="px-button" style={styles.back} onClick={backToList}>
-            ◀ Menu
-          </button>
-          <Panel game={game} refresh={refresh} onClose={onClose} />
-        </Window>
+      <div className="overlay menu-wide">
+        <div style={styles.leftColumn}>
+          <StatusPanel game={game} />
+          <EntryList current={tab} onOpen={open} style={styles.wideList} />
+        </div>
+        {panel}
       </div>
     );
   }
-
+  if (Panel) return <div className="overlay">{panel}</div>;
   return (
     <div className="overlay">
       <StatusPanel game={game} />
-      <div className="window slide-up" style={styles.list}>
-        {ENTRIES.map((entry, index) => (
-          <button key={entry.tab} className={'menu-item' + (index === 0 ? ' selected' : '')} onClick={() => open(entry)}>
-            <PixelIcon name={entry.tab} size={28} />
-            <span>{entry.label}</span>
-          </button>
-        ))}
-      </div>
+      <EntryList current={null} onOpen={open} />
     </div>
   );
 }
 
 const styles = {
+  leftColumn: {
+    gap: 12,
+    flexShrink: 0,
+  },
+  wideList: {
+    marginTop: 0,
+  },
   list: {
     marginTop: 12,
     width: 240,
     padding: 8,
-  },
-  separator: {
-    height: 2,
-    margin: '6px 4px',
-    backgroundColor: 'rgba(223, 228, 240, 0.35)',
   },
   back: {
     alignSelf: 'flex-start',

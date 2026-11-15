@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import useCanvas from './useCanvas';
 import Portrait from './Portrait';
 import { BODIES, HAIR_STYLES, HAIR_COLORS, OUTFIT_COLORS, heroLook } from '../data/hero';
-import { personSprite } from '../draw/people';
+import { personSprite, walkPose } from '../draw/people';
 
 const NAME_LENGTH = 12;
 const TURN = ['down', 'left', 'up', 'right']; // the preview turns around
@@ -10,8 +10,8 @@ const TURN = ['down', 'left', 'up', 'right']; // the preview turns around
 // The hero, big, turning and walking on the spot.
 function HeroPreview({ look }) {
   const canvasRef = useCanvas((ctx, width, height, time) => {
-    const sprite = personSprite(look, TURN[Math.floor(time / 1.2) % 4], Math.floor(time * 6) % 4);
-    const scale = 4;
+    const sprite = personSprite(look, TURN[Math.floor(time / 1.2) % 4], walkPose(time * 6, true));
+    const scale = 3;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(sprite.canvas, Math.round(width / 2 - sprite.ax * scale), Math.round(height - 8 - sprite.ay * scale), sprite.canvas.width * scale, sprite.canvas.height * scale);
   });

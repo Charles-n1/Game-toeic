@@ -4,6 +4,7 @@ import { pickRandom } from '../../logic/random';
 import { countItem, addItem, removeItem, earnLexis } from './player';
 import { notify } from './messages';
 import { burst, dust, floatText } from './particles';
+import { emote } from './emotes';
 
 // Working the ground: planting carrots, digging for treasures, opening chests.
 
@@ -87,6 +88,7 @@ function digUp(game, treasure) {
   earnLexis(game, lexis);
   addItem(game.player, itemId);
   burst(game, treasure.x + 0.5, treasure.y + 0.5, '#ffd23f', 30);
+  emote(game, 'hero', 'sparkle');
   notify(game, '💰 Treasure! +' + lexis + ' Lexis and ' + ITEMS[itemId].icon + ' ' + ITEMS[itemId].name, '#ffd23f');
 }
 
@@ -99,6 +101,9 @@ export function dig(game, x, y) {
   } else if (Math.random() < 0.06) {
     earnLexis(game, 1);
     floatText(game, x + 0.5, y, '+1 Lexis', '#ffd23f');
+    emote(game, 'hero', 'note');
+  } else {
+    emote(game, 'hero', 'dots');
   }
 }
 
@@ -115,5 +120,6 @@ export function openChest(game, chest) {
   addItem(game.player, 'gem');
   addItem(game.player, 'healthPotion', 3);
   burst(game, chest.x + 0.5, chest.y + 0.5, '#ffd23f', 40);
+  emote(game, 'hero', '!');
   notify(game, '🎁 The chest of ' + chest.zone.name + ': +' + lexis + ' Lexis, 💎, 3 🧪', '#ffd23f');
 }

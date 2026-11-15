@@ -3,6 +3,7 @@ import { SCENES } from '../data/story';
 import { say, notify } from './messages';
 import { burst } from './particles';
 import { cue } from './cues';
+import { emote } from './emotes';
 import { pickRandom } from '../../logic/random';
 
 // Health and mana grow with the level. Health is in HP: 100 at level 1, +10 per level.
@@ -62,6 +63,7 @@ function levelUp(game) {
   notify(game, '⭐ Level ' + player.level + '!', '#ffd23f');
   cue(game, 'levelUp');
   burst(game, player.x, player.y, '#ffd23f', 40);
+  emote(game, 'hero', 'sparkle');
   if (player.level === 3) awaken(game, 'obsidian', SCENES.obsidian);
 }
 
@@ -122,6 +124,7 @@ export function usePotion(game, itemId) {
   if (item.haste) player.haste = true; // used by the next fight (or the current one)
   if (item.extraTime) game.run.fight.limit += item.extraTime * 1000;
   if (item.hint) hideWrongAnswer(game.run.fight);
+  if (game.run.fight) game.run.fight.drankAt = Date.now(); // for the animation (the hero drinks)
   return true;
 }
 

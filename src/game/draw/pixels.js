@@ -1,3 +1,5 @@
+import { mix } from './palette';
+
 // Pixel art made simple.
 // A "grid" is a small picture: each cell is a color ('#rrggbb', or '#rrggbbaa' for see-through), or null = empty.
 // We paint a grid with rectangles, ellipses and "text pictures", add a dark outline, then turn it into a canvas.
@@ -75,16 +77,105 @@ function isFilled(grid, x, y) {
   return color !== null && color.length === 7; // a see-through color (a shadow) does not get an outline
 }
 
-// Every empty cell that touches a filled cell (up, down, left or right) becomes `color`: a clean dark edge.
+// The first filled neighbor of an empty cell (up, down, left or right), or null.
+function filledNeighbor(grid, x, y) {
+  for (const [dx, dy] of [
+    [0, -1],
+    [-1, 0],
+    [1, 0],
+    [0, 1],
+  ]) {
+    if (isFilled(grid, x + dx, y + dy)) return colorAt(grid, x + dx, y + dy);
+  }
+  return null;
+}
+
+// Every empty cell that touches a filled cell becomes a dark edge. The edge takes a bit of the color it
+// surrounds (a dark green around the leaves, a dark brown around the wood): softer than pure black.
 export function addOutline(grid, color) {
   const result = { ...grid, cells: [...grid.cells] };
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
-      const touches = isFilled(grid, x - 1, y) || isFilled(grid, x + 1, y) || isFilled(grid, x, y - 1) || isFilled(grid, x, y + 1);
-      if (!isFilled(grid, x, y) && touches) result.cells[y * grid.width + x] = color;
+      const neighbor = isFilled(grid, x, y) ? null : filledNeighbor(grid, x, y);
+      if (neighbor) result.cells[y * grid.width + x] = mix(neighbor, color, 0.78);
     }
   }
   return result;
+}
+
+// ---------- Light and shade (the light comes from the top-left) ----------
+
+// A 4 x 4 grid of thresholds: neighbor pixels take turns between two tones (dithering): a soft blend.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((value) => (value + 0.5) / 16);
+
+// light: from 0 (dark) to 1 (lit) -> one of the `tones` (the darkest first), dithered between two tones.
+export function toneOf(tones, light, x, y) {
+  const t = Math.min(0.999, Math.max(0, light)) * (tones.length - 1);
+  const base = Math.floor(t);
+  const next = t - base > BAYER[(y & 3) * 4 + (x & 3)] ? 1 : 0;
+  return tones[Math.min(tones.length - 1, base + next)];
+}
+
+// A shaded ball, seen from above: lit on the top-left, dark on the bottom-right (leaves, rocks, slimes, bushes).
+// tones: from the darkest to the lightest. ambient: how lit the dark side is. brightness: a factor (1 = normal).
+export function fillBall(grid, cx, cy, rx, ry, tones, { ambient = 0.12, brightness = 1 } = {}) {
+  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+    for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+      const nx = (x + 0.5 - cx) / rx;
+      const ny = (y + 0.5 - cy) / ry;
+      const flat = nx * nx + ny * ny;
+      if (flat > 1) continue;
+      const nz = Math.sqrt(1 - flat);
+      const facing = Math.max(0, -0.5 * nx - 0.65 * ny + 0.58 * nz); // how much it faces the light
+      dot(grid, x, y, toneOf(tones, (ambient + (1 - ambient) * facing) * brightness, x, y));
+    }
+  }
+}
+
+// Gives volume to a flat picture: the bottom and right edges of a shape get darker, the top and left edges
+// lighter, and a pixel just under another color gets its shadow (the hair on the face, the belt on the tunic).
+// skip: colors left as they are (eyes, white...).
+export function addRimShade(grid, skip = []) {
+  const result = { ...grid, cells: [...grid.cells] };
+  const isEmpty = (x, y) => !isFilled(grid, x, y);
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const color = colorAt(grid, x, y);
+      if (!isFilled(grid, x, y) || skip.includes(color)) continue;
+      const above = colorAt(grid, x, y - 1);
+      let shaded = color;
+      if (isEmpty(x, y + 1) || isEmpty(x + 1, y)) shaded = mix(color, '#14101e', 0.22);
+      else if (above && above !== color && isFilled(grid, x, y - 1) && !skip.includes(above)) shaded = mix(color, '#14101e', 0.16);
+      else if (isEmpty(x, y - 1) || isEmpty(x - 1, y)) shaded = mix(color, '#ffffff', 0.18);
+      result.cells[y * grid.width + x] = shaded;
+    }
+  }
+  return result;
+}
+
+// Fills a rectangle of cloth, lit on its left and darker at its bottom.
+export function paintCloth(grid, left, top, right, bottom, ramp) {
+  for (let y = top; y <= bottom; y++) {
+    for (let x = left; x <= right; x++) {
+      const nx = (x - left) / Math.max(1, right - left);
+      const ny = (y - top) / Math.max(1, bottom - top);
+      dot(grid, x, y, toneOf(ramp, 0.75 - nx * 0.4 - ny * 0.15, x, y));
+    }
+  }
+}
+
+// A filled triangle. colorAt(x, y): the color of each pixel (a shade, a texture...).
+export function fillTriangle(grid, [ax, ay], [bx, by], [cx, cy], colorAt) {
+  const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+  for (let y = Math.floor(Math.min(ay, by, cy)); y <= Math.max(ay, by, cy); y++) {
+    for (let x = Math.floor(Math.min(ax, bx, cx)); x <= Math.max(ax, bx, cx); x++) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      const w1 = ((bx - px) * (cy - py) - (cx - px) * (by - py)) / area;
+      const w2 = ((cx - px) * (ay - py) - (ax - px) * (cy - py)) / area;
+      if (w1 >= 0 && w2 >= 0 && w1 + w2 <= 1) dot(grid, x, y, colorAt(x, y));
+    }
+  }
 }
 
 // The same grid, seen in a mirror (left <-> right).
@@ -160,9 +251,11 @@ export function once(key, make) {
 }
 
 // A text picture -> a canvas with an outline. colors: the letters. outline: the color of the edge (null = none).
-export function spriteOf(rows, colors, outline) {
+// shaded: true = the rim light and shadow are added (see addRimShade).
+export function spriteOf(rows, colors, outline, shaded = false) {
   const size = pictureSize(rows);
-  const grid = makeGrid(size.width + 2, size.height + 2);
+  let grid = makeGrid(size.width + 2, size.height + 2);
   drawPicture(grid, rows, colors, 1, 1);
+  if (shaded) grid = addRimShade(grid);
   return toCanvas(outline ? addOutline(grid, outline) : grid);
 }

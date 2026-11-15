@@ -22,3 +22,21 @@ export function smoothNoise(x, y, scale, salt = 0) {
   const d = noise(x0 + 1, y0 + 1, salt);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
+
+// Like smoothNoise, but it repeats every `period` (in the same unit as x and y): a texture that can be put
+// side by side without any visible line (the grass of the tiles). cell: the size of one "bump".
+export function periodicNoise(x, y, cell, period, salt = 0) {
+  const points = Math.round(period / cell); // how many bumps in one period
+  const wrap = (i) => ((i % points) + points) % points;
+  const gx = x / cell;
+  const gy = y / cell;
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const sx = (gx - x0) * (gx - x0) * (3 - 2 * (gx - x0));
+  const sy = (gy - y0) * (gy - y0) * (3 - 2 * (gy - y0));
+  const a = noise(wrap(x0), wrap(y0), salt);
+  const b = noise(wrap(x0 + 1), wrap(y0), salt);
+  const c = noise(wrap(x0), wrap(y0 + 1), salt);
+  const d = noise(wrap(x0 + 1), wrap(y0 + 1), salt);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}

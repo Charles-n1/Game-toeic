@@ -1,24 +1,26 @@
 import { useState } from 'react';
 
-const RADIUS = 62; // half the size of the stick, in pixels (see .stick in game.css)
-const REACH = 40; // how far the knob can go from the middle
+const REACH = 0.65; // how far the knob can go from the middle (a part of the radius)
 
 // The stick under the left thumb: drag it to walk. It writes the direction in input.padX / input.padY (-1 to 1).
 export default function TouchStick({ input }) {
   const [knob, setKnob] = useState({ x: 0, y: 0 }); // where the knob is drawn, from the middle
 
   function moveTo(event) {
-    const box = event.currentTarget.getBoundingClientRect();
-    let x = event.clientX - box.left - RADIUS;
-    let y = event.clientY - box.top - RADIUS;
+    const box = event.currentTarget.getBoundingClientRect(); // its real size on screen (the windows may be zoomed)
+    const radius = box.width / 2;
+    const reach = radius * REACH;
+    let x = event.clientX - box.left - radius;
+    let y = event.clientY - box.top - radius;
     const length = Math.hypot(x, y);
-    if (length > REACH) {
-      x = (x / length) * REACH;
-      y = (y / length) * REACH;
+    if (length > reach) {
+      x = (x / length) * reach;
+      y = (y / length) * reach;
     }
-    input.padX = x / REACH;
-    input.padY = y / REACH;
-    setKnob({ x: x, y: y });
+    input.padX = x / reach;
+    input.padY = y / reach;
+    const zoom = box.width / event.currentTarget.offsetWidth; // the knob moves in unzoomed pixels
+    setKnob({ x: x / zoom, y: y / zoom });
   }
 
   function press(event) {

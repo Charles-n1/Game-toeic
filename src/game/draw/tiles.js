@@ -1,13 +1,17 @@
-import { TILE, tileAt, noise } from '../world/map';
+import { TILE, tileAt } from '../world/map';
+import { periodicNoise } from '../world/noise';
 import { zoneAt } from '../data/zones';
-import { makeGrid, dot, fillRect, sprinkle, randomOf, toCanvas, once } from './pixels';
-import { GRASS, DIRT, COBBLE, SAND, WATER, SNOW, ASH, LAVA, FLOOR, WALL, SOIL, WOOD } from './palette';
+import { makeGrid, dot, fillRect, fillBall, toneOf, randomOf, toCanvas, once } from './pixels';
+import { GRASS_RAMP, DIRT_RAMP, STONE_RAMP, WATER_RAMP, SNOW_RAMP, SAND_RAMP, ASH_RAMP, WOOD_RAMP, LAVA, mix } from './palette';
 
-// The ground: one 16 x 16 picture per tile. Each picture is made once, then reused.
+// The ground: one 16 x 16 picture per tile, made once and reused.
+// The textures (grass, dirt, sand...) continue from a tile to the next: they repeat only every 8 tiles (BLOCK).
 // A tile also looks at its 4 neighbors: the grass grows over the edge of a path, the water foams on the shore...
 
 export const TILE_PX = 16;
 const S = TILE_PX;
+const BLOCK = 8; // the textures repeat every 8 tiles
+const PERIOD = BLOCK * S; // = 128 pixels
 const SIDES = [
   [0, -1],
   [1, 0],
@@ -49,7 +53,7 @@ const OVERHANG = { grass: 'g', snow: 's', ash: 'a' };
 // What happens on one side of the tile: a letter. '.' = nothing.
 function edgeOf(kind, neighbor) {
   if (SOFT_GROUNDS.includes(kind) && OVERHANG[neighbor]) return OVERHANG[neighbor];
-  if (kind === 'water' && neighbor !== 'water') return 'f'; // foam
+  if (kind === 'water' && neighbor !== 'water') return 'f'; // the shore
   if (kind === 'floor' && neighbor === 'wall') return 'w'; // the shadow of the wall
   if (kind === 'wall' && neighbor !== 'wall') return 'r'; // the rim of the wall
   if (kind === 'bridge' && neighbor === 'water') return 'b'; // the rail of the bridge
@@ -62,7 +66,7 @@ export function edgesOf(x, y) {
   return SIDES.map(([dx, dy]) => edgeOf(kind, groundKind(x + dx, y + dy))).join('');
 }
 
-// The cells of one side, from the border to the inside: (i, depth) -> x, y. side: 0 up, 1 right, 2 down, 3 left.
+// The cells of one side, from the border to the inside: (i, depth) -> [x, y]. side: 0 up, 1 right, 2 down, 3 left.
 function sideCell(side, i, depth) {
   if (side === 0) return [i, depth];
   if (side === 1) return [S - 1 - depth, i];
@@ -70,84 +74,107 @@ function sideCell(side, i, depth) {
   return [depth, i];
 }
 
-// The grass (or snow, or ash) of the neighbor grows 1 to 3 pixels over this tile, with a darker line inside.
-function paintOverhang(grid, side, colors, salt) {
+// The grass (or snow, or ash) of the neighbor grows over this tile in pointed blades,
+// with a thin shadow on the ground just under them.
+function paintOverhang(grid, side, ramp, salt) {
   for (let i = 0; i < S; i++) {
-    const depth = 1 + Math.floor(randomOf(i, side, salt) * 3);
-    for (let d = 0; d < depth; d++) dot(grid, ...sideCell(side, i, d), colors.base);
-    dot(grid, ...sideCell(side, i, depth), colors.edge);
+    const depth = 1 + Math.floor(randomOf(i, side, salt) * 2) + (i % 3 === 1 ? 1 : 0); // a pointed blade every 3 pixels
+    for (let d = 0; d < depth; d++) dot(grid, ...sideCell(side, i, d), d === depth - 1 ? ramp[2] : ramp[3]);
+    const [x, y] = sideCell(side, i, depth);
+    dot(grid, x, y, mix(grid.cells[y * S + x] || ramp[0], '#14101e', 0.3)); // the shadow of the blades
   }
 }
 
-function paintFoam(grid, side, frame) {
+function paintShore(grid, side, frame) {
   for (let i = 0; i < S; i++) {
-    const wave = randomOf(i + frame * 3, side, 5) < 0.75;
-    dot(grid, ...sideCell(side, i, 0), wave ? WATER.foam : WATER.light);
-    if (randomOf(i, side + frame, 6) < 0.4) dot(grid, ...sideCell(side, i, 1), WATER.light);
+    const foam = randomOf(i + frame * 5, side, 5) < 0.7;
+    dot(grid, ...sideCell(side, i, 0), foam ? '#e6f6ff' : WATER_RAMP[5]);
+    dot(grid, ...sideCell(side, i, 1), WATER_RAMP[4]);
+    if (randomOf(i, side, 6) < 0.5) dot(grid, ...sideCell(side, i, 2), WATER_RAMP[4]);
   }
 }
 
 function paintWallShadow(grid, side) {
   if (side !== 0) return; // only the wall above casts a shadow
   for (let i = 0; i < S; i++) {
-    dot(grid, i, 0, WALL.mortar);
-    dot(grid, i, 1, FLOOR.dark);
+    dot(grid, i, 0, '#211c30');
+    dot(grid, i, 1, '#3a3450');
+    if (i % 2) dot(grid, i, 2, '#3a3450');
   }
 }
 
 function paintWallRim(grid, side) {
   if (side === 2) return; // the bottom is the face of the wall (see paintWall)
-  for (let i = 0; i < S; i++) dot(grid, ...sideCell(side, i, 0), WALL.rim);
+  for (let i = 0; i < S; i++) dot(grid, ...sideCell(side, i, 0), '#8c86ad');
 }
 
-const EDGE_COLORS = {
-  g: { base: GRASS.base, edge: GRASS.edge },
-  s: { base: SNOW.base, edge: SNOW.dark },
-  a: { base: ASH.base, edge: LAVA.crust },
-};
+function paintRail(grid, side) {
+  for (let i = 0; i < S; i++) {
+    dot(grid, ...sideCell(side, i, 0), WOOD_RAMP[0]);
+    dot(grid, ...sideCell(side, i, 1), WOOD_RAMP[4]);
+    dot(grid, ...sideCell(side, i, 2), WOOD_RAMP[1]);
+  }
+}
+
+const OVERHANG_RAMPS = { g: GRASS_RAMP, s: SNOW_RAMP, a: ASH_RAMP };
 
 function paintEdges(grid, edges, frame) {
   [...edges].forEach((letter, side) => {
-    if (EDGE_COLORS[letter]) paintOverhang(grid, side, EDGE_COLORS[letter], side + 11);
-    if (letter === 'f') paintFoam(grid, side, frame);
+    if (OVERHANG_RAMPS[letter]) paintOverhang(grid, side, OVERHANG_RAMPS[letter], side + 11);
+    if (letter === 'f') paintShore(grid, side, frame);
     if (letter === 'w') paintWallShadow(grid, side);
     if (letter === 'r') paintWallRim(grid, side);
+    if (letter === 'b') paintRail(grid, side);
   });
 }
 
 // ---------- The grounds ----------
+// bx, by: the place of the tile in its block of 8 x 8 tiles (the textures continue from tile to tile).
 
-// A tuft of grass: a small "v" of dark blades with light tips.
-function paintTuft(grid, x, y) {
-  dot(grid, x, y, GRASS.light);
-  dot(grid, x + 2, y, GRASS.light);
-  dot(grid, x, y + 1, GRASS.deep);
-  dot(grid, x + 1, y + 1, GRASS.light);
-  dot(grid, x + 2, y + 1, GRASS.deep);
-  dot(grid, x + 1, y + 2, GRASS.deep);
-}
-
-function paintGrass(grid, variant) {
-  fillRect(grid, 0, 0, S, S, GRASS.base);
-  sprinkle(grid, GRASS.dark, 0.07, variant + 1);
-  sprinkle(grid, GRASS.light, 0.025, variant + 2, GRASS.base);
-  const tufts = 1 + (variant % 3);
-  for (let i = 0; i < tufts; i++) {
-    paintTuft(grid, 1 + Math.floor(randomOf(i, variant, 3) * 12), 1 + Math.floor(randomOf(variant, i, 4) * 12));
+// Paints every pixel with a tone of the ramp, following two layers of soft noise (big patches + small ones).
+// light: (big, small) -> from 0 to 1.
+function paintTexture(grid, bx, by, ramp, salt, light) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const px = bx * S + x;
+      const py = by * S + y;
+      const big = periodicNoise(px, py, 32, PERIOD, salt);
+      const small = periodicNoise(px, py, 8, PERIOD, salt + 1);
+      dot(grid, x, y, toneOf(ramp, light(big, small), px, py));
+    }
   }
 }
 
-function paintPath(grid, variant) {
-  fillRect(grid, 0, 0, S, S, DIRT.base);
-  sprinkle(grid, DIRT.dark, 0.1, variant + 1);
-  sprinkle(grid, DIRT.light, 0.06, variant + 2, DIRT.base);
-  const x = 3 + Math.floor(randomOf(variant, 1, 8) * 9);
-  const y = 3 + Math.floor(randomOf(variant, 2, 8) * 9);
-  fillRect(grid, x, y, 2, 2, DIRT.pebble); // a pebble
-  dot(grid, x, y, DIRT.light);
+// A blade of grass: two dark pixels and a light tip.
+function paintBlade(grid, x, y) {
+  dot(grid, x, y, GRASS_RAMP[1]);
+  dot(grid, x, y - 1, GRASS_RAMP[1]);
+  dot(grid, x, y - 2, GRASS_RAMP[5]);
 }
 
-// The stones of a cobblestone tile: [x, y, width, height]. Two rows are offset, like a real wall.
+function paintGrass(grid, bx, by) {
+  paintTexture(grid, bx, by, GRASS_RAMP, 1, (big, small) => 0.22 + big * 0.42 + small * 0.18);
+  const salt = by * BLOCK + bx;
+  const blades = 2 + Math.floor(randomOf(salt, 1, 30) * 4);
+  for (let i = 0; i < blades; i++) {
+    const x = 1 + Math.floor(randomOf(i, salt, 31) * 14);
+    const y = 3 + Math.floor(randomOf(salt, i, 32) * 12);
+    paintBlade(grid, x, y);
+    if (randomOf(i, salt, 33) < 0.5) paintBlade(grid, x + 1, y + 1); // a small tuft
+  }
+}
+
+function paintPath(grid, bx, by) {
+  paintTexture(grid, bx, by, DIRT_RAMP, 3, (big, small) => 0.3 + big * 0.35 + small * 0.2);
+  const salt = by * BLOCK + bx + 70;
+  for (let i = 0; i < 2; i++) {
+    const x = 3 + Math.floor(randomOf(i, salt, 8) * 10);
+    const y = 3 + Math.floor(randomOf(salt, i, 9) * 10);
+    fillBall(grid, x, y, 1.6, 1.3, STONE_RAMP, { ambient: 0.3 }); // a pebble
+  }
+}
+
+// The stones of a cobblestone tile: [x, y, width, height]. The rows are offset, like a real pavement.
 const COBBLES = [
   [0, 0, 6, 4],
   [7, 0, 5, 4],
@@ -160,136 +187,137 @@ const COBBLES = [
   [12, 11, 4, 5],
 ];
 
-function paintCobble(grid, variant) {
-  fillRect(grid, 0, 0, S, S, COBBLE.mortar);
-  COBBLES.forEach(([x, y, w, h], i) => {
-    const tint = randomOf(i, variant, 9) < 0.25 ? COBBLE.dark : COBBLE.stone;
-    fillRect(grid, x, y, w, h, tint);
-    fillRect(grid, x, y, w - 1, 1, COBBLE.light); // the light comes from the top-left
-    fillRect(grid, x, y + h - 1, w, 1, COBBLE.dark);
-  });
-}
-
-function paintSand(grid, variant) {
-  fillRect(grid, 0, 0, S, S, SAND.base);
-  sprinkle(grid, SAND.dark, 0.08, variant + 1);
-  sprinkle(grid, SAND.light, 0.06, variant + 2, SAND.base);
-}
-
-// frame: 0 to 3, the waves move.
-function paintWater(grid, variant, frame) {
-  fillRect(grid, 0, 0, S, S, WATER.base);
-  for (let y = 2; y < S; y += 5) {
-    const start = (y * 3 + frame * 2 + variant * 5) % 12;
-    fillRect(grid, start, y, 4, 1, WATER.light);
-    fillRect(grid, (start + 8) % 14, y + 2, 3, 1, WATER.dark);
+// One stone, rounded at its corners, lit on its top-left. tint: from -1 (darker) to 1 (lighter).
+function paintCobble(grid, [left, top, w, h], tint) {
+  for (let y = top; y < top + h; y++) {
+    for (let x = left; x < left + w; x++) {
+      const isCorner = (x === left || x === left + w - 1) && (y === top || y === top + h - 1);
+      if (isCorner) continue;
+      const nx = ((x - left + 0.5) / w) * 2 - 1;
+      const ny = ((y - top + 0.5) / h) * 2 - 1;
+      dot(grid, x, y, toneOf(STONE_RAMP, 0.55 - nx * 0.18 - ny * 0.28 + tint * 0.1, x, y));
+    }
   }
 }
 
-function paintSnow(grid, variant) {
-  fillRect(grid, 0, 0, S, S, SNOW.base);
-  sprinkle(grid, SNOW.shade, 0.09, variant + 1);
-  sprinkle(grid, SNOW.light, 0.05, variant + 2, SNOW.base);
-  const x = 2 + Math.floor(randomOf(variant, 3, 2) * 10);
-  fillRect(grid, x, 11, 4, 1, SNOW.dark); // a small bump of snow and its blue shadow
-  fillRect(grid, x + 1, 10, 3, 1, SNOW.light);
+function paintCobbles(grid, bx, by) {
+  fillRect(grid, 0, 0, S, S, '#4f4842');
+  COBBLES.forEach((stone, i) => paintCobble(grid, stone, randomOf(i, by * BLOCK + bx, 9) * 2 - 1));
 }
 
-function paintAsh(grid, variant) {
-  fillRect(grid, 0, 0, S, S, ASH.base);
-  sprinkle(grid, ASH.dark, 0.12, variant + 1);
-  sprinkle(grid, ASH.light, 0.04, variant + 2, ASH.base);
-  const x = 2 + Math.floor(randomOf(variant, 4, 3) * 9);
-  dot(grid, x, 6, ASH.crack);
-  dot(grid, x + 1, 7, ASH.crack);
-  dot(grid, x + 2, 7, ASH.crack);
-  dot(grid, x + 3, 8, ASH.crack);
+function paintSand(grid, bx, by) {
+  paintTexture(grid, bx, by, SAND_RAMP, 5, (big, small) => 0.3 + big * 0.4 + small * 0.2);
 }
 
-function paintLava(grid, variant, frame) {
-  fillRect(grid, 0, 0, S, S, LAVA.base);
-  sprinkle(grid, LAVA.light, 0.18, variant + frame * 7);
-  const x = 3 + ((variant * 5 + frame * 3) % 9);
-  fillRect(grid, x, 5, 3, 2, LAVA.bright); // a bubble
-  fillRect(grid, (x + 6) % 12, 10, 2, 2, LAVA.bright);
+// frame: 0 to 3, the light on the water moves.
+function paintWater(grid, bx, by, frame) {
+  paintTexture(grid, bx, by, WATER_RAMP, 7, (big, small) => 0.18 + big * 0.35 + small * 0.12);
+  for (let y = 1; y < S; y += 4) {
+    const start = Math.floor(randomOf(y, by * BLOCK + bx, 12) * 12 + frame * 2) % 14;
+    fillRect(grid, start, y, 3, 1, WATER_RAMP[4]); // a reflection of the sky
+    dot(grid, start + 1, y - 1, WATER_RAMP[5]);
+  }
 }
 
-function paintFloor(grid, variant) {
-  fillRect(grid, 0, 0, S, S, FLOOR.base);
-  fillRect(grid, 0, 0, S, 1, FLOOR.dark);
-  fillRect(grid, 0, 8, S, 1, FLOOR.dark);
-  fillRect(grid, 0, 0, 1, 8, FLOOR.dark);
-  fillRect(grid, 8, 8, 1, 8, FLOOR.dark);
-  fillRect(grid, 1, 1, 7, 1, FLOOR.light);
-  fillRect(grid, 9, 9, 7, 1, FLOOR.light);
-  sprinkle(grid, FLOOR.dark, 0.04, variant + 1, FLOOR.base);
+function paintSnow(grid, bx, by) {
+  paintTexture(grid, bx, by, SNOW_RAMP, 13, (big, small) => 0.4 + big * 0.4 + small * 0.15);
+}
+
+function paintAsh(grid, bx, by) {
+  paintTexture(grid, bx, by, ASH_RAMP, 17, (big, small) => 0.2 + big * 0.45 + small * 0.2);
+  const salt = by * BLOCK + bx;
+  const x = 2 + Math.floor(randomOf(salt, 4, 3) * 9);
+  [
+    [0, 0],
+    [1, 1],
+    [2, 1],
+    [3, 2],
+  ].forEach(([dx, dy]) => dot(grid, x + dx, 6 + dy, '#1a1218')); // a crack
+  if (randomOf(salt, 5, 3) < 0.3) dot(grid, x + 2, 7, '#e8541c'); // with an ember in it
+}
+
+function paintLava(grid, bx, by, frame) {
+  const lavaRamp = [LAVA.crust, '#c43a12', LAVA.base, '#ff7b22', LAVA.light, LAVA.bright];
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const px = bx * S + x;
+      const py = by * S + y;
+      const flow = periodicNoise(px + frame * 2, py, 16, PERIOD, 19);
+      dot(grid, x, y, toneOf(lavaRamp, 0.25 + flow * 0.7, px, py));
+    }
+  }
+}
+
+function paintFloor(grid, bx, by) {
+  paintTexture(grid, bx, by, ['#3d3850', '#4b4562', '#5a5373', '#6a6385', '#7a7396'], 21, (big, small) => 0.35 + big * 0.3 + small * 0.2);
+  fillRect(grid, 0, 0, S, 1, '#2d283d');
+  fillRect(grid, 0, 8, S, 1, '#2d283d');
+  fillRect(grid, (bx % 2) * 8, 0, 1, 8, '#2d283d');
+  fillRect(grid, ((bx + 1) % 2) * 8, 8, 1, 8, '#2d283d');
 }
 
 // A wall seen from above: the top. When the floor is below it, its face of bricks shows.
 function paintWall(grid, edges) {
-  fillRect(grid, 0, 0, S, S, WALL.top);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) dot(grid, x, y, toneOf(['#3a3452', '#463f62', '#524a72'], 0.5 + randomOf(x, y, 22) * 0.2, x, y));
   if (edges[2] !== 'r') return;
-  fillRect(grid, 0, 6, S, 10, WALL.face);
-  for (let y = 6; y < S; y += 4) {
-    fillRect(grid, 0, y, S, 1, WALL.mortar);
-    const offset = y % 8 === 6 ? 0 : 4;
-    for (let x = offset; x < S; x += 8) fillRect(grid, x, y, 1, 4, WALL.mortar);
+  for (let y = 6; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const row = Math.floor((y - 6) / 4);
+      const brickX = (x + (row % 2) * 4) % 8;
+      const isMortar = (y - 6) % 4 === 3 || brickX === 7;
+      dot(grid, x, y, isMortar ? '#241f35' : toneOf(['#3b3452', '#4a4266', '#5a5178'], 0.7 - ((y - 6) % 4) * 0.2, x, y));
+    }
   }
-  fillRect(grid, 0, 5, S, 1, WALL.rim);
+  fillRect(grid, 0, 5, S, 1, '#8c86ad');
+}
+
+function paintSoil(grid) {
+  for (let y = 0; y < S; y++) {
+    const ridge = y % 4; // the furrows: light on the top of the ridge, dark in the hollow
+    const color = ['#9a6a3e', '#7f5530', '#673f22', '#4f2f19'][ridge];
+    fillRect(grid, 0, y, S, 1, color);
+  }
 }
 
 // Wooden planks across the water. The rails are on the sides that touch the water.
 function paintBridge(grid, edges) {
   const isAcross = edges[0] === 'b' || edges[2] === 'b'; // water above and below: the bridge goes left-right
-  fillRect(grid, 0, 0, S, S, WOOD.base);
-  for (let i = 3; i < S; i += 4) {
-    if (isAcross) fillRect(grid, i, 0, 1, S, WOOD.dark);
-    else fillRect(grid, 0, i, S, 1, WOOD.dark);
-  }
-  [...edges].forEach((letter, side) => {
-    if (letter !== 'b') return;
-    for (let i = 0; i < S; i++) {
-      dot(grid, ...sideCell(side, i, 0), WOOD.deep);
-      dot(grid, ...sideCell(side, i, 1), WOOD.light);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const along = isAcross ? x : y;
+      const plank = along % 4;
+      dot(grid, x, y, plank === 3 ? WOOD_RAMP[0] : toneOf(WOOD_RAMP, 0.75 - plank * 0.15, x, y));
     }
-  });
-}
-
-function paintSoil(grid) {
-  fillRect(grid, 0, 0, S, S, SOIL.base);
-  for (let y = 3; y < S; y += 4) {
-    fillRect(grid, 0, y, S, 1, SOIL.furrow);
-    fillRect(grid, 0, y - 3, S, 1, SOIL.light);
   }
 }
 
-function paintGround(grid, kind, variant, frame, edges) {
-  if (kind === 'path') paintPath(grid, variant);
-  else if (kind === 'cobble') paintCobble(grid, variant);
-  else if (kind === 'sand') paintSand(grid, variant);
-  else if (kind === 'water') paintWater(grid, variant, frame);
-  else if (kind === 'snow') paintSnow(grid, variant);
-  else if (kind === 'ash') paintAsh(grid, variant);
-  else if (kind === 'lava') paintLava(grid, variant, frame);
-  else if (kind === 'floor') paintFloor(grid, variant);
+function paintGround(grid, kind, bx, by, frame, edges) {
+  if (kind === 'path') paintPath(grid, bx, by);
+  else if (kind === 'cobble') paintCobbles(grid, bx, by);
+  else if (kind === 'sand') paintSand(grid, bx, by);
+  else if (kind === 'water') paintWater(grid, bx, by, frame);
+  else if (kind === 'snow') paintSnow(grid, bx, by);
+  else if (kind === 'ash') paintAsh(grid, bx, by);
+  else if (kind === 'lava') paintLava(grid, bx, by, frame);
+  else if (kind === 'floor') paintFloor(grid, bx, by);
   else if (kind === 'wall') paintWall(grid, edges);
   else if (kind === 'soil') paintSoil(grid);
   else if (kind === 'bridge') paintBridge(grid, edges);
-  else paintGrass(grid, variant);
+  else paintGrass(grid, bx, by);
 }
 
 const ANIMATED = ['water', 'lava'];
-const VARIANTS = 4; // how many different pictures for the same ground (so it does not look like a grid)
 
 // The picture of the ground of the tile (x, y). time: seconds (the water and the lava move).
 export function groundTile(x, y, time) {
   const kind = groundKind(x, y);
-  const variant = Math.floor(noise(x, y, 9) * VARIANTS);
-  const frame = ANIMATED.includes(kind) ? Math.floor(time * 2 + noise(x, y, 4) * 4) % 4 : 0;
+  const bx = ((x % BLOCK) + BLOCK) % BLOCK;
+  const by = ((y % BLOCK) + BLOCK) % BLOCK;
+  const frame = ANIMATED.includes(kind) ? Math.floor(time * 2) % 4 : 0;
   const edges = edgesOf(x, y);
-  return once('ground|' + kind + variant + frame + edges, () => {
+  return once('ground|' + kind + bx + ',' + by + '|' + frame + edges, () => {
     const grid = makeGrid(S, S);
-    paintGround(grid, kind, variant, frame, edges);
+    paintGround(grid, kind, bx, by, frame, edges);
     paintEdges(grid, edges, frame);
     return toCanvas(grid);
   });
@@ -297,23 +325,29 @@ export function groundTile(x, y, time) {
 
 // ---------- Small things painted on the ground ----------
 
-const FLOWER_COLORS = ['#ff6fa8', '#ffd84a', '#ffffff', '#b48cff', '#ff8c5a'];
+const FLOWER_COLORS = [
+  ['#ff6fa8', '#ffb3d1'],
+  ['#ffd84a', '#fff2a8'],
+  ['#ffffff', '#ffffff'],
+  ['#b48cff', '#dcc8ff'],
+  ['#ff8c5a', '#ffc4a3'],
+];
 
-// 2 or 3 small flowers (the FLOWER tiles).
+// A patch of 3 to 5 small flowers (the FLOWER tiles).
 export function flowersDecal(x, y) {
-  const variant = Math.floor(noise(x, y, 6) * 6);
+  const variant = Math.floor(randomOf(x, y, 6) * 8);
   return once('flowers|' + variant, () => {
     const grid = makeGrid(S, S);
-    const count = 2 + (variant % 2);
+    const [petal, light] = FLOWER_COLORS[variant % FLOWER_COLORS.length];
+    const count = 3 + (variant % 3);
     for (let i = 0; i < count; i++) {
-      const fx = 2 + Math.floor(randomOf(i, variant, 1) * 11);
-      const fy = 2 + Math.floor(randomOf(variant, i, 2) * 10);
-      const color = FLOWER_COLORS[Math.floor(randomOf(i, variant, 3) * FLOWER_COLORS.length)];
-      dot(grid, fx, fy + 2, GRASS.deep); // the stem
-      dot(grid, fx - 1, fy, color);
-      dot(grid, fx + 1, fy, color);
-      dot(grid, fx, fy - 1, color);
-      dot(grid, fx, fy + 1, color);
+      const fx = 2 + Math.floor(randomOf(i, variant, 1) * 12);
+      const fy = 3 + Math.floor(randomOf(variant, i, 2) * 10);
+      dot(grid, fx, fy + 2, GRASS_RAMP[0]); // the stem
+      dot(grid, fx - 1, fy, petal);
+      dot(grid, fx + 1, fy, petal);
+      dot(grid, fx, fy + 1, petal);
+      dot(grid, fx, fy - 1, light);
       dot(grid, fx, fy, '#ffcf3a');
     }
     return toCanvas(grid);

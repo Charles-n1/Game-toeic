@@ -8,8 +8,9 @@
   font-display: swap;
 }
 
+/* The game covers the whole browser window (not only the phone-sized column of the app). */
 .game {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 50;
   background: #0d0b1a;
@@ -574,4 +575,177 @@
   text-align: center;
   font-family: inherit;
   font-size: 20px;
+}
+
+/* ---------- Big screens: the windows are drawn bigger (--ui: 1 on a phone, up to 2 on a big screen) ---------- */
+.hud,
+.overlay,
+.start,
+.ui-layer {
+  right: auto;
+  bottom: auto;
+  width: calc(100% / var(--ui, 1));
+  height: calc(100% / var(--ui, 1));
+  transform: scale(var(--ui, 1));
+  transform-origin: 0 0;
+}
+
+.ui-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.ui-layer > * {
+  pointer-events: auto;
+}
+
+/* The menus of the title: a column in the middle of the screen. */
+.start > * {
+  width: 100%;
+  max-width: 620px;
+  align-self: center;
+}
+
+/* ---------- The gold corners of the important windows ---------- */
+.window-gold::before,
+.window-gold::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #e9c46a;
+  border: 2px solid #0e1430;
+  transform: rotate(45deg);
+  top: -6px;
+  left: -6px;
+  z-index: 1;
+}
+
+.window-gold::after {
+  left: auto;
+  right: -6px;
+}
+
+/* ---------- The help of the keyboard (computer) ---------- */
+.keys {
+  flex-direction: row;
+  gap: 14px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+.key {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 5px;
+  margin-right: 5px;
+  border: 2px solid #9aa6c8;
+  border-radius: 4px;
+  background: #0e1430;
+  text-align: center;
+  color: #ffffff;
+}
+
+/* ---------- Wide screens (a computer): things side by side, like a console RPG ---------- */
+.wide .answers {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.wide .answers-long {
+  grid-template-columns: 1fr 1fr;
+}
+
+.wide .fight-panel {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-height: 52%;
+}
+
+.wide .commands {
+  width: 190px;
+}
+
+.wide .dialog-area {
+  left: 50%;
+  right: auto;
+  width: min(880px, 94%);
+  transform: translateX(-50%);
+}
+
+/* The pause menu: the list on the left, the window of the chosen entry on the right. */
+.menu-wide {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 24px;
+}
+
+.menu-wide > .window:last-child {
+  flex: 1;
+  min-width: 0;
+  max-height: calc(100% - 24px);
+}
+
+/* The inside of a window that scrolls (the title stays visible on the edge). */
+.window-body {
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* The world map: the party and the legend on the left, the map in the middle, the place and the quests on the right. */
+.map-layout {
+  gap: 12px;
+}
+
+.map-side,
+.map-info {
+  gap: 12px;
+}
+
+.wide .map-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) 300px;
+  grid-template-areas: 'side main info';
+  align-items: start;
+  gap: 18px;
+}
+
+.wide .map-side {
+  grid-area: side;
+}
+
+.wide .map-main {
+  grid-area: main;
+  align-items: center;
+}
+
+.wide .map-main .map-frame {
+  width: min(100%, calc(100vh / var(--ui, 1) - 190px));
+}
+
+.wide .map-info {
+  grid-area: info;
+}
+
+.map-main,
+.map-side,
+.map-info {
+  min-width: 0;
+}
+
+.map-main {
+  order: 1;
+}
+
+.map-info {
+  order: 2;
+}
+
+.map-side {
+  order: 3;
 }

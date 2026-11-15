@@ -206,34 +206,40 @@ export default function MapPanel({ game }) {
   }
 
   return (
-    <>
-      <div className="map-frame">
-        <MapView game={game} view={view} selectedId={selected.id} onSelect={setSelected} />
-        <div style={styles.zoom}>
-          <button className="px-button" style={styles.zoomButton} disabled={zoomIndex === ZOOMS.length - 1} onClick={() => zoom(1)} aria-label="zoom in">
-            +
-          </button>
-          <button className="px-button" style={styles.zoomButton} disabled={zoomIndex === 0} onClick={() => zoom(-1)} aria-label="zoom out">
-            −
-          </button>
+    <div className="map-layout">
+      <div className="map-main">
+        <div className="map-frame">
+          <MapView game={game} view={view} selectedId={selected.id} onSelect={setSelected} />
+          <div style={styles.zoom}>
+            <button className="px-button" style={styles.zoomButton} disabled={zoomIndex === ZOOMS.length - 1} onClick={() => zoom(1)} aria-label="zoom in">
+              +
+            </button>
+            <button className="px-button" style={styles.zoomButton} disabled={zoomIndex === 0} onClick={() => zoom(-1)} aria-label="zoom out">
+              −
+            </button>
+          </div>
+        </div>
+        <div className="row small" style={styles.mapLevel}>
+          <PixelIcon name={level > 0 ? 'map' + level : 'map'} size={14} />
+          <span>
+            {MAP_NAMES[level]}. {NEXT_HINT[level]}
+          </span>
         </div>
       </div>
-      <div className="row small" style={styles.mapLevel}>
-        <PixelIcon name={level > 0 ? 'map' + level : 'map'} size={14} />
-        <span>
-          {MAP_NAMES[level]}. {NEXT_HINT[level]}
+      <div className="map-info">
+        <PlaceInfo place={selected} />
+        <div>
+          <QuestList game={game} onFocus={focus} />
+        </div>
+        <span className="small" style={styles.controls}>
+          Drag: move · Tap a name: see the place · + / −: zoom
         </span>
       </div>
-      <PlaceInfo place={selected} />
-      <QuestList game={game} onFocus={focus} />
-      <div className="row" style={styles.columns}>
+      <div className="map-side">
         <Party game={game} />
         <Legend />
       </div>
-      <span className="small" style={styles.controls}>
-        Drag: move · Tap a name: see the place · + / −: zoom
-      </span>
-    </>
+    </div>
   );
 }
 
@@ -262,7 +268,6 @@ const styles = {
   },
   place: {
     gap: 12,
-    marginTop: 12,
     alignItems: 'flex-start',
   },
   thumbnailBox: {
@@ -280,16 +285,11 @@ const styles = {
     marginTop: 4,
     lineHeight: '20px',
   },
-  columns: {
-    alignItems: 'flex-start',
-    gap: 12,
-  },
   legendLine: {
     gap: 8,
     marginBottom: 4,
   },
   controls: {
-    marginTop: 12,
     textAlign: 'center',
   },
 };

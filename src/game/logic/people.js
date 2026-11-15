@@ -13,6 +13,7 @@ import { activeQuestOf, offeredQuest, isQuestReady, questProgress, startQuest, f
 import { workAsScribe, playWordSprint } from './duels';
 import { countItem, removeItem } from './player';
 import { say, notify } from './messages';
+import { emote } from './emotes';
 
 // The people on the map: where they are, and everything the player can do with them.
 
@@ -142,6 +143,7 @@ function giftChoice(game, npc) {
   function give() {
     removeItem(game.player, itemId);
     addFriendship(game, npc.id, 6);
+    emote(game, npc.id, 'heart');
     say(game, npc.id, ['A ' + ITEMS[itemId].name.toLowerCase() + '? For me? Thank you!']);
   }
   return { label: 'Give: ' + ITEMS[itemId].name, icon: itemId, run: give };
@@ -157,6 +159,7 @@ function activeQuestChoice(game, npc) {
       return;
     }
     finishQuest(game, quest);
+    emote(game, npc.id, 'note');
     say(game, npc.id, [quest.thanks]);
   }
   return { label: 'Quest: ' + quest.title + ' (' + progress.have + '/' + progress.need + ')', icon: 'quests', run: report };
