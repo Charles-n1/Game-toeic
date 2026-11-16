@@ -1,5 +1,5 @@
 import { SPECIES } from '../data/monsters';
-import { zoneAt } from '../data/zones';
+import { zoneAt, MONSTER_TOWNS, DUNGEONS, WILD_STRUCTURES } from '../data/zones';
 import { pickRandom } from '../../logic/random';
 import { isSolid, dungeonMonsters } from '../world/map';
 import { monsterCategory } from './learning';
@@ -7,13 +7,15 @@ import { TAG_POWER, TAG_ATTACK, tagOf, higherTag, nextTag } from './skills';
 import { isNight } from './clock';
 import { startFight } from './fight';
 import { isBarrier } from './powers';
+import { isLairCleared } from './isekaiStructures';
 
 // The monsters walking on the map. Touching one starts a fight.
+// Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
 
-const WILD_BY_DAY = 3; // how many wild monsters can be around the player
-const WILD_BY_NIGHT = 6;
+const WILD_BY_DAY = 4; // how many wild monsters can prowl around nearby camps
+const WILD_BY_NIGHT = 7;
 const SPAWN_EVERY = 1.5; // seconds between two tries to add a wild monster
-const TOO_FAR = 18; // tiles: a wild monster this far from the player disappears
+const TOO_FAR = 34; // tiles: a wild monster this far from the player disappears
 const SIGHT = 5.5; // tiles: a monster this close runs to the player
 const TOUCH = 0.7; // tiles: this close = the fight starts
 
@@ -87,21 +89,70 @@ function isWild(monster) {
 // The monsters of a land; at night the ghosts come out too (and bats in the gentle lands).
 const NIGHT_GUESTS = { meadow: ['bat'], lake: ['bat', 'drowner'], coast: ['drowner'], woods: ['bat', 'banshee'], forest: ['banshee'], heartwood: ['wraith'], oldwood: ['wraith', 'banshee'], watch: ['banshee'] };
 
-function speciesFor(game, zone) {
+const CAMP_SOURCES = [
+  ...MONSTER_TOWNS.map((t) => ({ id: t.id, kind: 'monsterTown', x: t.x + t.w / 2, y: t.y + t.h / 2, species: [t.species] })),
+  ...WILD_STRUCTURES.filter((s) => s.kind === 'monsterCamp').map((s) => ({ id: s.id, kind: 'monsterCamp', x: s.x, y: s.y, species: s.species })),
+  ...DUNGEONS.filter((d) => d.look === 'cave' || d.look === 'ruins').map((d) => ({
+    id: d.id,
+    kind: 'cave',
+    x: d.door ? d.door[0] : d.x + d.w / 2,
+    y: (d.door ? d.door[1] : d.y + d.h) + 2,
+    species: d.guards || [],
+  })),
+];
+
+function speciesForCamp(game, source, x, y) {
+  const zone = zoneAt(x, y);
   const night = isNight(game);
-  const list = zone.species.filter((id) => night || !SPECIES[id].night);
-  if (night) list.push(...(NIGHT_GUESTS[zone.id] || []));
-  return list;
+  const pool = [...zone.species, ...(source && Array.isArray(source.species) ? source.species : [])].filter(
+    (id) => SPECIES[id] && (night || !SPECIES[id].night)
+  );
+  if (night) pool.push(...(NIGHT_GUESTS[zone.id] || []));
+  return [...new Set(pool)];
 }
 
-// A free tile at 7 to 10 tiles from the player, in the wild. null if the try fell on a tree, a village...
+// Picks an active monster camp / monster town / cave near the player so monsters always originate from real lairs.
 function spawnPlace(game) {
-  const angle = Math.random() * Math.PI * 2;
-  const far = 7 + Math.random() * 3;
-  const x = game.player.x + Math.cos(angle) * far;
-  const y = game.player.y + Math.sin(angle) * far;
-  const isFree = !isSolid(x, y) && zoneAt(x, y).kind === 'land';
-  return isFree ? { x: x, y: y } : null;
+  const nearbyCamps = CAMP_SOURCES.filter((src) => {
+    if (src.kind === 'monsterCamp' && isLairCleared(game, src.id)) return false;
+    const far = distance(src, game.player);
+    return far >= 4 && far <= 55;
+  });
+  let source = nearbyCamps.length > 0 ? pickRandom(nearbyCamps) : null;
+  if (!source) {
+    // Player is deep in open wilds far from major towns: check closest active camp within 85 tiles.
+    let best = null;
+    let bestFar = 85;
+    for (const src of CAMP_SOURCES) {
+      if (src.kind === 'monsterCamp' && isLairCleared(game, src.id)) continue;
+      const far = distance(src, game.player);
+      if (far < bestFar) {
+        best = src;
+        bestFar = far;
+      }
+    }
+    if (!best) return null;
+    source = best;
+  }
+
+  // Spawn around the camp itself when within 30 tiles; otherwise along a patrol trail leading outward from that camp!
+  const sourceFar = distance(source, game.player);
+  const origin =
+    sourceFar <= 30
+      ? source
+      : {
+          x: game.player.x + ((source.x - game.player.x) / sourceFar) * (11 + Math.random() * 5),
+          y: game.player.y + ((source.y - game.player.y) / sourceFar) * (11 + Math.random() * 5),
+        };
+  for (let tries = 0; tries < 6; tries++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 2 + Math.random() * 4.5;
+    const x = origin.x + Math.cos(angle) * radius;
+    const y = origin.y + Math.sin(angle) * radius;
+    if (distance({ x, y }, game.player) < 5) continue;
+    if (!isSolid(x, y) && zoneAt(x, y).kind === 'land') return { x, y, source };
+  }
+  return null;
 }
 
 function spawnWild(game) {
@@ -109,14 +160,20 @@ function spawnWild(game) {
   if (game.run.monsters.filter(isWild).length >= max) return;
   const place = spawnPlace(game);
   if (!place) return;
-  const list = speciesFor(game, zoneAt(place.x, place.y));
+  const list = speciesForCamp(game, place.source, place.x, place.y);
   if (list.length === 0) return;
   const roll = Math.random();
   const size = roll < TRIO_CHANCE ? 3 : roll < PACK_CHANCE ? 2 : 1;
   for (let i = 0; i < size; i++) {
     const spot = i === 0 ? place : { x: place.x + (Math.random() - 0.5) * 2, y: place.y + (Math.random() - 0.5) * 2 };
     if (i > 0 && isSolid(spot.x, spot.y)) continue;
-    game.run.monsters.push(makeMonster(game, pickRandom(list), spot.x, spot.y));
+    game.run.monsters.push(
+      makeMonster(game, pickRandom(list), spot.x, spot.y, {
+        homeCampId: place.source.id,
+        campX: place.source.x,
+        campY: place.source.y,
+      })
+    );
   }
 }
 
@@ -157,11 +214,18 @@ function walkSpeed(monster) {
 function wander(game, monster, dt) {
   monster.walkTime -= dt;
   if (monster.walkTime <= 0) {
-    const angle = Math.random() * Math.PI * 2;
-    const isResting = Math.random() < 0.4;
-    monster.walkX = isResting ? 0 : Math.cos(angle);
-    monster.walkY = isResting ? 0 : Math.sin(angle);
-    monster.walkTime = 1 + Math.random() * 2;
+    if (monster.campX !== undefined && Math.hypot(monster.x - monster.campX, monster.y - monster.campY) > 15 && Math.hypot(game.player.x - monster.campX, game.player.y - monster.campY) < 28) {
+      const len = Math.max(0.1, Math.hypot(monster.campX - monster.x, monster.campY - monster.y));
+      monster.walkX = (monster.campX - monster.x) / len;
+      monster.walkY = (monster.campY - monster.y) / len;
+      monster.walkTime = 1.4 + Math.random();
+    } else {
+      const angle = Math.random() * Math.PI * 2;
+      const isResting = Math.random() < 0.4;
+      monster.walkX = isResting ? 0 : Math.cos(angle);
+      monster.walkY = isResting ? 0 : Math.sin(angle);
+      monster.walkTime = 1 + Math.random() * 2;
+    }
   }
   const speed = walkSpeed(monster) * 0.4 * dt;
   push(game, monster, monster.walkX * speed, monster.walkY * speed);

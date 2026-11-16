@@ -120,3 +120,115 @@ function findCampfires() {
 }
 
 export const WILD_CAMPFIRES = findCampfires();
+
+// ---------- Isekai wilderness structures: monster camps, bandit traps, wayfarer camps, goddess shrines ----------
+
+const structRandom = randomOf('isekai');
+const CAMP_SPECIES = {
+  meadow: ['slime', 'goblin', 'wolf'],
+  forest: ['wolf', 'goblin', 'spider', 'orc'],
+  mountain: ['orc', 'wolf', 'harpy', 'stoneGolem'],
+  desert: ['lizardman', 'goblin', 'orc', 'drake'],
+  coast: ['goblin', 'drowner', 'harpy', 'lizardman'],
+  demon: ['cultist', 'darkKnight', 'shadowMage'],
+};
+const MONSTER_CAMP_NAMES = ['Goblin Warpost', 'Wolf Den', 'Feral Stockade', 'Raider Outpost', 'Bone Clearing', 'Demon Vanguard'];
+
+function findIsekaiStructures() {
+  const structures = [];
+  const props = [];
+  const occupied = [...CAVES, ...TOTEMS, ...WILD_CAMPFIRES];
+
+  const pickSpot = (gapVillage, gapStruct, allowDemon = false) => {
+    for (let tries = 0; tries < 120; tries++) {
+      const cx = between(structRandom, 7, CELLS - 8);
+      const cy = between(structRandom, 7, CELLS - 8);
+      const biome = paintedBiome(cx, cy);
+      if (!allowDemon && biome === 'demon') continue;
+      if (!isWalkableCell(cx, cy) || !isWalkableCell(cx + 1, cy) || !isWalkableCell(cx, cy + 1)) continue;
+      const freeAll = [...ALL_PLACES, ...occupied, ...structures.map((s) => ({ x: s.x - 4, y: s.y - 4, w: 8, h: 8 }))].every((place) => {
+        const mid = cellOf(place);
+        const minGap = place.plan ? gapVillage : gapStruct;
+        return Math.hypot(mid.cx - cx, mid.cy - cy) - Math.max(place.w || 4, place.h || 4) / (2 * SCALE) >= minGap;
+      });
+      if (freeAll) return { cx, cy, biome, land: landOfCell(cx, cy) };
+    }
+    return null;
+  };
+
+  // 1. 26 Monster Camps / Lairs (spawn origins for wild monsters!)
+  for (let i = 0; i < 26; i++) {
+    const spot = pickSpot(8, 7, true);
+    if (!spot) break;
+    const sx = spot.cx * SCALE + 5;
+    const sy = spot.cy * SCALE + 5;
+    const id = 'mcamp-' + i;
+    const speciesList = spot.land.species && spot.land.species.length > 0 ? spot.land.species : CAMP_SPECIES[spot.biome] || CAMP_SPECIES.meadow;
+    const camp = {
+      id: id,
+      kind: 'monsterCamp',
+      name: pickWith(structRandom, MONSTER_CAMP_NAMES) + ' #' + (i + 1),
+      x: sx,
+      y: sy,
+      w: 8,
+      h: 7,
+      biome: spot.biome,
+      species: speciesList,
+    };
+    structures.push(camp);
+    props.push({ kind: 'tent', look: 'monster', x: sx - 4, y: sy - 3, w: 6, h: 4, structId: id });
+    props.push({ kind: 'campfire', x: sx + 2, y: sy, w: 1, h: 1, structId: id });
+    props.push({ kind: 'monsterBanner', x: sx + 3, y: sy - 2, w: 1, h: 1, structId: id });
+    props.push({ kind: 'bones', x: sx + 1, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'spikes', x: sx - 4, y: sy + 3, w: 1, h: 1, side: 'row', structId: id });
+  }
+
+  // 2. 20 Bandit Trap Ambushes along wilderness trails (lure crate + spike traps + tripwire)
+  for (let i = 0; i < 20; i++) {
+    const spot = pickSpot(8, 6, false);
+    if (!spot) break;
+    const sx = spot.cx * SCALE + 5;
+    const sy = spot.cy * SCALE + 5;
+    const id = 'btrap-' + i;
+    const trap = { id: id, kind: 'banditTrap', name: 'Bandit Ambush Trap', x: sx, y: sy, w: 5, h: 5, danger: Math.max(1, spot.land.danger) };
+    structures.push(trap);
+    props.push({ kind: 'crates', x: sx, y: sy - 1, w: 1, h: 1, structId: id });
+    props.push({ kind: 'spikeTrap', x: sx - 1, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'spikeTrap', x: sx + 1, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'tripwire', x: sx, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
+  }
+
+  // 3. 16 Wayfarer Roadside Camps (tent, simmering cauldron, bedroll, weapon rack)
+  for (let i = 0; i < 16; i++) {
+    const spot = pickSpot(7, 6, false);
+    if (!spot) break;
+    const sx = spot.cx * SCALE + 5;
+    const sy = spot.cy * SCALE + 5;
+    const id = 'wcamp-' + i;
+    structures.push({ id: id, kind: 'wayCamp', name: 'Traveler Waycamp', x: sx, y: sy, w: 7, h: 6 });
+    props.push({ kind: 'tent', look: 'bandit', x: sx - 4, y: sy - 3, w: 6, h: 4, structId: id });
+    props.push({ kind: 'cauldron', x: sx + 2, y: sy, w: 1, h: 1, structId: id });
+    props.push({ kind: 'bedroll', x: sx + 4, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'weaponRack', x: sx - 3, y: sy + 2, w: 1, h: 1, structId: id });
+  }
+
+  // 4. 12 Ancient Isekai Shrines & Ruined Summoning Portals
+  for (let i = 0; i < 12; i++) {
+    const spot = pickSpot(8, 8, false);
+    if (!spot) break;
+    const sx = spot.cx * SCALE + 5;
+    const sy = spot.cy * SCALE + 5;
+    const id = 'shrine-' + i;
+    const isPortal = i % 3 === 0;
+    structures.push({ id: id, kind: 'isekaiShrine', isPortal: isPortal, name: isPortal ? 'Ruined Summon Gate' : 'Ancient Goddess Shrine', x: sx, y: sy, w: 6, h: 5 });
+    props.push({ kind: isPortal ? 'portalRuins' : 'shrine', x: sx, y: sy - 1, w: 1, h: 1, structId: id });
+    props.push({ kind: 'ruinPillar', x: sx - 2, y: sy + 1, w: 1, h: 1, structId: id });
+    props.push({ kind: 'ruinPillar', x: sx + 2, y: sy + 1, w: 1, h: 1, structId: id });
+  }
+
+  return { structures, props };
+}
+
+const ISEKAI_BUILT = findIsekaiStructures();
+export const WILD_STRUCTURES = ISEKAI_BUILT.structures;
+export const WILD_STRUCTURE_PROPS = ISEKAI_BUILT.props;

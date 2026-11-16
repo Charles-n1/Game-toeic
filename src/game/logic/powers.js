@@ -4,7 +4,7 @@ import { isSolid } from '../world/map';
 import { heal, maxMana } from './player';
 import { lootMonster } from './loot';
 import { notify, say } from './messages';
-import { burst, bolt, floatText } from './particles';
+import { burst, bolt, floatText, bloodSplatter, bloodHit } from './particles';
 import { startFight } from './fight';
 import { makeDuel } from './duels';
 import { saveGame } from './save';
@@ -190,9 +190,17 @@ function countDownSummons(game, dt) {
 function wound(game, monster, damage) {
   bolt(game, monster.x, monster.y);
   monster.health -= damage;
-  if (monster.health > 0) return;
-  if (monster.tier === 'small') lootMonster(game, monster);
-  else monster.health = 10;
+  if (monster.health > 0) {
+    bloodHit(game, monster.x, monster.y, 5);
+    return;
+  }
+  if (monster.tier === 'small') {
+    bloodSplatter(game, monster.x, monster.y, 11);
+    lootMonster(game, monster);
+  } else {
+    bloodHit(game, monster.x, monster.y, 6);
+    monster.health = 10;
+  }
 }
 
 function thunderVerdict(game) {

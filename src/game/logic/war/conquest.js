@@ -7,7 +7,7 @@ import { refreshWorld } from '../worldState';
 import { earnLexis, gainXp } from '../player';
 import { addHappiness } from '../village';
 import { notify } from '../messages';
-import { burst, dust, floatText } from '../particles';
+import { burst, dust, floatText, bloodSplatter, bloodHit } from '../particles';
 import { cue } from '../cues';
 import {
   dist,
@@ -42,6 +42,7 @@ function warbandMonstersOf(game, bandId) {
 function killMonsterOnMap(game, monster, color = '#ffd23f') {
   game.run.monsters = game.run.monsters.filter((other) => other !== monster);
   burst(game, monster.x, monster.y, color, 18);
+  bloodSplatter(game, monster.x, monster.y, 12);
   spawnWarEffect(game, 'hit', monster.x, monster.y, color, { life: 0.3 });
 }
 
@@ -362,7 +363,9 @@ function damageVillagerDefender(game, village, defender, damage) {
   defender.hp = (defender.hp ?? defender.maxHp ?? 25) - damage;
   spawnWarEffect(game, 'slash', defender.x, defender.y, '#ff5a6e');
   floatText(game, defender.x, defender.y, '-' + damage, '#ff8a95');
+  bloodHit(game, defender.x, defender.y, 5);
   if (defender.hp > 0) return;
+  bloodSplatter(game, defender.x, defender.y, 12);
   defender.dead = true;
   defender.ko = true;
   defender.fighting = false;

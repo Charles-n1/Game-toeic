@@ -6,9 +6,13 @@ import { pickRandom } from '../../../logic/random';
 import { makeMonster } from '../monsters';
 import { earnLexis, gainXp, addItem } from '../player';
 import { addHappiness } from '../village';
-import { notify } from '../messages';
-import { dust, floatText } from '../particles';
+import { notify, say } from '../messages';
+import { dust, floatText, burst, bloodSplatter } from '../particles';
 import { cue } from '../cues';
+import { monsterCategory } from '../learning';
+import { TAG_POWER, TAG_ATTACK, tagOf, higherTag } from '../skills';
+import { startFight } from '../fight';
+import { addInfamy, changeVillageMood } from '../society/state';
 import {
   dist,
   centerOfPlace,
@@ -24,9 +28,9 @@ import {
   addGrave,
 } from './state';
 
-const MAX_CARAVANS = 2;
-const CARAVAN_SPEED = 1.75;
-const CARAVAN_SPAWN_EVERY = 22;
+const MAX_CARAVANS = 4;
+const CARAVAN_SPEED = 2.05;
+const CARAVAN_SPAWN_EVERY = 10;
 
 function merchantLook() {
   return {
@@ -79,16 +83,20 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
     dir: 'right',
     step: 0,
     horseStep: 0,
-    hp: 60,
-    maxHp: 60,
+    hp: 70,
+    maxHp: 70,
     alive: true,
     underAttack: false,
     attackedOnce: false,
     rewarded: false,
+    plundered: false,
+    legCount: 0,
+    pauseUntil: 0,
+    wagonColor: pickRandom(['#d9cbb0', '#b8483c', '#3d7a58', '#3c68a0']),
     merchantLook: merchantLook(),
     targetX: toCenter.x,
     targetY: toCenter.y,
-    despawnAt: Date.now() + 240000,
+    despawnAt: Date.now() + 260000,
   };
   game.run.caravans.push(caravan);
   runWar.caravanTimer = CARAVAN_SPAWN_EVERY;
@@ -200,6 +208,7 @@ function updateCaravanAttackers(game, caravan, dt) {
       if (caravan.hp <= 0) {
         caravan.alive = false;
         caravan.underAttack = false;
+        bloodSplatter(game, caravan.x, caravan.y, 12);
         addCorpse(game, 'merchant', caravan.name, caravan.x, caravan.y, caravan.merchantLook);
         game.run.monsters = game.run.monsters.filter((other) => other.caravanId !== caravan.id);
         return; // no toast: a merchant dying far away is not fun to read
@@ -220,6 +229,35 @@ export function slowCaravans(game) {
   }
 }
 
+function continueCaravanRoute(game, caravan) {
+  if (caravan.legCount >= 2 || caravan.plundered) return false;
+  const friendly = VILLAGES.filter(
+    (v) => v.id !== caravan.toId && v.id !== caravan.fromId && game.villages[v.id] && game.villages[v.id].owner === 'people'
+  );
+  if (friendly.length === 0) return false;
+  const here = villageById(caravan.toId);
+  const hereCenter = here ? centerOfPlace(here) : { x: caravan.x, y: caravan.y };
+  const sorted = friendly
+    .map((v) => ({ v, far: dist(centerOfPlace(v), hereCenter) }))
+    .filter((entry) => entry.far < 520)
+    .sort((a, b) => a.far - b.far);
+  if (sorted.length === 0) return false;
+  const nextDest = pickRandom(sorted.slice(0, Math.min(3, sorted.length))).v;
+  const nextCenter = centerOfPlace(nextDest);
+  caravan.fromId = caravan.toId;
+  caravan.toId = nextDest.id;
+  caravan.targetX = nextCenter.x;
+  caravan.targetY = nextCenter.y;
+  caravan.legCount += 1;
+  caravan.pauseUntil = Date.now() + 3500;
+  caravan.attackedOnce = false;
+  caravan.rewarded = false;
+  if (dist(caravan, game.player) < 28) {
+    notify(game, '🛒 ' + caravan.name + ' reached town and prepares to ride to ' + nextDest.name + '.', '#e8d8a8');
+  }
+  return true;
+}
+
 export function updateCaravans(game, dt) {
   const runWar = ensureRunWar(game);
   if (zoneAt(game.player.x, game.player.y).kind !== 'inside') {
@@ -230,6 +268,7 @@ export function updateCaravans(game, dt) {
     }
   }
 
+  const now = Date.now();
   const remaining = [];
   for (const caravan of game.run.caravans) {
     if (!caravan.alive) continue;
@@ -238,10 +277,138 @@ export function updateCaravans(game, dt) {
       if (caravan.alive) remaining.push(caravan);
       continue;
     }
+    if (caravan.pauseUntil && now < caravan.pauseUntil) {
+      remaining.push(caravan);
+      continue;
+    }
     const arrived = stepCaravanAlongRoad(game, caravan, dt);
-    if (!arrived) remaining.push(caravan);
+    if (!arrived || continueCaravanRoute(game, caravan)) remaining.push(caravan);
   }
   game.run.caravans = remaining;
+}
+
+// ---------- Player Interaction & Plundering ----------
+
+export function caravanNear(game, range = 2.6) {
+  const list = game.run && Array.isArray(game.run.caravans) ? game.run.caravans : [];
+  let best = null;
+  let bestFar = range;
+  for (const c of list) {
+    if (!c.alive) continue;
+    const far = dist(c, game.player);
+    if (far < bestFar) {
+      best = c;
+      bestFar = far;
+    }
+  }
+  return best;
+}
+
+function makeCaravanEscort(game, caravan) {
+  const category = monsterCategory(game);
+  const tag = higherTag('normal', tagOf(game, category));
+  return {
+    id: nextWarId(game, 'escort'),
+    warKind: 'caravanEscort',
+    caravanId: caravan.id,
+    name: caravan.name + "'s Caravan Guard",
+    species: 'soldier',
+    art: 'darkKnight',
+    shape: 'knight',
+    tier: 'small',
+    category: category,
+    tag: tag,
+    health: 26 * TAG_POWER[tag],
+    maxHealth: 26 * TAG_POWER[tag],
+    attack: 16 * TAG_ATTACK[tag],
+    magicAttack: 0,
+    resistance: 0.2,
+    magicResistance: 0.1,
+    speed: 11,
+    xp: 22 * TAG_POWER[tag],
+    lexis: 18 * TAG_POWER[tag],
+    drops: ['caravanParcel'],
+    x: caravan.x,
+    y: caravan.y,
+    look: caravan.merchantLook,
+  };
+}
+
+export function handleCaravanFightEnd(game, fight) {
+  const opponent = fight.opponent;
+  if (!opponent || opponent.warKind !== 'caravanEscort') return false;
+  const caravan = (game.run.caravans || []).find((c) => c.id === opponent.caravanId);
+  if (fight.phase === 'won' && caravan) {
+    caravan.plundered = true;
+    bloodSplatter(game, caravan.x, caravan.y, 14);
+    burst(game, caravan.x, caravan.y, '#ffd23f', 20);
+    const lexis = 35 + Math.floor(Math.random() * 30);
+    earnLexis(game, lexis);
+    addItem(game.player, 'mysteryCrate', 1);
+    if (Math.random() < 0.45) addItem(game.player, 'mysteryRelic', 1);
+    if (Math.random() < 0.5) addItem(game.player, 'caravanParcel', 1);
+    addInfamy(game, 22);
+    changeVillageMood(game, caravan.fromId, -10);
+    changeVillageMood(game, caravan.toId, -10);
+    cue(game, 'victory');
+    notify(game, '🏴‍☠️ Plundered ' + caravan.name + '! Found a Mystery Supply Crate & +' + lexis + ' Lexis! (+22 Infamy)', '#ff8a3d');
+  }
+  return true;
+}
+
+export function interactCaravan(game, caravan) {
+  if (!caravan || !caravan.alive) return;
+  const fromName = (villageById(caravan.fromId) || {}).name || 'a nearby village';
+  const toName = caravanDestinationName(caravan);
+
+  if (caravan.plundered) {
+    say(game, null, [caravan.name + ': "Please! You already looted my wagon. Leave me in peace!"']);
+    return;
+  }
+
+  const choices = [
+    {
+      label: 'Buy War Rations (18 Lexis)',
+      icon: 'warRations',
+      run: () => {
+        if (game.player.lexis < 18) {
+          notify(game, 'Need 18 Lexis.', '#ff8a95');
+          return;
+        }
+        game.player.lexis -= 18;
+        addItem(game.player, 'warRations', 1);
+        cue(game, 'trade');
+        notify(game, '🛒 Bought War Rations from ' + caravan.name + '.', '#7cfc9a');
+      },
+    },
+    {
+      label: 'Buy Caravan Parcel (42 Lexis)',
+      icon: 'caravanParcel',
+      run: () => {
+        if (game.player.lexis < 42) {
+          notify(game, 'Need 42 Lexis.', '#ff8a95');
+          return;
+        }
+        game.player.lexis -= 42;
+        addItem(game.player, 'caravanParcel', 1);
+        cue(game, 'trade');
+        notify(game, '📦 Bought Caravan Parcel!', '#7cfc9a');
+      },
+    },
+    {
+      label: '☠ Plunder Wagon! (Gain Mystery Items, +22 Infamy)',
+      icon: 'sword',
+      run: () => {
+        const escort = makeCaravanEscort(game, caravan);
+        const runWar = ensureRunWar(game);
+        startFight(game, escort, []);
+        runWar.trackedFight = game.run.fight;
+      },
+    },
+    { label: 'Wish them safe travels', run: () => {} },
+  ];
+
+  say(game, null, ['🛒 ' + caravan.name + ' waves from atop the horse leading a loaded wagon.\n"Hauling goods from ' + fromName + ' to ' + toName + '!"'], choices);
 }
 
 // ---------- Corpses & Burying ----------

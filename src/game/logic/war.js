@@ -23,6 +23,9 @@ import {
   slowCaravans,
   corpseNear,
   buryCorpse,
+  caravanNear,
+  interactCaravan,
+  handleCaravanFightEnd,
   spawnCaravan,
   triggerCaravanAttack,
 } from './war/caravans';
@@ -74,6 +77,7 @@ export function onFightEndWar(game, fight) {
 
   if (handleBanditFightEnd(game, fight)) return;
   if (handleSkirmishFightEnd(game, fight)) return;
+  if (handleCaravanFightEnd(game, fight)) return;
 
   const opponent = fight.opponent;
   if (!opponent) return;
@@ -136,6 +140,7 @@ export function actionsOfWar(game) {
   return [
     { when: () => corpseNear(game) !== null, icon: 'dig', run: () => buryCorpse(game, corpseNear(game)) },
     { when: () => cageNear(game) !== null, icon: 'people', run: () => openCage(game, cageNear(game)) },
+    { when: () => caravanNear(game) !== null, icon: 'shop', run: () => interactCaravan(game, caravanNear(game)) },
     { when: () => skirmishNear(game) !== null, icon: 'talk', run: () => interactSkirmish(game, skirmishNear(game)) },
   ];
 }

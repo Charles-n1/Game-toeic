@@ -3,7 +3,7 @@ import { propsAround, tileAt, TILE } from '../world/map';
 import { turretSpots } from './walls';
 import { villagerNear } from './villagers';
 import { portNear } from './ports';
-import { canLightTorch, canGather } from './torch';
+import { canGather } from './torch';
 import { canRefill, fireToCookNear } from './survival';
 import { wordDoorAt, obeliskNear, boulderPuzzleAt } from './puzzles';
 import { isSoil, chestNear } from './farm';
@@ -121,7 +121,7 @@ function isWorldActionHere(game) {
   const player = game.player;
   const front = frontTile(player);
   if (front.x === HOME_DOOR.x && front.y === HOME_DOOR.y) return true;
-  if (portNear(game) || canLightTorch(game, false) || fireToCookNear(game)) return true;
+  if (portNear(game) || fireToCookNear(game)) return true;
   if (wordDoorAt(game, front.x, front.y) || obeliskNear(game) || boulderPuzzleAt(game, front.x, front.y)) return true;
   if (propNear(player, ['dummy'], 1.6) || chestNear(game)) return true;
   if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return true;

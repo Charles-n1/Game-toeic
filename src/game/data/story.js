@@ -12,14 +12,14 @@ export function goalOf(id) {
   return GOALS.find((goal) => goal.id === id);
 }
 
-// The opening, told by the goddess. {score} is replaced by the TOEIC score of the player.
+// The opening, told by the goddess. {score} is replaced by the target TOEIC score of the player.
 export const INTRO = [
   'You were running to your TOEIC exam. You never saw the truck.',
   '...',
   'Do not be afraid. I am Lexa, goddess of the spoken word.',
   'My world, the kingdom of Lexia, is dying of Silence. A Demon King steals the words from my people, one by one.',
   'Here, words are power. A correct sentence cuts like a blade. A wrong one opens your guard.',
-  'I read your soul: a reading score of {score}. Not a hero yet. But you can grow. That is why I chose you.',
+  'I heard your wish: to reach {score} TOEIC. Your current strength starts low, and every right word will raise it!',
   'One more thing. Something sleeps in you, black and bright. Even I can not read it. Be careful with it.',
 ];
 

@@ -78,9 +78,11 @@ function buildVisitedHouse(game, house) {
     { kind: 'furniture', look: 'chair', color: '#8a5a30', x: x + 3, y: y + 6, w: 1, h: 1 },
     { kind: 'furniture', look: 'chair', color: '#8a5a30', x: x + 6, y: y + 6, w: 1, h: 1 },
     { kind: 'furniture', look: 'plant', color: '#ff6fa8', x: x + 1, y: y + 2, w: 1, h: 1 },
+    { kind: 'flowerPot', variant: 1, x: x + 1, y: y + 12, w: 1, h: 1, walkable: true },
     { kind: 'furniture', look: 'lamp', color: '#ffd23f', x: x + 9, y: y + 2, w: 1, h: 1 },
     { kind: 'furniture', look: 'rug', color: '#5a7fc4', x: x + 4, y: y + 7, w: 2, h: 1, walkable: true },
     { kind: 'furniture', look: 'rug', color: '#b8303a', x: x + 4, y: y + 12, w: 2, h: 1, walkable: true },
+    { kind: 'furniture', look: 'rug', color: '#c9961e', x: x + 13, y: y + 11, w: 2, h: 1, walkable: true },
     { kind: 'storage', x: x + 1, y: y + 4, w: 1, h: 1, fixed: true },
     // Bathroom / Toilets (toilettes)
     { kind: 'toilet', x: x + 19, y: y + 2, w: 1, h: 1, fixed: true },

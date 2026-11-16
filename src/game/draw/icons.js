@@ -179,6 +179,8 @@ const ICONS = {
   warShield: [SHIELD, { U: '#4a5a9e', Y: '#c9d1e0' }],
   warRations: [MEAT, { R: '#b84a2a', L: '#ffd23f' }],
   caravanParcel: [CHEST, { D: '#8a5a30', W: '#d9a05a' }],
+  mysteryCrate: [CHEST, { D: '#5a2d7a', W: '#ffd23f' }],
+  mysteryRelic: [CHEST, { D: '#b82a3a', W: '#fff3b0' }],
   warHorn: [MUG, { W: '#ffd23f', Y: '#c48c52' }],
 
   // ---------- The grammar types ----------

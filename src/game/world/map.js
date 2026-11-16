@@ -1,7 +1,7 @@
 import { TILE, SOLID_TILES } from './tileKinds';
 import { MAP_WIDTH, getTile, setTile, fillRect, natureBiome } from './grid';
 import { WORLD_SIZE, MAP_HEIGHT, SCALE, CELLS } from './size';
-import { SETTLED, VILLAGES, DUNGEONS, WILD_HOMES, WILD_PROPS, PROPS, zoneAt, doorOf, hasDoubleDoor } from '../data/zones';
+import { SETTLED, VILLAGES, DUNGEONS, WILD_HOMES, WILD_PROPS, WILD_STRUCTURES, PROPS, zoneAt, doorOf, hasDoubleDoor } from '../data/zones';
 import { paintedGround } from './painting';
 import { noise, smoothNoise } from './noise';
 import { buildStructures, STRUCTURE_PROPS } from './structures';
@@ -163,6 +163,7 @@ function clearAround(x, y, radius) {
 function clearWildPlaces() {
   WILD_PROPS.forEach((prop) => clearAround(prop.x, prop.y, 2));
   WILD_HOMES.forEach((home) => clearAround(home.x, home.y, 4));
+  WILD_STRUCTURES.forEach((s) => clearAround(s.x, s.y, 3));
 }
 
 // ---------- Everything ----------

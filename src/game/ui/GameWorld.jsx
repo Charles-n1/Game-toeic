@@ -10,6 +10,7 @@ import { drawScene } from '../draw/scene';
 import { makeInput, releaseAll, normalizeKey, ACTION_KEYS } from '../logic/input';
 import { updateGame, updateEffects, act } from '../logic/update';
 import { saveGame } from '../logic/save';
+import { toggleTorch } from '../logic/torch';
 import { takeCues } from '../logic/cues';
 import { useGameOptions } from './gameOptions';
 import { songFor } from '../audio/soundtrack';
@@ -31,7 +32,7 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
 
   // The game reads these each time it needs them: they always follow the app and the options.
   game.run.questions = questions;
-  game.run.goalRate = goalRate;
+  game.run.goalRate = game.goalRate || goalRate;
   game.run.onAnswer = onAnswer;
   game.run.relaxed = options.relaxed;
   game.run.textSpeed = options.textSpeed;
@@ -83,6 +84,7 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
       input.keys.Shift = Boolean(event.shiftKey);
       if (ACTION_KEYS.includes(key) && !event.repeat) doAction();
       if (SHORTCUTS[key]) openMenu(SHORTCUTS[key]);
+      if (key === 't' && !event.repeat) switchTorch();
       if (key === 'Escape') openMenu(null);
     } else if ((current === 'menu' || current === 'shop') && key === 'Escape') {
       close();
@@ -97,6 +99,12 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
 
   function doAction() {
     act(game);
+    refresh();
+  }
+
+  // The torch of the hero: on or off.
+  function switchTorch() {
+    toggleTorch(game);
     refresh();
   }
 

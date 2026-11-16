@@ -30,7 +30,7 @@ function ObsidianFollowers({ game, refresh }) {
         <div className="line">
           <PixelIcon name="obsidianSoldier" size={28} />
           <span className="grow">
-            ♟️ Soldiers ×{player.soldiers} · {player.soldierHp || player.soldiers * 45} shield HP · {Math.ceil(player.soldierTime)} s
+            ♟️ Soldiers ×{player.soldiers} · {Math.round(player.soldierHp || player.soldiers * 45)} shield HP · {Math.ceil(player.soldierTime)} s
           </span>
           <button className="px-button" onClick={() => send(dismissSoldiers)}>
             Dismiss
@@ -64,7 +64,7 @@ export default function PowersPanel({ game, refresh, onClose }) {
   return (
     <>
       <span style={styles.mana}>
-        MP {player.mana} / {maxMana(player)}
+        MP {Math.round(player.mana)} / {Math.round(maxMana(player))}
       </span>
       <ObsidianFollowers game={game} refresh={refresh} />
       {(player.soldiers > 0 || player.pet) && <span className="section">Powers</span>}

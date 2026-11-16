@@ -67,12 +67,12 @@ export const ITEMS = {
   rugRed: { name: 'Red Rug', icon: '🟥', kind: 'furniture', furniture: 'rug', color: '#b8303a', price: 30 },
   rugBlue: { name: 'Blue Rug', icon: '🟦', kind: 'furniture', furniture: 'rug', color: '#2f50a0', price: 30 },
 
-  // ---------- A torch for the night (see logic/torch.js) ----------
-  branch: { name: 'Branch', icon: '🪵', kind: 'material', sell: 1, text: 'From a tree. For a torch.' },
-  oil: { name: 'Lamp Oil', icon: '🫙', kind: 'material', price: 8, sell: 2, text: 'For a torch.' },
-  cloth: { name: 'Cloth', icon: '🧶', kind: 'material', price: 6, sell: 2, text: 'For a torch.' },
-  flint: { name: 'Flint Stone', icon: '🪨', kind: 'material', sell: 1, text: 'From a rock. Strike 2 to light a fire.' },
-  torch: { name: 'Torch', icon: '🔦', kind: 'tool', sell: 4, text: 'Light it at a fire, or with 2 flint stones.' },
+  // ---------- Gathered materials (the torch of the hero is not an item: see logic/torch.js) ----------
+  branch: { name: 'Branch', icon: '🪵', kind: 'material', sell: 1, text: 'From a tree. 2 branches make firewood.' },
+  oil: { name: 'Lamp Oil', icon: '🫙', kind: 'material', price: 8, sell: 2, text: 'Oil for lamps.' },
+  cloth: { name: 'Cloth', icon: '🧶', kind: 'material', price: 6, sell: 2, text: 'A roll of woven cloth.' },
+  flint: { name: 'Flint Stone', icon: '🪨', kind: 'material', sell: 1, text: 'A hard stone, from a rock.' },
+  torch: { name: 'Torch', icon: '🔦', kind: 'tool', sell: 4, text: 'A spare torch. You already carry one: sell it.' },
 
   // ---------- The items of each part of the game (see data/items/) ----------
   ...GEAR_ITEMS,

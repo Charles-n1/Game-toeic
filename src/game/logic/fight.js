@@ -11,13 +11,14 @@ import { lootMonster } from './loot';
 import { knockOut } from './death';
 import { saveGame } from './save';
 import { isInStormField, gainObsidianXp, SOLDIER_MAX_HP } from './powers';
-import { floatText } from './particles';
+import { floatText, bloodSplatter } from './particles';
 import { notify } from './messages';
 import { finalizeLinkTests } from './statLinks';
 import { fatigueMultiplier, addCompanionFatigue } from './camp';
 import { companionAttackBonus, companionStatBonuses, companionSpecialMove, recordCompanionCombat } from './bonds/training';
 import { onFightEndWar } from './war';
 import { onFightEndSociety } from './society';
+import { onFightEndParties } from './worldParties';
 
 // A fight = questions. A good answer strikes the opponent, a bad one (or no answer in time) lets it strike.
 // The opponent is a monster, or a person in a "duel" (negotiating a price, a game, a job): same rules,
@@ -327,6 +328,7 @@ function winBattle(game, fight) {
   addCompanionFatigue(game, fight.opponent.boss ? 12 : 6);
   maybeDropGear(game, fight.opponent);
   floatText(game, game.player.x, game.player.y, '+' + xp + ' XP', '#7CFC9A');
+  bloodSplatter(game, game.player.x + 1.1, game.player.y + 0.15, fight.opponents.length > 1 ? 16 : 11);
   gainXp(game, xp);
 }
 
@@ -357,5 +359,6 @@ export function endFight(game) {
   }
   onFightEndWar(game, fight);
   onFightEndSociety(game, fight);
+  onFightEndParties(game, fight);
   if (game.run.screen !== 'over') saveGame(game); // after each fight (not after a real death: the save is gone)
 }

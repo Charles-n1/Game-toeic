@@ -12,16 +12,33 @@ import { clockText, isNight } from '../logic/clock';
 import { daysBeforeRaid } from '../logic/raid';
 import { currentChapter } from '../logic/chapters';
 import { actionIcon } from '../logic/update';
-import { hasLight } from '../logic/torch';
+import { hasLight, torchTimeLeft, toggleTorch } from '../logic/torch';
 import { isNearCamp } from '../logic/camp';
 import { isVillain, ensureSociety } from '../logic/society/state';
 
 const WEATHER_SIGNS = { cloudy: '☁', rain: '🌧', storm: '⛈' };
 
-// At night: the hours of light left, or a reminder that the hero is in the dark.
+// The sky in one or two signs: the weather (or the sun / the moon), and 💨 when a strong wind blows.
+function skySigns(game) {
+  const sky = WEATHER_SIGNS[game.weather.kind] || (isNight(game) ? '☾' : '☀');
+  return game.weather.windy ? sky + '💨' : sky;
+}
+
+// The torch: the time of light left, or (at night) a reminder that it can be lit. null = nothing to show.
 function lightText(game) {
-  if (hasLight(game)) return '🔥 Torch: ' + Math.ceil(game.player.torchHours) + 'h';
-  return isNight(game) ? 'No light: make a torch' : null;
+  if (hasLight(game)) return '🔥 Torch ' + torchTimeLeft(game) + ' (T)';
+  return isNight(game) ? '🕯 Torch off (T)' : null;
+}
+
+// Tap it to light or put out the torch (same as the key T).
+function TorchButton({ game }) {
+  const text = lightText(game);
+  if (!text) return null;
+  return (
+    <button style={styles.light} onClick={() => toggleTorch(game)}>
+      {text}
+    </button>
+  );
 }
 
 // The small map in the corner. Tap it: the big map. size: in pixels.
@@ -42,23 +59,23 @@ function raidText(game) {
 }
 
 // The goal of the moment (the chapter of the story), and the grammar being trained.
-function Objective({ game }) {
+function Objective({ game, compact }) {
   const chapter = currentChapter(game);
   const focus = typeOf(game.focus.current);
   const tally = game.focus.tally;
   return (
-    <div className="window" style={styles.objective}>
-      <span style={styles.goal}>
+    <div className="window" style={compact ? styles.objectiveCompact : styles.objective}>
+      <span style={compact ? styles.goalCompact : styles.goal}>
         <span className="gold">◆</span> {chapter ? chapter.text : 'Live your life in Eldermoor.'}
       </span>
       <div className="row" style={styles.training}>
-        <PixelIcon name={focus.id} size={14} />
-        <span className="small">
-          Training {focus.short} · {tally.good}/{tally.good + tally.bad}
+        <PixelIcon name={focus.id} size={compact ? 11 : 14} />
+        <span className="small" style={compact ? styles.smallCompact : null}>
+          {focus.short} · {tally.good}/{tally.good + tally.bad}
         </span>
       </div>
       <div style={styles.xp}>
-        <Bar value={game.player.xp / xpForLevel(game.player.level)} color="#7cfc9a" height={6} />
+        <Bar value={game.player.xp / xpForLevel(game.player.level)} color="#7cfc9a" height={compact ? 4 : 6} />
       </div>
     </div>
   );
@@ -119,22 +136,22 @@ export default function Hud({ game, input, onAction, onMenu }) {
 
   return (
     <div className="hud">
-      <div style={styles.left}>
+      <div style={screen.wide ? styles.left : styles.leftCompact}>
         <StatusPanel game={game} />
-        {!screen.wide && <Objective game={game} />}
+        {!screen.wide && <Objective game={game} compact />}
       </div>
 
       <div style={styles.right}>
         <div className="row" style={styles.topRight}>
           {screen.wide && <Objective game={game} />}
-          <MiniMap game={game} size={screen.wide ? 120 : 84} onOpen={() => onMenu('map')} />
+          <MiniMap game={game} size={screen.wide ? 120 : 80} onOpen={() => onMenu('map')} />
         </div>
         <div className="window" style={styles.clock}>
           <span style={styles.clockText}>
-            {WEATHER_SIGNS[game.weather.kind] || (isNight(game) ? '☾' : '☀')} {clockText(game)}
+            {skySigns(game)} {clockText(game)}
           </span>
           {raid && <span style={styles.raid}>{raid}</span>}
-          {lightText(game) && <span style={styles.light}>{lightText(game)}</span>}
+          <TorchButton game={game} />
           {society.disaster && (
             <span style={styles.raid}>{society.disaster.kind === 'tsunami' ? '🌊 TSUNAMI!' : '🌪 TORNADO!'}</span>
           )}
@@ -155,7 +172,7 @@ export default function Hud({ game, input, onAction, onMenu }) {
         </div>
       </div>
 
-      <div style={styles.toasts}>
+      <div style={{ ...styles.toasts, top: screen.wide ? 175 : 132 }}>
         {game.run.toasts.map((toast) => (
           <div key={toast.until + toast.text} className="toast" style={{ color: toast.color }}>
             <span>{toast.text}</span>
@@ -179,13 +196,32 @@ const styles = {
     gap: 8,
     maxWidth: '64%',
   },
+  leftCompact: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    gap: 4,
+    maxWidth: '58%',
+  },
   objective: {
     padding: '6px 9px',
     maxWidth: 340,
   },
+  objectiveCompact: {
+    padding: '3px 6px',
+    maxWidth: 158,
+  },
   goal: {
     fontSize: 14,
     lineHeight: '18px',
+  },
+  goalCompact: {
+    fontSize: 10,
+    lineHeight: '13px',
+  },
+  smallCompact: {
+    fontSize: 10,
+    lineHeight: '12px',
   },
   training: {
     gap: 5,
@@ -224,6 +260,12 @@ const styles = {
   light: {
     fontSize: 13,
     color: '#ffd086',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    font: 'inherit',
+    cursor: 'pointer',
+    textAlign: 'left',
   },
   toasts: {
     position: 'absolute',

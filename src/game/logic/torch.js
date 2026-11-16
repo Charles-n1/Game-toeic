@@ -1,22 +1,30 @@
-import { propsAround, TILE, tileAt, biomeAt } from '../world/map';
+import { TILE, tileAt, biomeAt } from '../world/map';
 import { zoneAt, dungeonOf } from '../data/zones';
 import { ITEMS } from '../data/items';
-import { countItem, addItem, removeItem } from './player';
+import { addItem } from './player';
+import { DAY_SECONDS } from './clock';
+import { isRaining, isWindy, isOutdoors } from './weather';
 import { notify } from './messages';
 import { burst, floatText } from './particles';
 import { cue } from './cues';
 
-// The light of the hero. At night nobody has light by default: the hero must carry a torch.
-// A torch = a branch (from a tree) + lamp oil (Old Bea, Rin) + cloth (Lila).
-// To light it: a fire that already burns (a lamp, a torch, a campfire: the flame passes to the torch),
-// or 2 flint stones (from a rock) struck together. A lit torch burns for TORCH_HOURS hours of the game.
-// game.player.torchHours: the hours of light left (0 = no light).
+// The light of the hero. At night nobody has light by default, but the hero always carries a torch.
+// The player lights it or puts it out when they want (key T, or the torch on the HUD).
+// A lit torch burns about 5 real minutes, then goes out: light it again.
+// Under the sky, the rain or a strong wind put the flame out, and the torch can not be lit until they stop.
+// game.player.torchHours: the hours of the game of light left (0 = the torch is out).
 
-export const TORCH_RECIPE = ['branch', 'oil', 'cloth'];
-export const TORCH_HOURS = 6;
-const FLINT_FOR_FIRE = 2;
-const FIRE_KINDS = ['lamp', 'torch', 'campfire', 'wallTorch', 'stove'];
-const FIRE_RANGE = 1.8; // tiles: close enough to pass the flame
+const TORCH_MINUTES = 5;
+export const TORCH_HOURS = (TORCH_MINUTES * 60 * 24) / DAY_SECONDS; // 5 real minutes, counted in hours of the game
+
+const BLOWN_OUT = {
+  rain: '🌧️ The rain put out your torch.',
+  wind: '💨 The wind blew out your torch.',
+};
+const CAN_NOT_LIGHT = {
+  rain: '🌧️ Too wet: the torch will not light in the rain.',
+  wind: '💨 Too much wind: the flame dies at once.',
+};
 
 // ---------- Light ----------
 
@@ -24,60 +32,59 @@ export function hasLight(game) {
   return game.player.torchHours > 0;
 }
 
-// Time passes: the torch burns. hours: the hours that just passed.
-export function burnTorch(game, hours) {
-  const player = game.player;
-  if (player.torchHours <= 0) return;
-  player.torchHours = Math.max(0, player.torchHours - hours);
-  if (player.torchHours === 0) notify(game, '🕯️ Your torch went out.', '#ffb070');
+// What stops the flame here: 'rain', 'wind', or null (nothing). Inside, nothing stops it.
+export function torchBlocker(game) {
+  if (!isOutdoors(game)) return null;
+  if (isRaining(game)) return 'rain';
+  if (isWindy(game)) return 'wind';
+  return null;
 }
 
-// ---------- Making and lighting the torch ----------
-
-export function canCraftTorch(player) {
-  return TORCH_RECIPE.every((itemId) => countItem(player, itemId) > 0);
+// "4:32": the real minutes and seconds of light left.
+export function torchTimeLeft(game) {
+  const seconds = Math.ceil((game.player.torchHours * DAY_SECONDS) / 24);
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
 }
 
-export function craftTorch(game) {
-  if (!canCraftTorch(game.player)) return;
-  TORCH_RECIPE.forEach((itemId) => removeItem(game.player, itemId));
-  addItem(game.player, 'torch');
-  notify(game, '🔦 You made a torch. Light it at a fire, or with 2 flint stones.', '#ffd86b');
-}
+// ---------- Lighting and putting out the torch ----------
 
-// The burning thing close to the hero (null = none). Its middle is where the flame is.
-export function fireNear(game) {
-  const player = game.player;
-  return propsAround(player.x, player.y, FIRE_RANGE).find((prop) => FIRE_KINDS.includes(prop.kind)) || null;
-}
-
-// Can the hero light a torch here? (A torch in the bag, not already lit, and a fire near or 2 flint stones.)
-export function canLightTorch(game, withFlint) {
-  const player = game.player;
-  if (countItem(player, 'torch') === 0 || hasLight(game)) return false;
-  return withFlint ? countItem(player, 'flint') >= FLINT_FOR_FIRE : fireNear(game) !== null;
-}
-
-function startBurning(game) {
-  removeItem(game.player, 'torch');
+export function lightTorch(game) {
+  if (hasLight(game)) return;
+  const blocker = torchBlocker(game);
+  if (blocker) {
+    notify(game, CAN_NOT_LIGHT[blocker], '#ffb070');
+    return;
+  }
   game.player.torchHours = TORCH_HOURS;
   burst(game, game.player.x, game.player.y - 0.6, '#ffb040', 14);
   cue(game, 'coin');
+  notify(game, '🔥 Your torch burns (' + TORCH_MINUTES + ' minutes).', '#ffd86b');
 }
 
-// The flame of a lamp, a torch or a campfire passes to the torch of the hero.
-export function lightAtFire(game) {
-  if (!canLightTorch(game, false)) return;
-  startBurning(game);
-  notify(game, '🔥 Your torch takes the flame. ' + TORCH_HOURS + ' hours of light.', '#ffd86b');
+export function putOutTorch(game) {
+  if (!hasLight(game)) return;
+  game.player.torchHours = 0;
+  notify(game, '🕯️ You put out your torch.', '#ffb070');
 }
 
-// Two flint stones, struck together: sparks, then fire.
-export function lightWithFlint(game) {
-  if (!canLightTorch(game, true)) return;
-  removeItem(game.player, 'flint', FLINT_FOR_FIRE);
-  startBurning(game);
-  notify(game, '🔥 Clack, clack... sparks! Your torch burns. ' + TORCH_HOURS + ' hours of light.', '#ffd86b');
+// The torch button: lit -> out, out -> lit.
+export function toggleTorch(game) {
+  if (hasLight(game)) putOutTorch(game);
+  else lightTorch(game);
+}
+
+// Time passes: the torch burns. hours: the hours of the game that just passed.
+export function burnTorch(game, hours) {
+  const player = game.player;
+  if (player.torchHours <= 0) return;
+  const blocker = torchBlocker(game);
+  if (blocker) {
+    player.torchHours = 0;
+    notify(game, BLOWN_OUT[blocker], '#ffb070');
+    return;
+  }
+  player.torchHours = Math.max(0, player.torchHours - hours);
+  if (player.torchHours === 0) notify(game, '🕯️ Your torch went out. Light it again (T).', '#ffb070');
 }
 
 // ---------- Gathering: a branch from a tree, flint stones from a rock ----------

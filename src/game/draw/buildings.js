@@ -116,10 +116,10 @@ export function churchSprite(house) {
   });
 }
 
-// Windmill: 8 x 8 tiles (128 x 128 footprint + roof & sails = 128 x 160)
-export function millSprite(house) {
+// Windmill tower body: 8 x 8 tiles (128 x 128 footprint + roof = 128 x 160), drawn separately so sails rotate cleanly.
+export function millBodySprite(house) {
   const roofKey = house.roof || 'red';
-  return once('mill|' + roofKey, () => {
+  return once('millBody|' + roofKey, () => {
     const W = 128;
     const H = 160;
     const grid = makeGrid(W, H);
@@ -135,43 +135,59 @@ export function millSprite(house) {
         dot(grid, x, y, mortar ? STONE_RAMP[1] : toneOf(STONE_RAMP, shade, x, y));
       }
     }
-    paintBeam(grid, 28, 108, 72, 4); // wooden mill gallery belt
+    paintBeam(grid, 28, 108, 72, 4);
     fillRect(grid, 20, H - 6, 88, 6, STONE_RAMP[2]);
 
     // Conical shingled roof
     fillTriangle(grid, [26, 56], [64, 20], [102, 56], (x, y) => toneOf(roof, 0.85 - (x - 26) * 0.008 - ((y % 4) * 0.06), x, y));
     fillRect(grid, 63, 14, 2, 8, '#ffd23f');
 
-    // Upper window & door aligned to doorOf tile 4 (cx = 69)
+    // Upper window & door aligned to doorOf tile 4 (cx = 68)
     paintArchedWindow(grid, 58, 78, 12, 14, ['#2a1c16', '#ffd36b', '#fff6d0']);
     paintDoorway(grid, 68, H, { doubleDoor: false, style: 'stone' });
-    // Grain sacks beside door
     fillBall(grid, 38, H - 6, 6, 5, ['#8a6a3a', '#c9a86a', '#e8d49a']);
     fillBall(grid, 48, H - 5, 5, 4, ['#8a6a3a', '#c9a86a', '#e8d49a']);
+    fillBall(grid, 64, 58, 4, 4, WOOD_RAMP);
+    return sprite(grid, 0, H);
+  });
+}
 
-    // 4-arm diagonal wooden windmill sails centered on hub (64, 58)
-    const hubX = 64;
-    const hubY = 58;
-    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+// Rotating 4-frame pixel-art windmill sails (centered around hub at 56, 56).
+export function millSailsSprite(frame = 0) {
+  const f = frame % 4;
+  return once('millSails|' + f, () => {
+    const grid = makeGrid(112, 112);
+    const hub = 56;
+    const baseAngle = (f * Math.PI) / 8 + Math.PI / 4; // 45° + 22.5° steps (4 frames cover full 90° cycle cleanly)
+    for (let arm = 0; arm < 4; arm++) {
+      const a = baseAngle + (arm * Math.PI) / 2;
+      const dx = Math.cos(a);
+      const dy = Math.sin(a);
+      const nx = -dy;
+      const ny = dx;
       for (let t = 4; t <= 48; t++) {
-        const px = hubX + sx * t;
-        const py = hubY + sy * t;
-        fillRect(grid, px - 1, py - 1, 3, 3, WOOD.dark);
+        const px = Math.round(hub + dx * t);
+        const py = Math.round(hub + dy * t);
+        fillRect(grid, px - 1, py - 1, 2, 2, WOOD.dark);
         dot(grid, px, py, WOOD.light);
         if (t >= 12 && t <= 44) {
-          for (let w = 2; w <= 10; w++) {
-            const cx = px - sy * w;
-            const cy = py + sx * w;
-            const color = t === 12 || t === 44 || t % 8 === 0 || w === 2 || w === 10 ? WOOD.base : '#f4ebd6';
-            dot(grid, cx, cy, color);
-            dot(grid, cx + sx, cy, color);
+          for (let w = 2; w <= 9; w++) {
+            const cx = Math.round(px + nx * w);
+            const cy = Math.round(py + ny * w);
+            const isFrame = t === 12 || t === 44 || t % 8 === 0 || w === 2 || w === 9;
+            dot(grid, cx, cy, isFrame ? WOOD.base : '#f4ebd6');
           }
         }
       }
     }
-    fillBall(grid, hubX, hubY, 5, 5, WOOD_RAMP);
-    return sprite(grid, 0, H);
+    fillBall(grid, hub, hub, 4.5, 4.5, WOOD_RAMP);
+    return sprite(grid, hub, hub);
   });
+}
+
+// Windmill with default sails (kept for compatibility).
+export function millSprite(house) {
+  return millBodySprite(house);
 }
 
 // Royal Palace: 26 x 16 tiles (416 x 256 footprint + 24px spires = 416 x 280)

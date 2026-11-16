@@ -3,7 +3,7 @@ import { natureAt } from '../world/ground';
 import { SETTLEMENTS, kingdomOfCell } from '../world/places';
 import { planTown } from '../world/townPlan';
 import { planMonsterTown, planCamp } from '../world/wildPlans';
-import { CAVES, TOTEMS, WILD_OBELISKS, WILD_HOMES, WILD_CAMPFIRES } from '../world/wildPlaces';
+import { CAVES, TOTEMS, WILD_OBELISKS, WILD_HOMES, WILD_CAMPFIRES, WILD_STRUCTURES, WILD_STRUCTURE_PROPS } from '../world/wildPlaces';
 import { landOfTile } from '../world/regions';
 import { LANDS } from './lands';
 import { STORY_DUNGEONS, DOOR_FROM_BOTTOM } from './dungeons';
@@ -260,9 +260,9 @@ function fencesOf(pen) {
   return fences;
 }
 
-// The things of the wild: obelisks, grey totems, campfires, the lonely homes.
-export const WILD_PROPS = [...WILD_OBELISKS, ...TOTEMS, ...WILD_CAMPFIRES, ...WILD_HOMES.map((home) => ({ kind: home.prop, x: home.x + 2, y: home.y - 1, w: home.prop === 'hut' ? 2 : 1, h: 1, home: home.id }))];
-export { WILD_HOMES };
+// The things of the wild: obelisks, grey totems, campfires, Isekai structures, the lonely homes.
+export const WILD_PROPS = [...WILD_OBELISKS, ...TOTEMS, ...WILD_CAMPFIRES, ...WILD_STRUCTURE_PROPS, ...WILD_HOMES.map((home) => ({ kind: home.prop, x: home.x + 2, y: home.y - 1, w: home.prop === 'hut' ? 2 : 1, h: 1, home: home.id }))];
+export { WILD_HOMES, WILD_STRUCTURES };
 
 // The things standing on the ground that never change: nobody walks through them.
 // (The walls of the villages change with their level: see logic/villages.js.)

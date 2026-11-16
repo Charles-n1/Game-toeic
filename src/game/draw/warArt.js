@@ -190,33 +190,89 @@ function corpseDrawings(game, view) {
     }));
 }
 
+export function caravanWagonSprite(dir, frame, canvasColor = '#d9cbb0') {
+  return once('warWagon|' + dir + '|' + (frame % 2) + '|' + canvasColor, () => {
+    const shade = canvasColor === '#d9cbb0' ? '#b8a88d' : canvasColor === '#b8483c' ? '#8c2d24' : canvasColor === '#3d7a58' ? '#2a5a3f' : '#2a4a78';
+    const spoke = (frame % 2) === 0;
+    if (dir === 'up' || dir === 'down') {
+      const grid = makeGrid(24, 24);
+      fillRect(grid, 2, 16, 3, 7, WOOD_RAMP[1]); // wheels
+      fillRect(grid, 19, 16, 3, 7, WOOD_RAMP[1]);
+      fillRect(grid, 4, 12, 16, 8, WOOD_RAMP[2]); // wagon bed
+      fillRect(grid, 5, 13, 14, 5, '#4a2b16');
+      fillEllipse(grid, 12, 9, 8.5, 6.5, canvasColor); // arched canvas canopy
+      fillRect(grid, 5, 9, 14, 4, shade);
+      fillRect(grid, 10, 12, 4, 4, '#ffd23f'); // rear lantern / clasp
+      return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: 12, ay: 22 };
+    }
+    const grid = makeGrid(34, 24);
+    fillRect(grid, 2, 12, 29, 6, WOOD_RAMP[2]); // wooden body planks
+    fillRect(grid, 2, 12, 29, 2, WOOD_RAMP[3]);
+    fillRect(grid, 29, 14, 5, 2, WOOD.dark); // hitch shafts
+    fillEllipse(grid, 15, 7.5, 13, 6.5, canvasColor); // arched canvas cover
+    fillRect(grid, 4, 8, 22, 4, shade);
+    for (let x = 6; x <= 24; x += 6) fillRect(grid, x, 2, 1, 10, WOOD.dark); // canvas ribs
+    fillRect(grid, 26, 9, 2, 3, '#ffd23f'); // warm hanging lantern
+    // Spoked wooden wheels with subtle rotation
+    [8, 24].forEach((wx) => {
+      fillEllipse(grid, wx, 18, 4.2, 4.2, WOOD.dark);
+      fillEllipse(grid, wx, 18, 2.5, 2.5, WOOD_RAMP[3]);
+      dot(grid, wx, 18, '#e8eef7');
+      if (spoke) {
+        dot(grid, wx - 2, 18, WOOD.dark);
+        dot(grid, wx + 2, 18, WOOD.dark);
+        dot(grid, wx, 16, WOOD.dark);
+        dot(grid, wx, 20, WOOD.dark);
+      } else {
+        dot(grid, wx - 1, 17, WOOD.dark);
+        dot(grid, wx + 1, 19, WOOD.dark);
+        dot(grid, wx + 1, 17, WOOD.dark);
+        dot(grid, wx - 1, 19, WOOD.dark);
+      }
+    });
+    const finalGrid = dir === 'left' ? mirrored(grid) : grid;
+    return { canvas: toCanvas(addOutline(finalGrid, OUTLINE)), ax: 17, ay: 22 };
+  });
+}
+
 function caravanDrawings(game, view, time) {
   const caravans = game.run && Array.isArray(game.run.caravans) ? game.run.caravans : [];
   const list = [];
   for (const c of caravans) {
-    if (!c.alive || !isNear(view, c.x - 2, c.y - 2, 4, 4)) continue;
-    const dir = c.dir === 'left' ? 'left' : 'right';
-    const ox = dir === 'left' ? 0.9 : -0.9;
+    if (!c.alive || !isNear(view, c.x - 3, c.y - 3, 6, 6)) continue;
+    const dir = c.dir || 'right';
+    const horiz = dir === 'left' || dir === 'right';
+    const fx = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+    const fy = dir === 'up' ? -1 : dir === 'down' ? 1 : 0;
+    const wagX = c.x - fx * 1.45;
+    const wagY = c.y - fy * 0.85;
+    const frame = Math.floor(c.horseStep || 0) % 2;
+    const bob = c.underAttack ? 0 : Math.round(Math.sin((c.horseStep || 0) * Math.PI) * 1.1);
+
+    // 1. Trailing covered wagon pulled by the caravan horse
     list.push({
-      y: c.y - 0.1,
+      y: wagY,
       draw: (ctx) => {
-        const hx = (c.x + ox) * T;
-        const hy = (c.y - 0.1) * T;
-        put(ctx, shadowSprite(), hx, hy, view);
-        put(ctx, animalSprite('horse', dir, Math.floor(c.horseStep || 0) % 2), hx, hy, view);
-        put(ctx, caravanPackSprite(), hx, hy - 11, view);
+        const wx = wagX * T;
+        const wy = wagY * T;
+        put(ctx, caravanWagonSprite(dir, frame, c.plundered ? '#5f5968' : c.wagonColor || '#d9cbb0'), wx, wy, view);
       },
     });
+
+    // 2. Lead horse & merchant riding mounted atop the horse!
     list.push({
       y: c.y,
       draw: (ctx) => {
-        const mx = c.x * T;
-        const my = c.y * T;
-        put(ctx, shadowSprite(), mx, my, view);
-        put(ctx, personSprite(c.merchantLook, c.dir || 'down', walkPose(c.step, !c.underAttack, time, c.x)), mx, my, view);
+        const hx = c.x * T;
+        const hy = c.y * T;
+        put(ctx, shadowSprite(), hx, hy, view);
+        put(ctx, animalSprite('horse', horiz ? dir : 'right', frame), hx, hy, view);
+        put(ctx, personSprite(c.merchantLook, dir, 'stand'), hx, hy - 9 + bob, view);
         if (c.underAttack) {
-          put(ctx, props.bubble('!'), mx, my - 34 + Math.round(Math.sin(time * 6) * 1.5), view);
-          drawHpBar(ctx, Math.round(mx - view.x), Math.round(my - view.y - 38), c.hp, c.maxHp, '#7cfc9a');
+          put(ctx, props.bubble('!'), hx, hy - 42 + Math.round(Math.sin(time * 6) * 1.5), view);
+          drawHpBar(ctx, Math.round(hx - view.x), Math.round(hy - view.y - 46), c.hp, c.maxHp, '#7cfc9a');
+        } else if (!c.plundered && Math.hypot(c.x - game.player.x, c.y - game.player.y) < 6) {
+          put(ctx, props.bubble('?'), hx, hy - 42 + Math.round(Math.sin(time * 4)), view);
         }
       },
     });

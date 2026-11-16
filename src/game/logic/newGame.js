@@ -42,6 +42,9 @@ export function makeRun() {
     people: {}, // where each person is: { aria: { x, y, ... } }
     followers: [],
     particles: [],
+    blood: [], // persistent crimson puddles on kills (see particles.js)
+    parties: [], // roaming NPC adventurer groups (see worldParties.js)
+    campProps: [], // dynamic camp props placed by roaming groups
     emotes: [], // the small bubbles over the heads (see emotes.js)
     barriers: [], // obsidian walls: [{ x, y, until }]
     balls: [], // lightning balls and fireballs flying
@@ -79,19 +82,33 @@ export function makeRun() {
   };
 }
 
-// The level of the player in each category, when the game starts: { gerunds: { good: 4, bad: 1 }, ... }
-// From the answers of the app (the level test, the trainings). No answer yet: guessed from the entered score.
-function firstMastery(stats, score, customWeights = null) {
+// The level of the player in each category when the game starts: { gerunds: { good: 4, bad: 6 }, ... }
+// `score` is the TARGET TOEIC score: when starting without app stats or explicit %, start modestly below it so
+// the hero grows by fighting & training. `currentPcts` overrides categories with the player's inserted current %.
+function firstMastery(stats, score, customWeights = null, currentPcts = null) {
   const hasAppStats = totalAnswers(stats) > 0;
   let mastery;
   if (hasAppStats) {
     mastery = JSON.parse(JSON.stringify(stats));
+    for (const category of CATEGORIES) {
+      if (!mastery[category.id]) mastery[category.id] = { good: 0, bad: 0 };
+    }
   } else {
-    const good = Math.round((score / 495) * 10);
+    const startRatio = Math.max(0.2, Math.min(0.6, (score / 495) * 0.55));
+    const good = Math.round(startRatio * 10);
     mastery = {};
     for (const category of CATEGORIES) mastery[category.id] = { good: good, bad: 10 - good };
   }
-  if (!hasAppStats && customWeights) {
+  if (currentPcts && typeof currentPcts === 'object') {
+    for (const [catId, pct] of Object.entries(currentPcts)) {
+      if (pct !== undefined && pct !== null && mastery[catId]) {
+        const clamped = Math.max(0, Math.min(99, Math.round(Number(pct) || 0)));
+        const denom = clamped % 5 === 0 ? 20 : 100;
+        const g = Math.round((clamped * denom) / 100);
+        mastery[catId] = { good: g, bad: denom - g };
+      }
+    }
+  } else if (!hasAppStats && customWeights) {
     for (const [catId, pct] of Object.entries(customWeights)) {
       if (pct > 0 && mastery[catId]) {
         const clamped = Math.max(0, Math.min(100, pct));
@@ -160,21 +177,24 @@ function firstPlayer(hero) {
   };
 }
 
-// goalId: 'hero' | 'guardian' | 'peaceful' | 'wanderer'. score: the TOEIC reading score (5 to 495).
+// goalId: 'hero' | 'guardian' | 'peaceful' | 'wanderer'. score: the target TOEIC reading score (5 to 495).
 // stats: the category stats of the app. hero: the name and the avatar. slot: the save slot (1 to 3).
-export function newGame(goalId, score, stats, hero, slot, customWeights = null) {
+export function newGame(goalId, score, stats, hero, slot, customWeights = null, currentPcts = null) {
   const cleanedWeights = {};
   if (customWeights) {
     for (const [catId, val] of Object.entries(customWeights)) {
       if (val > 0) cleanedWeights[catId] = Math.max(1, Math.min(100, Math.round(val)));
     }
   }
-  const mastery = firstMastery(stats, score, cleanedWeights);
+  const mastery = firstMastery(stats, score, cleanedWeights, currentPcts);
+  const goalRate = Math.max(55, Math.min(96, Math.round((score / 495) * 100)));
   const game = {
     version: GAME_VERSION,
     slot: slot,
     goal: goalId,
     score: score,
+    targetScore: score,
+    goalRate: goalRate,
     chapter: 0, // position in the chapters of the goal
     ended: false,
     day: 1,
@@ -281,7 +301,10 @@ function addMissing(game) {
   if (p.torchHours === undefined) p.torchHours = 0;
   if (!Array.isArray(p.obsidianUnlocked)) p.obsidianUnlocked = ['obsidianBarrier'];
   if (typeof p.obsidianXp !== 'number') p.obsidianXp = 0;
+  if (typeof p.health === 'number') p.health = Math.round(p.health);
+  if (typeof p.mana === 'number') p.mana = Math.round(p.mana);
   if (typeof p.soldierHp !== 'number') p.soldierHp = (p.soldiers || 0) * 45;
+  else p.soldierHp = Math.round(p.soldierHp);
   if (typeof p.obsidianControl !== 'number') p.obsidianControl = 0;
   if (typeof p.soldierTime !== 'number') p.soldierTime = 20;
   if (typeof p.petTime !== 'number') p.petTime = 20;
@@ -304,9 +327,15 @@ function addMissing(game) {
   if (!game.home) game.home = firstHome();
   if (!game.home.furniture) game.home.furniture = [];
   if (!game.war) game.war = firstWar();
+  if (!game.war.disarmedTraps) game.war.disarmedTraps = {};
+  if (!game.war.clearedLairs) game.war.clearedLairs = {};
   if (!game.society) game.society = firstSociety();
+  if (!game.society.shrinesUsed) game.society.shrinesUsed = {};
+  if (!game.society.luredCrates) game.society.luredCrates = {};
   if (!game.camp) game.camp = firstCamp();
   if (!game.bonds) game.bonds = firstBonds();
+  if (!game.targetScore) game.targetScore = game.score || 400;
+  if (!game.goalRate) game.goalRate = Math.max(55, Math.min(96, Math.round((game.targetScore / 495) * 100)));
   if (typeof game.explored !== 'string' || game.explored.length !== emptyExplored().length) game.explored = emptyExplored();
   if (!game.npcs || typeof game.npcs !== 'object') game.npcs = {};
   for (const npc of NPCS) {
@@ -325,9 +354,15 @@ function addMissing(game) {
 // Fills what is not saved. Used for a new game and for a loaded one.
 export function wakeUp(game) {
   if (!game.war) game.war = firstWar();
+  if (!game.war.disarmedTraps) game.war.disarmedTraps = {};
+  if (!game.war.clearedLairs) game.war.clearedLairs = {};
   if (!game.society) game.society = firstSociety();
+  if (!game.society.shrinesUsed) game.society.shrinesUsed = {};
+  if (!game.society.luredCrates) game.society.luredCrates = {};
   if (!game.camp) game.camp = firstCamp();
   if (!game.bonds) game.bonds = firstBonds();
+  if (!game.targetScore) game.targetScore = game.score || 400;
+  if (!game.goalRate) game.goalRate = Math.max(55, Math.min(96, Math.round((game.targetScore / 495) * 100)));
   if (typeof game.explored !== 'string') game.explored = emptyExplored(); // a save from before the world map
   if (typeof game.player.name !== 'string') game.player.name = 'Hero'; // a save from before the avatars
   if (!game.player.look) game.player.look = { ...HERO_LOOK };

@@ -147,8 +147,12 @@ function buildingIn(lot, role, place, random) {
 
 // ---------- The other lots: fields, pens, a training corner, a graveyard, gardens ----------
 
-function fieldIn(lot, place, random) {
+function fieldIn(lot, place, random, plan) {
   const crop = place.kind === 'farm' ? pickWith(random, ['wheat', 'wheat', 'carrot']) : pickWith(random, ['wheat', 'carrot']);
+  if (plan) {
+    plan.props.push({ kind: 'scarecrow', x: lot.x + Math.floor(CELL_W / 2) - 1, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
+    if (random() < 0.7) plan.props.push({ kind: 'wheelbarrow', x: lot.x + 2, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
+  }
   return { x: lot.x + 1, y: lot.y + 1, w: CELL_W - 3, h: CELL_H - 5, crop: crop, village: place.id };
 }
 
@@ -158,8 +162,10 @@ function penIn(lot, place) {
 
 function trainingIn(lot, plan) {
   for (const dx of [2, 6, 10]) plan.props.push({ kind: 'dummy', x: lot.x + dx, y: lot.y + 3, w: 1, h: 1 });
-  plan.props.push({ kind: 'target', x: lot.x + 4, y: lot.y + 7, w: 1, h: 1 });
+  plan.props.push({ kind: 'weaponRack', x: lot.x + 1, y: lot.y + 7, w: 2, h: 1 });
+  plan.props.push({ kind: 'target', x: lot.x + 5, y: lot.y + 7, w: 1, h: 1 });
   plan.props.push({ kind: 'logs', x: lot.x + 9, y: lot.y + 7, w: 2, h: 1 });
+  plan.props.push({ kind: 'bench', x: lot.x + 11, y: lot.y + 9, w: 2, h: 1 });
   plan.training = { x: lot.x, y: lot.y, w: lot.w, h: lot.h };
 }
 
@@ -173,7 +179,9 @@ function graveyardIn(lot, plan) {
 function gardenIn(lot, plan, random) {
   plan.trees.push({ x: lot.x + between(random, 3, 10), y: lot.y + between(random, 3, 5) });
   plan.flowers.push({ x: lot.x + 2, y: lot.y + 7, w: CELL_W - 5, h: 2 });
-  plan.props.push({ kind: 'bench', x: lot.x + 5, y: lot.y + 5, w: 2, h: 1 });
+  plan.props.push({ kind: 'flowerArch', x: lot.x + 6, y: lot.y + 6, w: 2, h: 1, walkable: true });
+  plan.props.push({ kind: 'flowerBed', variant: between(random, 0, 2), x: lot.x + 2, y: lot.y + 3, w: 2, h: 1, walkable: true });
+  plan.props.push({ kind: 'bench', x: lot.x + 5, y: lot.y + 4, w: 2, h: 1 });
   plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: lot.x + 3, y: lot.y + 5, w: 1, h: 1, walkable: true });
   plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: lot.x + 8, y: lot.y + 5, w: 1, h: 1, walkable: true });
 }
@@ -187,13 +195,28 @@ function decorate(house, plan, random) {
     plan.props.push({ kind: 'statue', x: house.x + 1, y: house.y + house.h, w: 2, h: 2 });
     if (rightX > doorX) plan.props.push({ kind: 'topiary', x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
     plan.props.push({ kind: 'flowerPot', variant: 1, x: house.x, y: house.y + house.h, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: 'flowerBed', variant: 1, x: house.x + house.w - 3, y: house.y + house.h + 1, w: 2, h: 1, walkable: true });
     return;
   }
   if (leftX < doorX) {
     plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: leftX, y: house.y + house.h, w: 1, h: 1, walkable: true });
   }
-  if (rightX > doorX && (house.role === 'inn' || house.role === 'clinic' || house.role === 'school' || random() < 0.7)) {
+  if (rightX > doorX && (house.role === 'inn' || house.role === 'clinic' || house.role === 'school' || random() < 0.75)) {
     plan.props.push({ kind: house.role === 'inn' || house.size === 'palace' ? 'topiary' : 'flowerPot', variant: between(random, 0, 2), x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+  }
+  if (house.w >= 8 && (house.role === 'inn' || house.role === 'school' || house.role === 'house' || random() < 0.45)) {
+    plan.props.push({ kind: 'flowerBed', variant: between(random, 0, 2), x: house.x, y: house.y + house.h + 1, w: 2, h: 1, walkable: true });
+  }
+  if (house.role === 'barracks' || house.role === 'guild') {
+    plan.props.push({ kind: 'weaponRack', x: house.x + house.w, y: house.y + house.h - 1, w: 2, h: 1, walkable: true });
+    return;
+  }
+  if (house.role === 'harbor') {
+    plan.props.push({ kind: 'harborGear', x: house.x + house.w, y: house.y + house.h - 1, w: 1, h: 1, walkable: true });
+    return;
+  }
+  if ((house.role === 'farm' || house.role === 'mill' || house.role === 'forge') && random() < 0.8) {
+    plan.props.push({ kind: 'wheelbarrow', x: house.x + house.w, y: house.y + house.h, w: 1, h: 1, walkable: true });
   }
   const kind = house.role === 'farm' || house.role === 'mill' ? 'hay' : house.style === 'hut' ? 'logs' : pickWith(random, ['barrels', 'crates', 'barrels', null]);
   if (!kind || house.size === 'palace') return;
@@ -225,6 +248,10 @@ function squareProps(place, square, plan, random) {
     plan.props.push({ kind: 'stall', x: square.x + 3, y: square.y + square.h - 4, w: 2, h: 2 });
     plan.props.push({ kind: 'stall', x: square.x + square.w - 6, y: square.y + square.h - 4, w: 2, h: 2 });
     plan.props.push({ kind: 'bench', x: middle.x + 2, y: middle.y - 1, w: 2, h: 1 });
+    plan.props.push({ kind: 'flowerBed', variant: 0, x: middle.x - 4, y: square.y + 2, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: 'flowerBed', variant: 2, x: middle.x + 2, y: square.y + 2, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: 'flowerArch', x: middle.x - 1, y: square.y + 1, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: 'flowerArch', x: middle.x - 1, y: square.y + square.h - 2, w: 2, h: 1, walkable: true });
     plan.props.push({ kind: 'topiary', x: square.x + 2, y: square.y + 2, w: 1, h: 1, walkable: true });
     plan.props.push({ kind: 'topiary', x: square.x + square.w - 3, y: square.y + 2, w: 1, h: 1, walkable: true });
     const flagColors = ['#d6302f', '#3b7be0', '#2e9e54', '#c9961e', '#8b5ad6'];
@@ -253,7 +280,7 @@ function fillLots(place, lots, plan, random) {
     const lot = take(outer);
     if (!lot) break;
     used.add(lot);
-    if (i < fieldCount) plan.fields.push(fieldIn(lot, place, random));
+    if (i < fieldCount) plan.fields.push(fieldIn(lot, place, random, plan));
     else plan.pens.push(penIn(lot, place));
   }
   const graveLot = place.kind !== 'hamlet' ? take(outer) : null;

@@ -1,7 +1,9 @@
 import { ITEMS } from '../../data/items';
-import { villageOf, zoneAt, isInsideWorld } from '../../data/zones';
-import { isSolid, ROAD_CELLS } from '../../world/map';
+import { VILLAGES, villageOf, zoneAt, isInsideWorld } from '../../data/zones';
+import { MEN_NAMES, SKINS, HAIRS } from '../../data/villagers';
+import { isSolid, ROAD_CELLS, TILE, tileAt } from '../../world/map';
 import { CELLS, SCALE } from '../../world/size';
+import { pickRandom } from '../../../logic/random';
 import { gameHours } from '../boosts';
 import { countItem, addItem, removeItem } from '../player';
 import { addHappiness } from '../village';
@@ -50,7 +52,61 @@ function findRoadSpotNear(player) {
   return null;
 }
 
-// Spawns merchant horses in awake capitals and along nearby roads (called once per second).
+function roadRiderLook() {
+  return {
+    skin: pickRandom(SKINS),
+    hair: pickRandom(HAIRS),
+    style: 'short',
+    eyes: '#3b3b3b',
+    outfit: pickRandom(['#3a7b5a', '#6b5a2a', '#2f5f8f', '#8a5a3a']),
+    trim: '#e8b83a',
+    beard: Math.random() < 0.45,
+  };
+}
+
+function pickRoadDestination(fromPos, excludeId = null) {
+  const sorted = VILLAGES.filter((v) => v.id !== excludeId)
+    .map((v) => ({ v, far: Math.hypot(v.x + v.w / 2 - fromPos.x, v.y + v.h / 2 - fromPos.y) }))
+    .filter((e) => e.far > 25 && e.far < 420)
+    .sort((a, b) => a.far - b.far);
+  if (sorted.length === 0) return VILLAGES[0];
+  return pickRandom(sorted.slice(0, Math.min(4, sorted.length))).v;
+}
+
+function stepRoadMerchantCaravan(horse, dt) {
+  const dest = { x: horse.destX, y: horse.destY };
+  const far = Math.hypot(dest.x - horse.x, dest.y - horse.y);
+  if (far < 9) {
+    const next = pickRoadDestination(horse, horse.destVillageId);
+    horse.destVillageId = next.id;
+    horse.destName = next.name;
+    horse.destX = next.x + next.w / 2;
+    horse.destY = next.y + next.h / 2;
+    return;
+  }
+  const speed = 1.65;
+  const baseAngle = Math.atan2(dest.y - horse.y, dest.x - horse.x);
+  const offsets = [0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35];
+  for (const off of offsets) {
+    const ang = baseAngle + off;
+    const nx = horse.x + Math.cos(ang) * speed * dt;
+    const ny = horse.y + Math.sin(ang) * speed * dt;
+    if (isSolid(nx, ny)) continue;
+    const lx = horse.x + Math.cos(ang) * 2;
+    const ly = horse.y + Math.sin(ang) * 2;
+    const t = tileAt(lx, ly);
+    if (off !== 0 && t !== TILE.PATH && t !== TILE.BRIDGE && Math.random() < 0.4) continue;
+    horse.x = nx;
+    horse.y = ny;
+    horse.step += dt * 5.5;
+    horse.walkX = Math.cos(ang);
+    horse.walkY = Math.sin(ang);
+    horse.dir = Math.abs(horse.walkX) > Math.abs(horse.walkY) ? (horse.walkX < 0 ? 'left' : 'right') : horse.walkY < 0 ? 'up' : 'down';
+    return;
+  }
+}
+
+// Spawns merchant horses in awake capitals and riding caravan merchants along nearby roads (called once per second).
 export function syncMerchantHorses(game) {
   const s = ensureSociety(game);
   const awake = game.run.awake || [];
@@ -58,7 +114,7 @@ export function syncMerchantHorses(game) {
   game.run.merchantHorses = game.run.merchantHorses.filter((horse) => {
     if (s.stolenSpots[horse.id] === game.day) return false;
     if (horse.villageId) return awake.includes(horse.villageId);
-    return Math.hypot(horse.x - game.player.x, horse.y - game.player.y) < 34;
+    return Math.hypot(horse.x - game.player.x, horse.y - game.player.y) < 55;
   });
 
   // Capitals get merchant horses around their markets
@@ -87,16 +143,25 @@ export function syncMerchantHorses(game) {
     }
   }
 
-  // Outdoor roads get occasional traveling merchant horses
+  // Outdoor roads get traveling merchants riding horses pulling covered wagons between towns
   if (isInsideWorld(game.player.y)) return;
   const roadHorses = game.run.merchantHorses.filter((item) => !item.villageId);
-  if (roadHorses.length < 2 && zoneAt(game.player.x, game.player.y).kind === 'land' && Math.random() < 0.35) {
+  if (roadHorses.length < 2 && zoneAt(game.player.x, game.player.y).kind === 'land' && Math.random() < 0.45) {
     const spot = findRoadSpotNear(game.player);
     if (spot) {
       const color = HORSE_COLORS[Math.floor(Math.random() * HORSE_COLORS.length)];
+      const dest = pickRoadDestination(spot);
       game.run.merchantHorses.push({
         id: 'road-' + Date.now() + '-' + Math.floor(Math.random() * 999),
         villageId: null,
+        riderLook: roadRiderLook(),
+        merchantName: pickRandom(MEN_NAMES) + ' the Trader',
+        wagonColor: pickRandom(['#d9cbb0', '#b8483c', '#3d7a58', '#3c68a0']),
+        destVillageId: dest.id,
+        destName: dest.name,
+        destX: dest.x + dest.w / 2,
+        destY: dest.y + dest.h / 2,
+        plundered: false,
         x: spot.x,
         y: spot.y,
         homeX: spot.x,
@@ -115,6 +180,10 @@ export function syncMerchantHorses(game) {
 export function updateMerchantHorses(game, dt) {
   const horses = game.run.merchantHorses || [];
   for (const horse of horses) {
+    if (horse.riderLook && horse.destX) {
+      stepRoadMerchantCaravan(horse, dt);
+      continue;
+    }
     horse.walkTime -= dt;
     if (horse.walkTime <= 0) {
       const fromHome = Math.hypot(horse.x - horse.homeX, horse.y - horse.homeY);
@@ -260,6 +329,45 @@ function stealHorse(game, horse) {
 }
 
 export function interactMerchantHorse(game, horse) {
+  if (horse.riderLook) {
+    const choices = [];
+    if (!horse.plundered) {
+      choices.push({
+        label: 'Buy Road Rations (16 Lexis)',
+        icon: 'warRations',
+        run: () => {
+          if (game.player.lexis < 16) {
+            notify(game, 'Need 16 Lexis.', '#ff8a95');
+            return;
+          }
+          game.player.lexis -= 16;
+          addItem(game.player, 'warRations', 1);
+          cue(game, 'trade');
+          notify(game, '🛒 Bought War Rations from ' + horse.merchantName + '.', '#7cfc9a');
+        },
+      });
+      choices.push({
+        label: '☠ Plunder Wagon! (Mystery Items, +20 Infamy)',
+        icon: 'sword',
+        run: () =>
+          startSocietyFight(
+            game,
+            { name: horse.merchantName + ' Guard', shape: 'knight', health: 55, attack: 17, speed: 10, xp: 30, lexis: 20 },
+            { kind: 'roadPlunder', horseId: horse.id, destVillageId: horse.destVillageId }
+          ),
+      });
+    }
+    choices.push({ label: 'Steal this horse (+15 Infamy)', icon: 'woodSword', run: () => stealHorse(game, horse) });
+    choices.push({ label: 'Farewell', run: () => {} });
+    say(
+      game,
+      null,
+      ['🐴 ' + horse.merchantName + ' rides atop this ' + COLOR_LABELS[horse.color].toLowerCase() + ' horse pulling a caravan wagon toward ' + (horse.destName || 'the next town') + '.'],
+      choices
+    );
+    return;
+  }
+
   const choices = [
     { label: 'Steal this horse (+Infamy, alerts guards)', icon: 'woodSword', run: () => stealHorse(game, horse) },
   ];

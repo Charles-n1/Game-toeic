@@ -53,6 +53,22 @@ export const WAR_ITEMS = {
     sell: 55,
     text: 'Sealed merchant spices and cloth. High trade value.',
   },
+  mysteryCrate: {
+    name: 'Mystery Supply Crate',
+    icon: '🎁',
+    kind: 'mystery',
+    tier: 'standard',
+    sell: 45,
+    text: 'A plundered merchant strongbox. Open it in your bag to reveal a surprise reward!',
+  },
+  mysteryRelic: {
+    name: 'Sealed Mystery Coffer',
+    icon: '🧰',
+    kind: 'mystery',
+    tier: 'rare',
+    sell: 95,
+    text: 'A gilded chest bound in wax seals. Open it in your bag for rare gear or treasure!',
+  },
   warHorn: {
     name: 'War Horn',
     icon: '📯',

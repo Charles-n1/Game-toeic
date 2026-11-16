@@ -1181,18 +1181,265 @@ export function topiary() {
   });
 }
 
-// Tall town pennant pole in kingdom colors.
-export function bannerPole(color = '#d6302f') {
-  return once('bannerPole|' + color, () => {
-    const grid = makeGrid(14, 30);
+// Tall town pennant pole in kingdom colors. frame: wind flutter animation (0, 1, 2).
+export function bannerPole(color = '#d6302f', frame = 0) {
+  const f = frame % 3;
+  return once('bannerPole|' + color + '|' + f, () => {
+    const grid = makeGrid(16, 30);
     fillRect(grid, 6, 2, 2, 26, WOOD_RAMP[2]);
     fillRect(grid, 4, 26, 6, 3, STONE_RAMP[2]);
     fillRect(grid, 5, 1, 4, 2, '#ffd23f');
-    fillRect(grid, 2, 4, 10, 13, color);
-    fillTriangle(grid, [2, 17], [7, 21], [12, 17], () => color);
+    const shift = f === 1 ? 1 : f === 2 ? -1 : 0;
+    fillRect(grid, 2 + (shift > 0 ? 1 : 0), 4, 10, 11, color);
+    fillRect(grid, 3 + shift, 14, 8, 4, color);
+    fillTriangle(grid, [2 + shift, 18], [7 + shift, 22], [12 + shift, 18], () => color);
     fillRect(grid, 6, 7, 2, 7, '#ffd23f');
     fillRect(grid, 4, 9, 6, 2, '#ffd23f');
     return sprite(toCanvas(addOutline(grid, OUTLINE)), 7, 29);
+  });
+}
+
+// Stone-edged colorful garden flower bed (2 tiles wide = 32px, walkable).
+export function flowerBed(variant = 0) {
+  return once('flowerBed|' + (variant % 3), () => {
+    const schemes = [
+      ['#ff5a6e', '#ffd23f', '#fff6c8'],
+      ['#6ec6ff', '#d8b4f8', '#ffffff'],
+      ['#ff8ca8', '#ff9a3c', '#ffe6f0'],
+    ];
+    const [c1, c2, c3] = schemes[variant % 3];
+    const grid = makeGrid(32, 14);
+    fillRect(grid, 1, 4, 30, 8, '#5a3a22');
+    fillRect(grid, 2, 5, 28, 6, LEAF_RAMP[1]);
+    fillEllipse(grid, 16, 6, 13, 3.5, LIGHT_LEAF_RAMP[2]);
+    for (let x = 1; x < 30; x += 4) {
+      fillRect(grid, x, 10, 3, 3, STONE_RAMP[2 + ((x >> 2) % 2)]);
+      fillRect(grid, x, 3, 3, 2, STONE_RAMP[3]);
+    }
+    [[5, 5, c1], [9, 6, c2], [13, 4, c3], [17, 6, c1], [21, 5, c2], [25, 6, c3], [7, 7, c3], [23, 7, c1]].forEach(([fx, fy, col]) => {
+      fillRect(grid, fx, fy, 2, 2, col);
+    });
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 16, 13);
+  });
+}
+
+// Wooden garden trellis arch draped in blooming vines (2 tiles wide, characters walk underneath).
+export function flowerArch() {
+  return once('flowerArch', () => {
+    const grid = makeGrid(32, 34);
+    // Left & right wooden pillars
+    fillRect(grid, 2, 10, 3, 23, WOOD_RAMP[1]);
+    fillRect(grid, 27, 10, 3, 23, WOOD_RAMP[1]);
+    fillRect(grid, 3, 10, 1, 23, WOOD_RAMP[3]);
+    fillRect(grid, 28, 10, 1, 23, WOOD_RAMP[3]);
+    // Crossbar & arched vine canopy
+    fillEllipse(grid, 16, 8, 15, 6, LEAF_RAMP[2]);
+    fillEllipse(grid, 16, 7, 12, 4.5, LIGHT_LEAF_RAMP[3]);
+    fillRect(grid, 3, 9, 26, 2, WOOD_RAMP[2]);
+    // Blooming roses along pillars and crown
+    [[4, 15, '#ff6fa8'], [27, 17, '#ffd23f'], [7, 6, '#ff5a6e'], [12, 4, '#ffd23f'], [16, 3, '#ff6fa8'], [21, 5, '#ffffff'], [25, 7, '#ff5a6e']].forEach(([fx, fy, col]) => {
+      fillRect(grid, fx, fy, 2, 2, col);
+    });
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 16, 33);
+  });
+}
+
+// Farm field scarecrow with straw hat, billowing sleeves, and perched crow. frame: 0 or 1.
+export function scarecrow(frame = 0) {
+  const f = frame % 2;
+  return once('scarecrow|' + f, () => {
+    const grid = makeGrid(22, 28);
+    fillRect(grid, 10, 8, 2, 19, WOOD.dark); // post
+    fillRect(grid, 3, 11 + f, 16, 2, WOOD.base); // crossbar arms
+    fillRect(grid, 7, 10, 8, 9, '#3a5a9a'); // blue tunic
+    fillRect(grid, 8, 19, 6, 2, '#c9a86a'); // straw hem
+    fillRect(grid, 8, 6, 6, 4, '#e8c488'); // straw head
+    fillRect(grid, 5, 5, 12, 2, '#d6a442'); // wide hat brim
+    fillRect(grid, 8, 2, 6, 3, '#b5842a'); // hat crown
+    // Fluttering straw cuff tassels
+    fillRect(grid, 2, 12 + f, 2, 3, '#e8c488');
+    fillRect(grid, 18, 12 - f, 2, 3, '#e8c488');
+    // Little black crow on right arm
+    fillRect(grid, 16, 8 - f, 3, 2, '#1c1726');
+    dot(grid, 19, 8 - f, '#ffd23f');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 11, 27);
+  });
+}
+
+// Wooden wheelbarrow overflowing with harvest carrots & golden straw.
+export function wheelbarrow() {
+  return once('wheelbarrow', () => {
+    const grid = makeGrid(22, 16);
+    fillEllipse(grid, 4, 12, 3, 3, IRON.base);
+    fillEllipse(grid, 4, 12, 1.5, 1.5, WOOD.light);
+    fillRect(grid, 5, 6, 11, 6, WOOD_RAMP[2]);
+    fillRect(grid, 4, 5, 13, 2, WOOD_RAMP[3]);
+    drawLine(grid, 16, 8, 21, 6, WOOD.dark); // handles
+    fillRect(grid, 13, 12, 2, 3, WOOD.dark); // leg
+    fillEllipse(grid, 10, 5, 4, 2, '#ffd23f'); // straw/harvest
+    fillRect(grid, 8, 3, 3, 2, '#ff8c2b');
+    dot(grid, 11, 3, '#4caf50');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 11, 15);
+  });
+}
+
+// Wooden weapon & shield rack for training yards, barracks & guild hall.
+export function weaponRack() {
+  return once('weaponRack', () => {
+    const grid = makeGrid(24, 24);
+    fillRect(grid, 2, 4, 2, 19, WOOD_RAMP[1]);
+    fillRect(grid, 20, 4, 2, 19, WOOD_RAMP[1]);
+    fillRect(grid, 2, 6, 20, 2, WOOD_RAMP[3]);
+    fillRect(grid, 2, 18, 20, 2, WOOD_RAMP[2]);
+    // Displayed swords & spear
+    fillRect(grid, 6, 2, 2, 15, '#c9d4e6');
+    fillRect(grid, 5, 13, 4, 1, '#ffd23f');
+    fillRect(grid, 11, 1, 2, 17, '#eef3fa');
+    fillRect(grid, 10, 12, 4, 1, '#ffd23f');
+    // Mounted round shield on right
+    fillEllipse(grid, 16.5, 12, 3.5, 4, '#2f5fa0');
+    fillEllipse(grid, 16.5, 12, 1.5, 2, '#ffd23f');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 12, 23);
+  });
+}
+
+// Pier mooring bollard, coiled rope & catch barrel for harbors.
+export function harborGear() {
+  return once('harborGear', () => {
+    const grid = makeGrid(22, 16);
+    fillRect(grid, 4, 5, 4, 10, WOOD_RAMP[1]);
+    fillRect(grid, 3, 4, 6, 2, WOOD_RAMP[3]);
+    fillEllipse(grid, 6, 13, 4, 2, '#d8b46a'); // coiled rope
+    fillEllipse(grid, 15, 10, 5, 5, WOOD_RAMP[2]); // fish crate/barrel
+    fillRect(grid, 10, 8, 10, 1, IRON.base);
+    fillRect(grid, 13, 6, 4, 2, '#6ec6ff'); // fish tail sticking out
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 11, 15);
+  });
+}
+
+// Floating water lily pad with pink or white lotus blossom.
+export function waterLily(variant = 0) {
+  return once('waterLily|' + (variant % 2), () => {
+    const grid = makeGrid(14, 12);
+    fillEllipse(grid, 7, 7, 5, 3, '#3f9b2f');
+    fillEllipse(grid, 6.5, 6.5, 4, 2.5, '#62c44c');
+    dot(grid, 10, 7, null);
+    const petal = variant % 2 === 0 ? '#ff9ec4' : '#ffffff';
+    fillRect(grid, 5, 4, 3, 2, petal);
+    dot(grid, 6, 4, '#ffd23f');
+    return sprite(toCanvas(addOutline(grid, '#1f5a2a')), 7, 9);
+  });
+}
+
+// Simmering iron cauldron suspended over glowing campfire logs.
+export function cauldron(frame = 0) {
+  return once('cauldron|' + (frame % 3), () => {
+    const grid = makeGrid(20, 22);
+    drawLine(grid, 3, 19, 9, 2, WOOD.dark); // tripod poles
+    drawLine(grid, 16, 19, 10, 2, WOOD.dark);
+    drawLine(grid, 9, 1, 10, 12, darker(IRON.base, 0.35));
+    fillEllipse(grid, 10, 18, 6, 2.2, '#4a2b16'); // logs & embers
+    dot(grid, 8 + (frame % 2), 18, '#ff9a2b');
+    dot(grid, 11, 17, '#e8421c');
+    fillBall(grid, 10, 12, 5, 4, [darker(IRON.base, 0.35), IRON.base, IRON.light]); // pot belly
+    fillRect(grid, 5, 8, 10, 2, IRON.light);
+    fillRect(grid, 6, 7, 8, 2, '#62c44c'); // simmering stew
+    dot(grid, 8 + frame, 6, '#ffd23f');
+    dot(grid, 11, 5 - (frame % 2), '#ffffff88');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 10, 20);
+  });
+}
+
+// Rolled traveler woolen sleeping mat & pillow.
+export function bedroll() {
+  return once('bedroll', () => {
+    const grid = makeGrid(18, 12);
+    fillRect(grid, 2, 4, 14, 7, '#6b3e2e');
+    fillRect(grid, 2, 4, 14, 2, '#9e5c42');
+    fillRect(grid, 3, 2, 4, 3, '#e8eef7'); // pillow
+    fillRect(grid, 5, 5, 10, 5, '#4e78a8'); // blanket
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 9, 11);
+  });
+}
+
+// Bandit spiked jaw trap hidden on wilderness trails (armed or snapped open).
+export function spikeTrap(armed = true) {
+  return once('spikeTrap|' + (armed ? 1 : 0), () => {
+    const grid = makeGrid(16, 12);
+    fillEllipse(grid, 8, 7, 6.5, 3.5, armed ? '#3e3948' : '#2d2934');
+    fillRect(grid, 3, 6, 10, 2, IRON.base);
+    if (armed) {
+      [4, 7, 10].forEach((x) => {
+        fillRect(grid, x, 3, 2, 3, '#e8eef7');
+        dot(grid, x, 3, '#ffd23f');
+      });
+    } else {
+      fillRect(grid, 2, 8, 5, 1, IRON.light);
+      fillRect(grid, 9, 5, 5, 1, IRON.light);
+    }
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 8, 10);
+  });
+}
+
+// Stretched bandit tripwire staked across a trail.
+export function tripwire(armed = true) {
+  return once('tripwire|' + (armed ? 1 : 0), () => {
+    const grid = makeGrid(18, 10);
+    fillRect(grid, 2, 3, 2, 6, WOOD_RAMP[2]);
+    fillRect(grid, 14, 3, 2, 6, WOOD_RAMP[2]);
+    if (armed) drawLine(grid, 3, 5, 14, 5, '#e8eef7');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 9, 9);
+  });
+}
+
+// Mossy ancient Isekai goddess shrine with glowing sigil crystal.
+export function shrine(used = false) {
+  return once('shrine|' + (used ? 1 : 0), () => {
+    const grid = makeGrid(22, 30);
+    fillRect(grid, 3, 24, 16, 5, STONE_RAMP[1]); // base step
+    fillRect(grid, 5, 10, 12, 15, STONE_RAMP[2]); // carved pillar
+    fillRect(grid, 4, 8, 14, 3, STONE_RAMP[3]); // cap
+    fillRect(grid, 7, 14, 8, 6, STONE_RAMP[1]);
+    fillRect(grid, 9, 4, 4, 4, used ? '#6d7686' : '#5fd3e8'); // crystal core
+    dot(grid, 10, 5, used ? '#9aa6b8' : '#ffffff');
+    fillRect(grid, 6, 20, 3, 2, '#4caf50'); // moss
+    fillRect(grid, 13, 18, 3, 2, '#4caf50');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 11, 28);
+  });
+}
+
+// Cracked stone Isekai portal arch ruins shimmering with dimensional light.
+export function portalRuins(frame = 0) {
+  return once('portalRuins|' + (frame % 2), () => {
+    const grid = makeGrid(28, 34);
+    fillRect(grid, 3, 28, 22, 5, STONE_RAMP[1]); // stone plinth
+    fillRect(grid, 4, 8, 5, 21, STONE_RAMP[2]); // left pillar
+    fillRect(grid, 19, 10, 5, 19, STONE_RAMP[2]); // broken right pillar
+    fillRect(grid, 3, 5, 14, 4, STONE_RAMP[3]); // broken lintel
+    fillEllipse(grid, 14, 18, 4.5, 7, frame % 2 ? '#5fd3e855' : '#b48cff66');
+    dot(grid, 12 + frame * 2, 15, '#ffffff');
+    dot(grid, 15 - frame * 2, 21, '#ffd23f');
+    fillRect(grid, 5, 14, 3, 2, '#4caf50'); // vines
+    fillRect(grid, 20, 20, 3, 2, '#4caf50');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 14, 32);
+  });
+}
+
+// Bone-crested red war banner marking a monster camp or lair.
+export function monsterBanner() {
+  return once('monsterBanner', () => {
+    const grid = makeGrid(16, 30);
+    fillRect(grid, 7, 2, 2, 27, WOOD.dark);
+    fillRect(grid, 2, 6, 12, 2, WOOD_RAMP[2]); // crossbar
+    fillRect(grid, 3, 8, 10, 11, '#8a1622'); // tattered crimson cloth
+    fillTriangle(grid, [3, 19], [8, 23], [13, 19], () => '#8a1622');
+    fillRect(grid, 6, 2, 4, 4, '#eef3fa'); // horned skull ornament
+    dot(grid, 5, 2, '#ffd23f');
+    dot(grid, 10, 2, '#ffd23f');
+    fillRect(grid, 6, 11, 4, 3, '#eef3fa'); // skull emblem
+    dot(grid, 7, 12, OUTLINE);
+    dot(grid, 9, 12, OUTLINE);
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 8, 29);
   });
 }
 

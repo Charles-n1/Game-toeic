@@ -13,7 +13,7 @@ import { earnLexis, gainXp, addItem } from '../player';
 import { addFriendship, addHappiness } from '../village';
 import { placePeople } from '../people';
 import { say, notify } from '../messages';
-import { burst, floatText } from '../particles';
+import { burst, floatText, bloodSplatter, bloodHit } from '../particles';
 import { cue } from '../cues';
 import {
   dist,
@@ -469,6 +469,7 @@ export function defeatBanditUnit(game, unit) {
   runWar.campUnits = runWar.campUnits.filter((u) => u !== unit);
   runWar.ambushFoes = runWar.ambushFoes.filter((u) => u !== unit);
   burst(game, unit.x, unit.y, '#ffd23f', 16);
+  bloodSplatter(game, unit.x, unit.y, 12);
   spawnWarEffect(game, 'hit', unit.x, unit.y, '#ffd23f');
 
   if (unit.warKind === 'bandit' && unit.campId) {

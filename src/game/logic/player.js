@@ -1,4 +1,5 @@
 import { ITEMS } from '../data/items';
+import { GEAR_ITEMS } from '../data/items/gear';
 import { SCENES } from '../data/story';
 import { say, notify } from './messages';
 import { burst } from './particles';
@@ -33,7 +34,7 @@ export function spellPowerBonus(game) {
 export function maxHealth(player, game = null) {
   const gear = equippedStat(player, 'health');
   const link = game ? boostOf(game, 'health') + statLinkBonus(game, 'health') : 0;
-  return Math.max(20, 100 + (player.level - 1) * 10 + gear + link);
+  return Math.round(Math.max(20, 100 + (player.level - 1) * 10 + gear + link));
 }
 
 export function maxMana(player) {
@@ -71,11 +72,11 @@ export function xpForLevel(level) {
 }
 
 export function heal(player, amount, game = null) {
-  player.health = Math.min(maxHealth(player, game), player.health + amount);
+  player.health = Math.min(maxHealth(player, game), Math.round(player.health + amount));
 }
 
 export function restoreMana(player, amount) {
-  player.mana = Math.min(maxMana(player), player.mana + amount);
+  player.mana = Math.min(maxMana(player), Math.round(player.mana + amount));
 }
 
 export function healFully(player, game = null) {
@@ -176,4 +177,51 @@ export function equipFromBag(player, itemId) {
   if (prev && prev !== itemId) addItem(player, prev, 1);
   player[kind] = itemId;
   return true;
+}
+
+// Opens a mystery crate or sealed coffer stolen/found in the world and awards a surprise reward.
+export function openMysteryItem(game, itemId) {
+  const item = ITEMS[itemId];
+  if (!item || item.kind !== 'mystery' || countItem(game.player, itemId) <= 0) return null;
+  removeItem(game.player, itemId, 1);
+
+  const gearKeys = Object.keys(GEAR_ITEMS);
+  const unowned = gearKeys.filter((id) => !game.player.bag[id] && game.player[ITEMS[id]?.kind] !== id);
+  const roll = Math.random();
+  const rare = item.tier === 'rare';
+  let rewardText = '';
+  let granted = [];
+
+  if (roll < (rare ? 0.5 : 0.28) && gearKeys.length > 0) {
+    const pick = pickRandom(unowned.length > 0 ? unowned : gearKeys);
+    addItem(game.player, pick, 1);
+    granted.push(pick);
+    rewardText = ITEMS[pick].name;
+  } else if (roll < (rare ? 0.72 : 0.55)) {
+    const supplies = rare ? ['bigPotion', 'speedPotion', 'hintPotion'] : ['warRations', 'healthPotion', 'crystal'];
+    const lex = rare ? 65 : 35;
+    for (const id of supplies) {
+      addItem(game.player, id, 1);
+      granted.push(id);
+    }
+    earnLexis(game, lex);
+    rewardText = supplies.map((id) => ITEMS[id].name).join(' + ') + ' + ' + lex + ' Lexis';
+  } else if (roll < (rare ? 0.88 : 0.8)) {
+    const treasure = rare ? pickRandom(['goldenChalice', 'silverBrooch', 'crystal', 'autoHeater']) : pickRandom(['caravanParcel', 'rareSpice', 'silkBolt', 'turretKit']);
+    addItem(game.player, treasure, 1);
+    granted.push(treasure);
+    rewardText = ITEMS[treasure].name;
+  } else {
+    const count = rare ? 2 : 1;
+    addItem(game.player, 'gem', count);
+    const lex = rare ? 90 : 45;
+    earnLexis(game, lex);
+    granted.push('gem');
+    rewardText = (count > 1 ? count + ' Gems' : 'Gem') + ' + ' + lex + ' Lexis';
+  }
+
+  cue(game, 'victory');
+  burst(game, game.player.x, game.player.y, '#ffd23f', 22);
+  notify(game, '🎁 Opened ' + item.name + ': found ' + rewardText + '!', '#ffd23f');
+  return { granted: granted, summary: rewardText };
 }

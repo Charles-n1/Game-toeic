@@ -1,57 +1,60 @@
 import Bar from './Bar';
 import Portrait from './Portrait';
 import PixelIcon from './PixelIcon';
+import useScreen from './useScreen';
 import { maxHealth, maxMana } from '../logic/player';
 import { BOTTLE_SIZE } from '../logic/survival';
 
-// One line: "HP  48 / 70" and its bar.
-function StatLine({ label, value, max, color }) {
+// One compact stat line: "HP 48/70" and its bar.
+function StatLine({ label, value, max, color, wide }) {
   return (
     <div style={styles.stat}>
-      <div className="row between">
-        <span style={styles.label}>{label}</span>
-        <span style={styles.numbers}>
-          {Math.max(0, value)} / {max}
+      <div className="row between" style={styles.statRow}>
+        <span style={wide ? styles.labelWide : styles.label}>{label}</span>
+        <span style={wide ? styles.numbersWide : styles.numbers}>
+          {Math.round(Math.max(0, value))}/{Math.round(max)}
         </span>
       </div>
-      <Bar value={value / max} color={color} height={9} />
+      <Bar value={value / max} color={color} height={wide ? 6 : 5} />
     </div>
   );
 }
 
-// Hunger or thirst: a small icon and a thin bar (red when almost empty).
-function NeedBar({ icon, value, color }) {
+// Hunger or thirst: tiny icon and thin bar (red when almost empty).
+function NeedBar({ icon, value, color, wide }) {
   return (
     <div className="row" style={styles.need}>
-      <PixelIcon name={icon} size={12} />
-      <div style={styles.needBar}>
-        <Bar value={value / 100} color={value < 25 ? '#ff5a6e' : color} height={6} />
+      <PixelIcon name={icon} size={10} />
+      <div style={{ width: wide ? 26 : 19 }}>
+        <Bar value={value / 100} color={value < 25 ? '#ff5a6e' : color} height={4} />
       </div>
     </div>
   );
 }
 
-// The hero, top-left of the screen: the face, the level, the HP and the MP.
-// (The Lexis are not shown here: they are in the Inventory and in the shops.)
+// Compact hero panel top-left: small portrait, level, HP, MP, and survival bars.
 export default function StatusPanel({ game }) {
   const player = game.player;
+  const wide = useScreen().wide;
   return (
     <div className="row" style={styles.panel}>
       <div className="window" style={styles.face}>
-        <Portrait look={player.look} size={64} />
+        <Portrait look={player.look} size={wide ? 42 : 34} />
       </div>
-      <div className="window" style={styles.stats}>
-        <span style={styles.level}>
-          {player.name} <span className="gold">Lv. {player.level}</span>
-        </span>
-        <StatLine label="HP" value={player.health} max={maxHealth(player, game)} color="#e8423f" />
-        <StatLine label="MP" value={player.mana} max={maxMana(player)} color="#3a7bff" />
-        <div className="row" style={styles.needs}>
-          <NeedBar icon="roastMeat" value={player.hunger} color="#e8a050" />
-          <NeedBar icon="water" value={player.thirst} color="#5aa8ee" />
-          <span className="small" style={styles.bottle}>
-            {'●'.repeat(player.bottle)}
-            {'○'.repeat(Math.max(0, BOTTLE_SIZE - player.bottle))}
+      <div className="window" style={wide ? styles.statsWide : styles.stats}>
+        <div className="row between" style={styles.header}>
+          <span style={wide ? styles.levelWide : styles.level}>{player.name}</span>
+          <span className="gold" style={wide ? styles.lvBadgeWide : styles.lvBadge}>
+            Lv.{player.level}
+          </span>
+        </div>
+        <StatLine label="HP" value={player.health} max={maxHealth(player, game)} color="#e8423f" wide={wide} />
+        <StatLine label="MP" value={player.mana} max={maxMana(player)} color="#3a7bff" wide={wide} />
+        <div className="row between" style={styles.needs}>
+          <NeedBar icon="roastMeat" value={player.hunger} color="#e8a050" wide={wide} />
+          <NeedBar icon="water" value={player.thirst} color="#5aa8ee" wide={wide} />
+          <span style={styles.bottle} title={`Water ${player.bottle}/${BOTTLE_SIZE}`}>
+            💧{player.bottle}
           </span>
         </div>
       </div>
@@ -62,43 +65,80 @@ export default function StatusPanel({ game }) {
 const styles = {
   panel: {
     alignItems: 'stretch',
-    gap: 4,
+    gap: 3,
   },
   face: {
-    padding: 4,
+    padding: 2,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   stats: {
-    width: 150,
-    padding: '5px 9px',
+    width: 98,
+    padding: '2px 5px',
+  },
+  statsWide: {
+    width: 118,
+    padding: '3px 7px',
+  },
+  header: {
+    gap: 4,
+    alignItems: 'baseline',
   },
   level: {
-    fontSize: 16,
+    fontSize: 11,
+    lineHeight: '13px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  levelWide: {
+    fontSize: 13,
+    lineHeight: '15px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  lvBadge: {
+    fontSize: 10,
+    lineHeight: '12px',
+    flexShrink: 0,
+  },
+  lvBadgeWide: {
+    fontSize: 11,
+    lineHeight: '14px',
+    flexShrink: 0,
   },
   stat: {
-    marginTop: 2,
+    marginTop: 1,
+  },
+  statRow: {
+    lineHeight: '11px',
   },
   needs: {
-    gap: 6,
-    marginTop: 4,
+    gap: 3,
+    marginTop: 2,
     alignItems: 'center',
   },
   need: {
-    gap: 3,
+    gap: 2,
     alignItems: 'center',
-  },
-  needBar: {
-    width: 44,
   },
   bottle: {
     color: '#9fd8ff',
-    fontSize: 10,
-    letterSpacing: -1,
+    fontSize: 9,
+    lineHeight: '10px',
+    flexShrink: 0,
   },
   label: {
-    fontSize: 14,
+    fontSize: 9,
+  },
+  labelWide: {
+    fontSize: 10,
   },
   numbers: {
-    fontSize: 14,
+    fontSize: 9,
+  },
+  numbersWide: {
+    fontSize: 10,
   },
 };

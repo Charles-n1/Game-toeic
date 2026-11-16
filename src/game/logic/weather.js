@@ -3,17 +3,16 @@ import { zoneAt, HOUSES, doorOf } from '../data/zones';
 import { isSolid, propsAround } from '../world/map';
 import { pickRandom } from '../../logic/random';
 import { killNpc, addFriendship, addHappiness } from './village';
-import { hasLight } from './torch';
 import { addBoost, clearBoostSource } from './boosts';
 import { say, notify } from './messages';
 import { burst } from './particles';
 import { cue } from './cues';
 import { emote } from './emotes';
 
-// The sky: clear, cloudy, rain, or a storm. A storm throws lightning at random: whoever is hit is knocked out
+// The sky: clear, cloudy, rain, or a storm. Sometimes a strong wind blows too (always in a storm): it puts out torches. A storm throws lightning at random: whoever is hit is knocked out
 // (KO), or killed (only the simple villagers can die of it). A KO person can be saved: the hero carries them
 // to a healing house (a clinic) before 12 hours pass.
-// game.weather: { kind, until } (until: the hour of the game, counted from day 1, when it changes).
+// game.weather: { kind, windy, until } (until: the hour of the game, counted from day 1, when it changes).
 // game.npcs[id].ko: { since } (hours). game.player.carrying: { kind: 'npc' | 'villager', id } or null.
 
 const KINDS = [
@@ -22,6 +21,7 @@ const KINDS = [
   ['rain', 20],
   ['storm', 10],
 ];
+const WINDY_CHANCE = { clear: 0.1, cloudy: 0.25, rain: 0.3, storm: 1 }; // the chance of a strong wind, for each sky
 const KO_HOURS = 12; // after that, a KO person dies
 const STRIKE_EVERY = [6, 16]; // seconds between two lightning strikes, in a storm
 const STRIKE_RANGE = 9; // tiles around the hero (the strikes far away are not seen)
@@ -40,12 +40,20 @@ function pickWeather() {
   return 'clear';
 }
 
+function pickWind(kind) {
+  return Math.random() < WINDY_CHANCE[kind];
+}
+
 export function firstWeather() {
-  return { kind: 'clear', until: 24 + 12 };
+  return { kind: 'clear', windy: false, until: 24 + 12 };
 }
 
 export function isRaining(game) {
   return game.weather.kind === 'rain' || game.weather.kind === 'storm';
+}
+
+export function isWindy(game) {
+  return Boolean(game.weather.windy);
 }
 
 // Is the hero under the sky? (Not inside a dungeon or the home.)
@@ -123,7 +131,7 @@ function updateCold(game, dt) {
     }
     return;
   }
-  if (!isRaining(game) || hasLight(game)) {
+  if (!isRaining(game)) {
     player.cold.exposure = Math.max(0, player.cold.exposure - dt * 0.6);
     return;
   }
@@ -142,9 +150,11 @@ function updateCold(game, dt) {
 export function updateWeather(game, dt) {
   if (hoursNow(game) >= game.weather.until) {
     const kind = pickWeather();
-    game.weather = { kind: kind, until: hoursNow(game) + 2 + Math.random() * 5 };
+    const windy = pickWind(kind);
+    game.weather = { kind: kind, windy: windy, until: hoursNow(game) + 2 + Math.random() * 5 };
     if (kind === 'storm') notify(game, '⛈️ A storm is coming. Stay away from the open fields...', '#9fb4ff');
     if (kind === 'rain') notify(game, '🌧️ It starts to rain.', '#9fd8ff');
+    if (windy && kind !== 'storm') notify(game, '💨 A strong wind rises. Torches will not hold.', '#cfe3ff');
   }
   updateCold(game, dt);
   game.run.bolts = game.run.bolts.filter((bolt) => Date.now() - bolt.at < 600);

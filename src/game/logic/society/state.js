@@ -8,7 +8,7 @@ import { monsterCategory } from '../learning';
 import { earnLexis, gainXp, addItem } from '../player';
 import { addHappiness } from '../village';
 import { notify, say } from '../messages';
-import { burst, floatText } from '../particles';
+import { burst, floatText, bloodSplatter } from '../particles';
 import { cue } from '../cues';
 import { pickRandom } from '../../../logic/random';
 
@@ -272,6 +272,26 @@ function handleBanditChiefEnd(game, fight, meta) {
   say(game, null, [meta.chiefName + ' falls and the bandits scatter! +75 Lexis, +60 XP.' + note]);
 }
 
+function handleCaravanPlunderEnd(game, fight, meta) {
+  if (fight.phase !== 'won') return;
+  const horse = (game.run.merchantHorses || []).find((h) => h.id === meta.horseId);
+  if (horse) {
+    horse.plundered = true;
+    bloodSplatter(game, horse.x, horse.y, 12);
+  } else {
+    bloodSplatter(game, game.player.x + 1, game.player.y, 12);
+  }
+  const lexis = 30 + Math.floor(Math.random() * 25);
+  earnLexis(game, lexis);
+  addItem(game.player, 'mysteryCrate', 1);
+  if (Math.random() < 0.4) addItem(game.player, 'mysteryRelic', 1);
+  addInfamy(game, 20);
+  if (meta.destVillageId) changeVillageMood(game, meta.destVillageId, -8);
+  cue(game, 'victory');
+  burst(game, game.player.x, game.player.y, '#ffd23f', 22);
+  notify(game, '🏴‍☠️ Plundered the merchant wagon! Found Mystery Supply Crate & +' + lexis + ' Lexis (+20 Infamy)!', '#ff8a3d');
+}
+
 // Called when a combat fight started by society.js finishes (by integration or next-frame check).
 export function onFightEndSociety(game, fight) {
   if (!fight || fight._societyHandled) return;
@@ -282,6 +302,7 @@ export function onFightEndSociety(game, fight) {
   if (meta.kind === 'slaveTrader') handleSlaveTraderEnd(game, fight, meta);
   else if (meta.kind === 'townFight') handleTownFightEnd(game, fight, meta);
   else if (meta.kind === 'banditChief') handleBanditChiefEnd(game, fight, meta);
+  else if (meta.kind === 'roadPlunder') handleCaravanPlunderEnd(game, fight, meta);
 }
 
 export function activeVillageNamesSummary(game) {

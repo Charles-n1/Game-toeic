@@ -79,8 +79,14 @@ export function buildGuildHall(game, house) {
     { kind: 'wallTorch', x: x + 6, y: y + 1, w: 1, h: 1, walkable: true },
     { kind: 'wallTorch', x: x + 10, y: y + 1, w: 1, h: 1, walkable: true },
     { kind: 'window', x: x + 7, y: y + 1, w: 2, h: 1, walkable: true },
+    { kind: 'banner', color: '#d0202a', x: x + 2, y: y + 2, w: 1, h: 1, walkable: true },
+    { kind: 'banner', color: '#2f50a0', x: x + 9, y: y + 2, w: 1, h: 1, walkable: true },
+    { kind: 'weaponRack', x: x + 4, y: y + 2, w: 2, h: 1 },
     { kind: 'furniture', look: 'rug', color: '#8a1a1a', x: x + 9, y: y + 13, w: 2, h: 1, walkable: true },
+    { kind: 'furniture', look: 'rug', color: '#c9961e', x: x + 9, y: y + 6, w: 2, h: 1, walkable: true },
     { kind: 'furniture', look: 'plant', color: '#3f9b2f', x: x + 1, y: y + 2, w: 1, h: 1 },
+    { kind: 'flowerPot', variant: 0, x: x + 20, y: y + 13, w: 1, h: 1, walkable: true },
+    { kind: 'flowerPot', variant: 2, x: x + 1, y: y + 13, w: 1, h: 1, walkable: true },
   ];
 
   const mat = { x: x + 10, y: y + h - 1 };

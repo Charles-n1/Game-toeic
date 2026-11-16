@@ -96,6 +96,55 @@ function drawEmbers(ctx, width, height, time) {
   }
 }
 
+const BUTTERFLY_COLORS = ['#ffd84a', '#7fd6ff', '#ff8ca8', '#ffffff'];
+
+function drawButterflies(ctx, width, height, time) {
+  for (let i = 0; i < 10; i++) {
+    const x = Math.round(((fixed(i, 21) * width + Math.sin(time * 0.9 + i * 1.7) * 28 + time * (4 + fixed(i, 23) * 5)) % (width + 20)) - 10);
+    const y = Math.round(((fixed(i, 22) * height + Math.cos(time * 2.4 + i * 2.1) * 14) % (height + 20)) - 10);
+    const open = Math.sin(time * 14 + i * 2) > 0;
+    ctx.fillStyle = BUTTERFLY_COLORS[i % BUTTERFLY_COLORS.length];
+    if (open) {
+      ctx.fillRect(x - 2, y - 1, 2, 2);
+      ctx.fillRect(x + 1, y - 1, 2, 2);
+    } else {
+      ctx.fillRect(x, y - 1, 1, 3);
+    }
+    ctx.fillStyle = '#1c1726';
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawFireflies(ctx, game, width, height, time) {
+  const dark = darknessHere(game);
+  if (dark < 0.25) return;
+  for (let i = 0; i < 20; i++) {
+    const pulse = Math.max(0, Math.sin(time * 3.2 + i * 1.9));
+    if (pulse < 0.2) continue;
+    const x = Math.round(((fixed(i, 31) * width + Math.sin(time * 0.7 + i) * 16) % (width + 16)) - 8);
+    const y = Math.round(((fixed(i, 32) * height + Math.cos(time * 0.9 + i * 1.3) * 12) % (height + 16)) - 8);
+    ctx.globalAlpha = pulse * Math.min(1, dark * 1.2);
+    ctx.fillStyle = i % 3 === 0 ? '#7cfc9a' : '#ffe66d';
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBirds(ctx, width, height, time) {
+  const cycle = time * 14;
+  for (let i = 0; i < 4; i++) {
+    const x = Math.round((fixed(i, 41) * width + cycle + i * 11) % (width + 80)) - 40;
+    const y = Math.round((fixed(i, 42) * height * 0.55 + Math.sin(time * 1.6 + i) * 6 + cycle * 0.15) % (height + 20)) - 10;
+    const flap = Math.sin(time * 10 + i * 1.4) > 0 ? -1 : 1;
+    ctx.fillStyle = '#1c2440';
+    ctx.fillRect(x, y, 1, 1);
+    ctx.fillRect(x - 1, y + flap, 1, 1);
+    ctx.fillRect(x + 1, y + flap, 1, 1);
+    ctx.fillRect(x - 2, y + flap, 1, 1);
+    ctx.fillRect(x + 2, y + flap, 1, 1);
+  }
+}
+
 export function drawWeather(ctx, game, view, time) {
   const zone = zoneAt(game.player.x, game.player.y);
   if (zone.kind === 'inside') return;
@@ -103,10 +152,14 @@ export function drawWeather(ctx, game, view, time) {
   const height = view.height;
   const biome = biomeAt(game.player.x, game.player.y);
   const kind = game.weather.kind;
+  const dark = darknessHere(game);
   if (biome === 'demon') drawEmbers(ctx, width, height, time);
   if (biome === 'mountain' && kind !== 'clear') drawSnow(ctx, width, height, time);
   else if (kind === 'rain') drawRain(ctx, width, height, time, 90);
   else if (kind === 'storm') drawRain(ctx, width, height, time, 170);
   if ((biome === 'forest' || zone.id === 'woods') && kind !== 'storm') drawLeaves(ctx, width, height, time);
+  if (dark < 0.35 && kind === 'clear' && biome !== 'demon' && biome !== 'mountain') drawButterflies(ctx, width, height, time);
+  if (kind !== 'storm' && dark < 0.45) drawBirds(ctx, width, height, time);
+  drawFireflies(ctx, game, width, height, time);
   drawBolts(ctx, game, view);
 }

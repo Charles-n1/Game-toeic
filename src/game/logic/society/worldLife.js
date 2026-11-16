@@ -351,7 +351,7 @@ function rivalBountyFor(village) {
   };
 }
 
-function bountyProgress(game, bounty) {
+export function bountyProgress(game, bounty) {
   if (bounty.kind === 'monster') {
     const kills = (game.kills[bounty.species] || 0) - (bounty.startKills || 0);
     return Math.min(bounty.need, Math.max(0, kills));

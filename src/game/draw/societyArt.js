@@ -5,6 +5,7 @@ import { isFestivalActive } from '../logic/society';
 import { visibleVillagers } from '../logic/villagers';
 import { TILE_PX } from './tiles';
 import { personSprite, walkPose } from './people';
+import { caravanWagonSprite } from './warArt';
 import { makeGrid, dot, fillRect, fillBall, fillTriangle, toneOf, addOutline, mirrored, toCanvas, once } from './pixels';
 import { OUTLINE, STONE_RAMP, WOOD_RAMP, WOOD } from './palette';
 
@@ -416,16 +417,37 @@ export function societyDrawings(game, view, time) {
     });
   }
 
-  // Merchant horses
+  // Merchant horses (in town stables/squares, and road caravans with mounted merchant + covered wagon)
   for (const horse of game.run.merchantHorses || []) {
-    if (!isNearView(view, horse.x - 1, horse.y - 2, 2, 2)) continue;
-    list.push({
-      y: horse.y,
-      draw: (ctx) => {
-        const frame = horse.walkX !== 0 || horse.walkY !== 0 ? Math.floor(horse.step) % 2 : 0;
-        put(ctx, horseSprite(horse.color, true, horse.dir, frame), horse.x * T, horse.y * T, view);
-      },
-    });
+    if (!isNearView(view, horse.x - 3, horse.y - 3, 6, 6)) continue;
+    const frame = horse.walkX !== 0 || horse.walkY !== 0 || horse.destX ? Math.floor(horse.step || 0) % 2 : 0;
+    if (horse.riderLook) {
+      const dir = horse.dir || 'right';
+      const horiz = dir === 'left' || dir === 'right';
+      const fx = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+      const fy = dir === 'up' ? -1 : dir === 'down' ? 1 : 0;
+      const wx = horse.x - fx * 1.4;
+      const wy = horse.y - fy * 0.85;
+      list.push({
+        y: wy,
+        draw: (ctx) => put(ctx, caravanWagonSprite(dir, frame, horse.plundered ? '#5f5968' : horse.wagonColor || '#d9cbb0'), wx * T, wy * T, view),
+      });
+      list.push({
+        y: horse.y,
+        draw: (ctx) => {
+          const hx = horse.x * T;
+          const hy = horse.y * T;
+          const bob = Math.round(Math.sin((horse.step || 0) * Math.PI) * 1.1);
+          put(ctx, horseSprite(horse.color, false, horiz ? dir : 'right', frame), hx, hy, view);
+          put(ctx, personSprite(horse.riderLook, dir, 'stand'), hx, hy - 10 + bob, view);
+        },
+      });
+    } else {
+      list.push({
+        y: horse.y,
+        draw: (ctx) => put(ctx, horseSprite(horse.color, true, horse.dir, frame), horse.x * T, horse.y * T, view),
+      });
+    }
   }
 
   // Dismounted parked horse

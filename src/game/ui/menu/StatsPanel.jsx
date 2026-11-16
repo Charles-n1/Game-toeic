@@ -73,7 +73,7 @@ export default function StatsPanel({ game, refresh }) {
     <>
       <div style={styles.hero}>
         <span>
-          Level {player.level} · XP {player.xp} / {xpForLevel(player.level)} · HP {player.health} / {maxHealth(player, game)}
+          Level {player.level} · XP {Math.round(player.xp)} / {xpForLevel(player.level)} · HP {Math.round(Math.max(0, player.health))} / {Math.round(maxHealth(player, game))}
         </span>
         <Bar value={player.xp / xpForLevel(player.level)} color="#7cfc9a" height={8} />
         <span className="small" style={styles.numbers}>
@@ -88,7 +88,7 @@ export default function StatsPanel({ game, refresh }) {
           Class: {current ? current.title : 'none yet (Menu → Classes)'} · Infamy: {society.infamy}
           {villain ? ' · ☠ Villain' : ''}
           {player.cold?.active ? ' · 🤧 Cold (-2 Spd, -3 Atk)' : ''}
-          {player.soldiers > 0 ? ' · ♟️ Soldiers ' + player.soldiers + ' (' + (player.soldierHp || player.soldiers * 45) + ' Shield HP)' : ''}
+          {player.soldiers > 0 ? ' · ♟️ Soldiers ' + player.soldiers + ' (' + Math.round(player.soldierHp || player.soldiers * 45) + ' Shield HP)' : ''}
         </span>
         <span className="small">Aria can still carry you home {player.blessings} time(s). After that, death is the end.</span>
       </div>

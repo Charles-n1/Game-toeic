@@ -24,6 +24,7 @@ import { warDrawings, drawWarEffects } from './warArt';
 import { societyDrawings, drawSocietyEffects } from './societyArt';
 import { campDrawings, drawCampEffects } from './campArt';
 import { bondsDrawings, drawBondsEffects } from './bondsArt';
+import { partyDrawings, drawPartyEffects } from './partiesArt';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
 // then the buffer is drawn 2 to 4 times bigger on the screen, without smoothing: crisp pixel art.
@@ -305,14 +306,31 @@ function houseSpriteOf(house) {
 }
 
 function houses(view, game, time) {
+  const sailFrame = Math.floor(time * 5) % 4;
   return housesNear(view)
     .filter((house) => isNear(view, house.x, house.y - 4, houseSize(house).w, houseSize(house).h + 4))
     .map((house) => {
     const bottom = house.y + houseSize(house).h;
+    const hasChimney = house.style !== 'tent' && house.size !== 'church' && house.size !== 'palace' && house.size !== 'mill';
     return {
       y: bottom,
       draw: (ctx) => {
         put(ctx, houseSpriteOf(house), house.x * T, bottom * T, view);
+        if (house.size === 'mill') {
+          put(ctx, buildings.millSailsSprite(sailFrame), house.x * T + 64, bottom * T - 102, view);
+        }
+        if (hasChimney && !isBurning(game, house)) {
+          const sx = house.x * T + Math.round(house.w * T * 0.72);
+          const sy = (bottom - house.h) * T - 4;
+          for (let i = 0; i < 3; i++) {
+            const life = (time * 0.42 + i / 3 + (house.x % 7) * 0.13) % 1;
+            const px = Math.round(sx + Math.sin(time * 2.2 + i * 2) * 3 + life * 4 - view.x);
+            const py = Math.round(sy - life * 18 - view.y);
+            const sz = life < 0.5 ? 2 : 3;
+            ctx.fillStyle = 'rgba(235, 240, 250, ' + (0.45 * (1 - life)).toFixed(2) + ')';
+            ctx.fillRect(px, py, sz, sz);
+          }
+        }
         if (isBurning(game, house)) roofFires(house, time).forEach((fire) => fire(ctx, view));
       },
     };
@@ -384,20 +402,44 @@ function propSprite(prop, time, game) {
   if (prop.kind === 'flowerPot') return props.flowerPot(prop.variant || 0);
   if (prop.kind === 'bench') return props.bench();
   if (prop.kind === 'topiary') return props.topiary();
-  if (prop.kind === 'banner') return props.bannerPole(prop.color);
+  if (prop.kind === 'banner') return props.bannerPole(prop.color, Math.floor(time * 4 + (prop.x + prop.y) * 0.7) % 3);
+  if (prop.kind === 'flowerBed') return props.flowerBed(prop.variant || 0);
+  if (prop.kind === 'flowerArch') return props.flowerArch();
+  if (prop.kind === 'scarecrow') return props.scarecrow(Math.floor(time * 2 + prop.x) % 2);
+  if (prop.kind === 'wheelbarrow') return props.wheelbarrow();
+  if (prop.kind === 'weaponRack') return props.weaponRack();
+  if (prop.kind === 'harborGear') return props.harborGear();
+  if (prop.kind === 'cauldron') return props.cauldron(flame);
+  if (prop.kind === 'bedroll') return props.bedroll();
+  if (prop.kind === 'spikeTrap') {
+    const armed = !game?.war?.disarmedTraps?.[prop.structId];
+    return props.spikeTrap(armed);
+  }
+  if (prop.kind === 'tripwire') {
+    const armed = !game?.war?.disarmedTraps?.[prop.structId];
+    return props.tripwire(armed);
+  }
+  if (prop.kind === 'shrine') {
+    const used = Boolean(game?.society?.shrinesUsed?.[prop.structId]);
+    return props.shrine(used);
+  }
+  if (prop.kind === 'portalRuins') return props.portalRuins(blink);
+  if (prop.kind === 'monsterBanner') return props.monsterBanner();
   return props.fence();
 }
 
-// The props on the floor (plates, rugs, bones, rubble) are drawn under everything; the others stand.
-const FLAT = ['plate', 'window', 'bones', 'rubble'];
+// The props on the floor (plates, rugs, bones, rubble, traps, bedrolls) are drawn under everything; the others stand.
+const FLAT = ['plate', 'window', 'bones', 'rubble', 'spikeTrap', 'tripwire', 'bedroll'];
 
 // The props around the view (the tall ones whose feet are just below are drawn too).
-function propsOfView(view) {
-  return propsInArea(Math.floor(view.x / T) - 8, Math.floor(view.y / T) - 4, Math.ceil((view.x + view.width) / T) + 8, Math.ceil((view.y + view.height) / T) + 16);
+function propsOfView(view, game = null) {
+  const staticList = propsInArea(Math.floor(view.x / T) - 8, Math.floor(view.y / T) - 4, Math.ceil((view.x + view.width) / T) + 8, Math.ceil((view.y + view.height) / T) + 16);
+  const dynamicCamp = game && game.run && Array.isArray(game.run.campProps) ? game.run.campProps : [];
+  return dynamicCamp.length > 0 ? [...staticList, ...dynamicCamp] : staticList;
 }
 
 function villageProps(view, time, game) {
-  return propsOfView(view).filter((prop) => isNear(view, prop.x, prop.y, prop.w, prop.h + 14)).map((prop) => ({
+  return propsOfView(view, game).filter((prop) => isNear(view, prop.x, prop.y, prop.w, prop.h + 14)).map((prop) => ({
     y: FLAT.includes(prop.kind) || prop.look === 'rug' ? prop.y - 9 : prop.y + prop.h,
     draw: (ctx) => {
       const sprite = propSprite(prop, time, game);
@@ -486,12 +528,26 @@ function personDrawing(look, place, view, time, salt, extra) {
 function guildPatronDrawings(game, view, time) {
   const patrons = game.run.visitHouse && game.run.visitHouse.guild ? game.run.visitHouse.patrons : [];
   return patrons.map((patron, i) => {
-    if (!patron.drinking) return personDrawing(patron.look, patron, view, time, i);
+    if (!patron.drinking) {
+      return personDrawing(patron.look, patron, view, time, i, (ctx) => {
+        if (patron.kind === 'server' && Math.sin(time * 2.2 + i * 2) > 0.72) {
+          const px = Math.round(patron.x * T - view.x);
+          const py = Math.round(patron.y * T - view.y - 30 - Math.abs(Math.sin(time * 4)) * 3);
+          ctx.fillStyle = '#ff6fa8';
+          ctx.fillRect(px - 2, py, 2, 2);
+          ctx.fillRect(px + 1, py, 2, 2);
+          ctx.fillRect(px - 1, py + 1, 3, 2);
+        }
+      });
+    }
     return {
       y: patron.y,
       draw: (ctx) => {
         put(ctx, shadow(), patron.x * T, patron.y * T, view);
         put(ctx, personSprite(patron.look, patron.dir, 'drink'), patron.x * T, patron.y * T, view);
+        const rise = Math.round((time * 12 + i * 3) % 10);
+        ctx.fillStyle = '#fff3b0';
+        ctx.fillRect(Math.round(patron.x * T - view.x + (patron.dir === 'left' ? -5 : 4)), Math.round(patron.y * T - view.y - 16 - rise), 2, 2);
       },
     };
   });
@@ -563,12 +619,45 @@ function animalDrawings(game, view) {
     }));
 }
 
-// The boats of the harbors, rocking on the water.
+// The boats of the harbors, rocking on the water with gentle ripples.
 function boatDrawings(view, time) {
   return PORTS.filter((boat) => isNear(view, boat.x - 2, boat.y - 3, 4, 4)).map((boat) => ({
     y: boat.y + 1,
-    draw: (ctx) => put(ctx, buildings.boat(Math.floor(time * 1.5) % 2), (boat.x + 0.5) * T, (boat.y + 1) * T, view),
+    draw: (ctx) => {
+      const f = Math.floor(time * 1.5) % 2;
+      const bx = Math.round((boat.x + 0.5) * T - view.x);
+      const by = Math.round((boat.y + 1) * T - view.y);
+      ctx.fillStyle = 'rgba(230, 246, 255, 0.55)';
+      ctx.fillRect(bx - 12 - f, by - 2, 24 + f * 2, 2);
+      put(ctx, buildings.boat(f), (boat.x + 0.5) * T, (boat.y + 1) * T, view);
+    },
   }));
+}
+
+// Sparkling sun glints and blooming water lilies on calm outdoor waters.
+function drawWaterLife(ctx, view, time) {
+  const area = tilesOf(view, 0);
+  if (area.bottom > INSIDE_TOP) return;
+  for (let y = area.top; y <= area.bottom; y++) {
+    for (let x = area.left; x <= area.right; x++) {
+      if (tileAt(x, y) !== TILE.WATER) continue;
+      const n = noise(x, y, 88);
+      if (n < 0.032) {
+        const nearBank = tileAt(x + 1, y) === TILE.GRASS || tileAt(x - 1, y) === TILE.GRASS || tileAt(x, y + 1) === TILE.GRASS || tileAt(x, y - 1) === TILE.GRASS;
+        if (nearBank) {
+          const bob = Math.sin(time * 2 + x + y) * 1.2;
+          put(ctx, props.waterLily(x + y), (x + 0.5) * T, (y + 0.65) * T + bob, view);
+          continue;
+        }
+      }
+      if (n > 0.91 && Math.sin(time * 4.5 + x * 1.9 + y * 2.7) > 0.65) {
+        const sx = Math.round((x + 0.25 + (n * 10 - 9) * 0.6) * T - view.x);
+        const sy = Math.round((y + 0.4 + ((x + y) % 3) * 0.2) * T - view.y);
+        ctx.fillStyle = 'rgba(235, 250, 255, 0.7)';
+        ctx.fillRect(sx, sy, 3, 1);
+      }
+    }
+  }
 }
 
 function followerDrawings(game, view, time) {
@@ -741,21 +830,25 @@ function drawSmoke(ctx, game, view, time) {
 
 // ---------- Lights ----------
 
-// The things that burn or glow: a torch of the hero can be lit at the first three.
-const LIGHT_KINDS = { lamp: 44, torch: 44, campfire: 56, crystal: 36, wallTorch: 52, stove: 40, homeLamp: 40, obelisk: 20 }; // their radius, in pixels
-const COLD_LIGHTS = ['crystal', 'obelisk']; // a magic light: no warm halo
+// The things that burn or glow.
+const LIGHT_KINDS = { lamp: 44, torch: 44, campfire: 56, cauldron: 46, crystal: 36, wallTorch: 52, stove: 40, homeLamp: 40, obelisk: 20, shrine: 34, portalRuins: 42 }; // their radius, in pixels
+const COLD_LIGHTS = ['crystal', 'obelisk', 'shrine', 'portalRuins']; // a magic light: no warm halo
 
 // No light by default at night: only the torch of the hero, the lamps, the fires and the magic.
-function lightsOf(game, view) {
+function lightsOf(game, view, time = 0) {
   const lights = [];
-  if (hasLight(game)) lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 64, warm: true });
+  if (hasLight(game)) {
+    const flick = Math.round(Math.sin(time * 7) * 3);
+    lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 64 + flick, warm: true });
+  }
   if (game.run.fight) {
     // a fight at night: a big light on the two fighters (and on the friends behind the hero)
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
-  for (const prop of propsOfView(view).filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, item.w, item.h))) {
-    lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind], warm: !COLD_LIGHTS.includes(prop.kind) });
+  for (const prop of propsOfView(view, game).filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, item.w, item.h))) {
+    const flick = Math.round(Math.sin(time * 6 + prop.x * 1.7 + prop.y) * 3);
+    lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind] + flick, warm: !COLD_LIGHTS.includes(prop.kind) });
   }
   for (const house of burningHouses(game, view)) {
     lights.push({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h * 0.3) * T - view.y, radius: Math.max(70, house.w * 8), warm: true });
@@ -791,6 +884,13 @@ function writeNames(ctx, game, view, scale) {
     const place = game.run.people[npc.id];
     if (Math.hypot(place.x - game.player.x, place.y - game.player.y) > NAME_RANGE) continue;
     writeText(ctx, npc.name, (place.x * T - view.x) * scale, (place.y * T - headHeight(npc.look) - view.y) * scale, 13, '#ffe9a8');
+  }
+  for (const party of game.run.parties || []) {
+    if (!party.chat || !party.chat.text) continue;
+    const speaker = party.members[party.chat.memberIndex] || party.members[0];
+    if (!speaker || speaker.hp <= 0) continue;
+    if (Math.hypot(speaker.x - game.player.x, speaker.y - game.player.y) > 9) continue;
+    writeText(ctx, speaker.name + ': ' + party.chat.text, (speaker.x * T - view.x) * scale, (speaker.y * T - 38 - view.y) * scale, 12, '#e6f6ff');
   }
 }
 
@@ -846,6 +946,30 @@ function fightScale(width, height) {
   return Math.max(scale, Math.min(Math.round(scale * 1.35), Math.floor(width / 200)));
 }
 
+// Persistent crimson blood pools & splatters on the map after combat.
+function drawBloodPools(ctx, game, view) {
+  const blood = game && game.run && Array.isArray(game.run.blood) ? game.run.blood : [];
+  for (const pool of blood) {
+    if (!isNear(view, pool.x - 1, pool.y - 1, 2, 2)) continue;
+    const fade = Math.max(0, Math.min(1, (pool.life - pool.age) / 6));
+    const cx = Math.round(pool.x * T - view.x);
+    const cy = Math.round(pool.y * T - view.y);
+    const rx = Math.max(3, Math.round(pool.r * T));
+    const ry = Math.max(2, Math.round(rx * 0.62));
+    ctx.globalAlpha = fade * 0.85;
+    ctx.fillStyle = '#5c0912';
+    ctx.fillRect(cx - rx, cy - ry + 1, rx * 2, ry * 2 - 1);
+    ctx.fillStyle = '#9e1522';
+    ctx.fillRect(cx - Math.max(2, rx - 1), cy - Math.max(1, ry - 1), Math.max(3, rx * 2 - 2), Math.max(2, ry * 2 - 3));
+    const sx = ((pool.seed * 13) % 5) - 2;
+    const sy = ((pool.seed * 29) % 4) - 2;
+    ctx.fillStyle = '#7a0e16';
+    ctx.fillRect(cx + Math.round(sx) - rx - 1, cy + Math.round(sy), 2, 2);
+    ctx.fillRect(cx - Math.round(sx) + rx, cy - Math.round(sy), 2, 1);
+  }
+  ctx.globalAlpha = 1;
+}
+
 // The world around the player. width, height: the size of the screen canvas. time: seconds.
 export function drawScene(ctx, game, width, height, time) {
   const scale = game.run.fight ? fightScale(width, height) : pixelScale(width, height);
@@ -854,12 +978,14 @@ export function drawScene(ctx, game, width, height, time) {
   const fight = game.run.fight;
 
   drawGround(art, game, view, time);
+  drawWaterLife(art, view, time);
+  drawBloodPools(art, game, view);
   drawStorm(art, game, view, time);
   drawTreasureHint(art, game, view, time);
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
   const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
-  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time));
+  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) drawEmotes(art, game, view);
   if (fight) drawBattle(art, game, view, time);
@@ -871,8 +997,9 @@ export function drawScene(ctx, game, width, height, time) {
   drawSocietyEffects(art, game, view, time);
   drawCampEffects(art, game, view, time);
   drawBondsEffects(art, game, view, time);
+  drawPartyEffects(art, game, view);
   drawWeather(art, game, view, time);
-  drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view), darknessHere(game));
+  drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));
   drawFade(art, game);
 
   showBuffer(ctx, width, height, scale);

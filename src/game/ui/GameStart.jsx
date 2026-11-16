@@ -43,28 +43,33 @@ function isValidScore(text) {
 export default function GameStart({ stats, history, onStart, onTakeTest, onBack }) {
   const appScore = scoreFromApp(stats, history);
   const [hero, setHero] = useState(DEFAULT_HERO);
-  const [scoreText, setScoreText] = useState(appScore === null ? '' : String(appScore));
+  const [scoreText, setScoreText] = useState(
+    appScore === null ? '400' : String(Math.min(SECTION_MAX, Math.max(350, appScore + 55)))
+  );
   const [goalId, setGoalId] = useState(null);
   const [showCustom, setShowCustom] = useState(false);
-  const [customWeights, setCustomWeights] = useState({});
+  const [currentStats, setCurrentStats] = useState({});
   const canStart = hero.name.trim() !== '' && isValidScore(scoreText) && goalId !== null;
 
   function typeScore(event) {
     setScoreText(event.target.value.replace(/\D/g, '').slice(0, 3)); // digits only
   }
 
-  function changeCustom(catId, raw) {
-    const val = Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
-    setCustomWeights((prev) => {
+  function changeCurrentStat(catId, raw) {
+    const cleaned = raw.replace(/\D/g, '');
+    setCurrentStats((prev) => {
       const next = { ...prev };
-      if (val <= 0) delete next[catId];
-      else next[catId] = val;
+      if (cleaned === '') {
+        delete next[catId];
+      } else {
+        next[catId] = Math.max(0, Math.min(99, Math.round(Number(cleaned) || 0)));
+      }
       return next;
     });
   }
 
   function start() {
-    onStart(goalId, Number(scoreText), { ...hero, name: hero.name.trim() }, customWeights);
+    onStart(goalId, Number(scoreText), { ...hero, name: hero.name.trim() }, {}, currentStats);
   }
 
   return (
@@ -89,42 +94,46 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onBack 
           <HeroCreator hero={hero} onChange={setHero} />
         </Window>
 
-        <Window title="Your level">
+        <Window title="TOEIC Target & Current %">
           {appScore === null ? (
             <>
-              <span>The goddess must read your level first.</span>
+              <span>Set your target TOEIC reading score to reach in this world (5 to 495):</span>
               <button className="px-button px-gold" style={styles.gap} onClick={onTakeTest}>
-                Take the level test (17 min)
+                Or take the app level test first (17 min)
               </button>
-              <span className="small" style={styles.gap}>
-                ...or type your TOEIC reading score (5 to 495):
-              </span>
             </>
           ) : (
-            <span>From your answers in the app, your reading score is about {appScore} / 495. You can change it:</span>
+            <span>
+              Your current reading estimate is ~{appScore} / 495. Set the target TOEIC score you aim to reach (5 to 495):
+            </span>
           )}
-          <input className="field" style={styles.gap} value={scoreText} onChange={typeScore} inputMode="numeric" placeholder="300" aria-label="score" />
+          <input className="field" style={styles.gap} value={scoreText} onChange={typeScore} inputMode="numeric" placeholder="400" aria-label="target-score" />
           <button className="px-button" style={styles.gap} onClick={() => setShowCustom((v) => !v)}>
-            {showCustom ? 'Hide custom TOEIC stats' : 'Custom TOEIC focus / stats (optional)'}
+            {showCustom ? 'Hide current category %' : 'Set your current % per category (optional)'}
           </button>
           {showCustom && (
-            <div style={styles.weightsGrid}>
-              {CATEGORIES.map((cat) => (
-                <label key={cat.id} className="row" style={styles.weightRow}>
-                  <span className="small grow">{cat.name}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={customWeights[cat.id] || ''}
-                    placeholder="Auto"
-                    onChange={(e) => changeCustom(cat.id, e.target.value)}
-                    style={styles.weightInput}
-                  />
-                  <span className="small">%</span>
-                </label>
-              ))}
-            </div>
+            <>
+              <span className="small" style={styles.gap}>
+                Insert your CURRENT percentage (1–99%) in any category. You start at these values and raise them toward your TOEIC target. Weakest categories link directly to Speed, Health &amp; Attack!
+              </span>
+              <div style={styles.weightsGrid}>
+                {CATEGORIES.map((cat) => (
+                  <label key={cat.id} className="row" style={styles.weightRow}>
+                    <span className="small grow">{cat.name}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      value={currentStats[cat.id] !== undefined ? currentStats[cat.id] : ''}
+                      placeholder="Auto"
+                      onChange={(e) => changeCurrentStat(cat.id, e.target.value)}
+                      style={styles.weightInput}
+                    />
+                    <span className="small">%</span>
+                  </label>
+                ))}
+              </div>
+            </>
           )}
         </Window>
 

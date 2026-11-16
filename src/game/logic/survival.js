@@ -28,7 +28,14 @@ export function updateSurvival(game, hours) {
   const before = { hunger: player.hunger, thirst: player.thirst };
   player.hunger = clamp(player.hunger - HUNGER_PER_HOUR * hours);
   player.thirst = clamp(player.thirst - THIRST_PER_HOUR * hours);
-  if (player.hunger === 0 || player.thirst === 0) player.health = Math.max(1, player.health - STARVING_HP_PER_HOUR * hours);
+  if (player.hunger === 0 || player.thirst === 0) {
+    game.run.starveLoss = (game.run.starveLoss || 0) + STARVING_HP_PER_HOUR * hours;
+    const drop = Math.floor(game.run.starveLoss);
+    if (drop >= 1) {
+      game.run.starveLoss -= drop;
+      player.health = Math.max(1, Math.round(player.health) - drop);
+    }
+  }
   if (before.hunger >= 25 && player.hunger < 25) notify(game, '🍖 You are hungry. Eat something (Menu → Inventory).', '#ffb070');
   if (before.thirst >= 25 && player.thirst < 25) notify(game, '💧 You are thirsty. Drink from your bottle.', '#9fd8ff');
 }

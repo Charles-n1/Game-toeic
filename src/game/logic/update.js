@@ -16,7 +16,7 @@ import { saveGame } from './save';
 import { exploreAround } from './explore';
 import { cue } from './cues';
 import { closedSealAt, explainSeal } from './seals';
-import { canGather, gather, canLightTorch, lightAtFire, hasLight } from './torch';
+import { canGather, gather, hasLight } from './torch';
 import { isNight } from './clock';
 import { villageNews } from './villages';
 import { updateVillagers, villagerNear, wakeVillages } from './villagers';
@@ -35,6 +35,8 @@ import { updateSociety, slowSociety, actionsOfSociety, ridingSpeedMultiplier } f
 import { updateCamp, slowCamp, actionsOfCamp } from './camp';
 import { updateBonds, slowBonds, actionsOfBonds } from './bonds';
 import { exitVisitedHouseIfStairs, actionsOfHouses } from './houses';
+import { updateIsekaiStructures, actionsOfStructures } from './isekaiStructures';
+import { updateWorldParties, syncWorldParties, actionsOfParties, onFightEndParties } from './worldParties';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -203,9 +205,11 @@ function actionsOf(game) {
     { when: () => personNear(game), icon: 'talk', run: () => talkTo(game, personNear(game)) },
     { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
     ...actionsOfWar(game),
+    ...actionsOfParties(game),
     ...actionsOfBonds(game),
     ...actionsOfSociety(game),
     ...actionsOfCamp(game),
+    ...actionsOfStructures(game),
     { when: () => villagerNear(game), icon: 'talk', run: () => talkToVillager(game, villagerNear(game)) },
     { when: () => isAtHomeDoor(player), icon: 'quit', run: () => enterHome(game) },
     ...actionsOfGuildHall(game),
@@ -214,7 +218,6 @@ function actionsOf(game) {
     { when: () => atHome && propNear(game, ['bed'], 2.2), icon: 'sleep', run: () => offerBed(game) },
     { when: () => atHome && propNear(game, ['storage'], 1.5), icon: 'chest', run: () => openStorage(game) },
     { when: () => portNear(game), icon: 'map', run: () => offerSail(game, portNear(game), travelTo) },
-    { when: () => canLightTorch(game, false), icon: 'fire', run: () => lightAtFire(game) },
     { when: () => fireToCookNear(game), icon: 'roastMeat', run: () => offerCooking(game) },
     { when: () => wordDoorAt(game, front.x, front.y), icon: 'book', run: () => openWordDoor(game, wordDoorAt(game, front.x, front.y), () => refreshWorld(game)) },
     { when: () => obeliskNear(game), icon: 'book', run: () => readObelisk(game, obeliskNear(game)) },
@@ -244,14 +247,14 @@ export function actionIcon(game) {
 
 // ---------- The frame ----------
 
-// The first night in the dark: how to make light.
+// The first night in the dark: how to light the torch.
 function explainTheDark(game) {
   if (game.flags.dark || !isNight(game) || hasLight(game)) return;
   game.flags.dark = true;
   say(game, null, [
     'The night falls on you like a blanket. You can barely see your hands.',
-    'Nobody carries light by default here. Make a torch: a branch (from a tree), lamp oil (Old Bea or Rin) and cloth (Lila, the weaver).',
-    'Then light it at a fire that already burns (a lamp, a torch, a campfire), or strike 2 flint stones (from a rock).',
+    'Luckily, you have a torch. Light it with T (or tap the torch on the screen). It burns about 5 minutes.',
+    'Under the sky, the rain and a strong wind put the flame out: you will have to wait for them to stop.',
   ]);
 }
 
@@ -273,6 +276,8 @@ function slowUpdates(game, dt) {
     slowCamp(game);
     slowBonds(game);
     slowSparring(game);
+    updateIsekaiStructures(game);
+    syncWorldParties(game);
   }
   game.run.saveTime += dt;
   if (game.run.saveTime >= SAVE_EVERY) {
@@ -283,6 +288,7 @@ function slowUpdates(game, dt) {
 
 // dt: seconds since the last frame.
 export function updateGame(game, input, dt) {
+  if (game.run.partyRaid && !game.run.fight) onFightEndParties(game, game.run.partyRaid.fight);
   advanceClock(game, dt);
   walk(game, input, dt);
   takeStairs(game);
@@ -301,6 +307,7 @@ export function updateGame(game, input, dt) {
   updateSociety(game, dt);
   updateCamp(game, dt);
   updateBonds(game, dt);
+  updateWorldParties(game, dt);
   slowUpdates(game, dt);
 }
 

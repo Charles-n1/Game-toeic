@@ -9,7 +9,7 @@ import { growVillages } from './villages';
 import { placeVillagers } from './villagers';
 import { placeAnimals } from './animals';
 import { refreshWorld } from './worldState';
-import { isRaining, isOutdoors, cureCold } from './weather';
+import { isOutdoors, cureCold } from './weather';
 import { notify } from './messages';
 import { newDayWar } from './war';
 import { newDaySociety } from './society';
@@ -35,7 +35,7 @@ function newDay(game) {
 }
 
 function addHours(game, hours) {
-  burnTorch(game, game.weather && isRaining(game) ? hours * 2 : hours); // the rain eats the flame
+  burnTorch(game, hours); // the rain and the wind put it out (see logic/torch.js)
   updateSurvival(game, hours);
   game.hour += hours;
   if (game.hour >= 24) {

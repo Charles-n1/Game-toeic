@@ -11,7 +11,7 @@ import { say, notify } from './messages';
 import { cue } from './cues';
 import { burst, dust, floatText } from './particles';
 import { emote } from './emotes';
-import { TORCH_HOURS, canLightTorch, canGather, hasLight } from './torch';
+import { canGather } from './torch';
 import { canRefill, fireToCookNear } from './survival';
 import { isSoil, closestTreasure, dig } from './farm';
 import { obeliskNear } from './puzzles';
@@ -203,17 +203,6 @@ export function lightCampfire(game) {
   cue(game, 'campFire');
   burst(game, camp.x + 0.35, camp.y + 0.1, '#ff9a2b', 14);
   notify(game, '🔥 The campfire crackles warmly!', '#ffd086');
-  return true;
-}
-
-function lightTorchAtCamp(game) {
-  const camp = ensureCamp(game).active;
-  if (!camp || !camp.lit || countItem(game.player, 'torch') < 1 || hasLight(game)) return false;
-  removeItem(game.player, 'torch', 1);
-  game.player.torchHours = TORCH_HOURS;
-  burst(game, game.player.x, game.player.y - 0.6, '#ffb040', 14);
-  cue(game, 'campFire');
-  notify(game, '🔥 Your torch takes the flame (' + TORCH_HOURS + 'h of light).', '#ffd86b');
   return true;
 }
 
@@ -537,16 +526,6 @@ export function openCampMenu(game) {
       },
     });
   }
-  if (camp.lit && countItem(player, 'torch') > 0 && !hasLight(game)) {
-    choices.push({
-      label: 'Light your torch at the campfire',
-      icon: 'torch',
-      run: () => {
-        lightTorchAtCamp(game);
-        openCampMenu(game);
-      },
-    });
-  }
   if (camp.lit && state.hasPot) {
     choices.push({ label: 'Cook & Share Meals (Cooking Pot)', icon: 'herbStew', run: () => openCookMenu(game) });
   }
@@ -665,7 +644,7 @@ function shouldYieldToWorldAction(game) {
   const player = game.player;
   const front = frontTileOf(player);
   if (PORTS.some((port) => Math.hypot(port.x - player.x, port.y - player.y) < 3)) return true;
-  if (canLightTorch(game, false) || fireToCookNear(game) || obeliskNear(game)) return true;
+  if (fireToCookNear(game) || obeliskNear(game)) return true;
   if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return true;
   if (canRefill(game, front) || canGather(game, front.x, front.y)) return true;
   if (closestTreasure(game, 2.5)) return true;
