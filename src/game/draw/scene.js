@@ -1,12 +1,12 @@
 import { NPCS, npcOf } from '../data/npcs';
-import { HOUSES, SEALS, BOATS, WORLD_SIZE, MAP_HEIGHT, zoneAt, houseSize } from '../data/zones';
+import { HOUSES, SEALS, WORLD_SIZE, MAP_HEIGHT, zoneAt, houseSize } from '../data/zones';
 import { typeOf } from '../data/types';
-import { MAP_WIDTH, TILE, tileAt, biomeAt, noise, CHESTS, allProps } from '../world/map';
+import { MAP_WIDTH, TILE, tileAt, biomeAt, noise, CHESTS, PORTS, propsInArea } from '../world/map';
 import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
 import { cropAt, isCropReady, closestTreasure } from '../logic/farm';
 import { isSealOpen } from '../logic/seals';
 import { hasLight } from '../logic/torch';
-import { visibleVillagers } from '../logic/villages';
+import { visibleVillagers } from '../logic/villagers';
 import { isRiddleSolved } from '../logic/puzzles';
 import { BED_COLORS, WALL_COLORS } from '../logic/home';
 import { drawWeather, darknessHere } from './weather';
@@ -20,6 +20,10 @@ import { activeEmotes } from '../logic/emotes';
 import { drawLights } from './lights';
 import { makeGrid, fillEllipse, toCanvas, once } from './pixels';
 import * as props from './props';
+import { warDrawings, drawWarEffects } from './warArt';
+import { societyDrawings, drawSocietyEffects } from './societyArt';
+import { campDrawings, drawCampEffects } from './campArt';
+import { bondsDrawings, drawBondsEffects } from './bondsArt';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
 // then the buffer is drawn 2 to 4 times bigger on the screen, without smoothing: crisp pixel art.
@@ -76,12 +80,12 @@ function viewOf(game, width, height) {
 }
 
 // The tiles on screen (+ a margin for the tall things whose feet are just outside).
-function tilesOf(view, margin) {
+function tilesOf(view, margin, bottomMargin = margin) {
   return {
     left: Math.floor(view.x / T) - margin,
     top: Math.floor(view.y / T) - 1,
     right: Math.ceil((view.x + view.width) / T) + margin,
-    bottom: Math.ceil((view.y + view.height) / T) + margin + 2,
+    bottom: Math.ceil((view.y + view.height) / T) + bottomMargin + 2,
   };
 }
 
@@ -127,12 +131,12 @@ function isBushy(x, y, tile, biome) {
   return (tile === TILE.GRASS || tile === TILE.FLOWER) && noise(x, y, 44) < (BUSHES[biome] || 0);
 }
 
-// The things made of pieces, one per tile (a fence, a wall, a palisade).
-const IN_PIECES = ['fence', 'wall', 'palisade'];
+// The things made of pieces, one per tile (a fence, a wall, a palisade, spikes).
+const IN_PIECES = ['fence', 'wall', 'palisade', 'spikes'];
 
 // Each drawing: { y (the line of its feet, in tiles: who is lower is drawn later, in front), draw }.
 function treesAndRocks(view) {
-  const area = tilesOf(view, 2);
+  const area = tilesOf(view, 4, 8);
   const drawings = [];
   for (let y = area.top; y < area.bottom; y++) {
     for (let x = area.left; x < area.right; x++) {
@@ -144,16 +148,19 @@ function treesAndRocks(view) {
 }
 
 function isNear(view, x, y, w, h) {
-  return x * T < view.x + view.width + 32 && (x + w) * T > view.x - 32 && y * T < view.y + view.height + 64 && (y + h) * T > view.y - 32;
+  return x * T < view.x + view.width + 64 && (x + w) * T > view.x - 64 && y * T < view.y + view.height + 128 && (y + h) * T > view.y - 64;
 }
 
-// The flames on the roofs of Lexia, during a raid.
+// The flames on the roofs of a village under attack.
 function roofFires(house, time) {
+  const w = house.w * T;
+  const h = house.h * T;
   const spots = [
-    [12, 10],
-    [44, 14],
-    [28, 2],
-    [52, 34],
+    [w * 0.22, h * 0.25],
+    [w * 0.5, h * 0.14],
+    [w * 0.78, h * 0.28],
+    [w * 0.36, h * 0.45],
+    [w * 0.68, h * 0.5],
   ];
   return spots.map(([dx, dy], i) => (ctx, view) => {
     put(ctx, props.bigFlame(Math.floor(time * 9 + i) % 3), house.x * T + dx, house.y * T + dy, view);
@@ -161,17 +168,30 @@ function roofFires(house, time) {
 }
 
 function isBurning(game, house) {
-  return game !== null && game.raid.active && zoneAt(house.x, house.y).id === 'lexia';
+  if (!game || !house.village || house.style === 'tent') return false;
+  const state = game.villages && game.villages[house.village];
+  if (state && (state.underAttack || state.burning || state.raided)) return true;
+  if (game.war && game.war.attacks && game.war.attacks.some((attack) => attack.village === house.village && attack.active)) return true;
+  return Boolean(game.raid.active && house.village === (game.raid.village || 'lexia'));
+}
+
+function burningHouses(game, view) {
+  if (!game) return [];
+  return HOUSES.filter((house) => isNear(view, house.x, house.y - 2, house.w, house.h + 2) && isBurning(game, house));
 }
 
 function houseSpriteOf(house) {
-  if (house.kind === 'school') return props.schoolSprite();
-  if (house.kind === 'guild') return buildings.guildSprite();
+  if (house.style === 'tent') return buildings.tent(house.role === 'chief', house.roof, house.w, house.h);
+  if (house.role === 'school') return props.schoolSprite();
+  if (house.role === 'guild') return buildings.guildSprite();
+  if (house.size === 'church') return buildings.churchSprite(house);
+  if (house.size === 'mill') return buildings.millSprite(house);
+  if (house.size === 'palace') return buildings.palaceSprite(house);
   return props.houseSprite(house);
 }
 
 function houses(view, game, time) {
-  return HOUSES.filter((house) => isNear(view, house.x, house.y - 2, houseSize(house).w, houseSize(house).h + 2)).map((house) => {
+  return HOUSES.filter((house) => isNear(view, house.x, house.y - 4, houseSize(house).w, houseSize(house).h + 4)).map((house) => {
     const bottom = house.y + houseSize(house).h;
     return {
       y: bottom,
@@ -188,8 +208,8 @@ function propSprite(prop, time, game) {
   const flame = Math.floor(time * 8) % 3;
   const blink = Math.floor(time * 2) % 2;
   const pictures = {
-    tent: () => buildings.tent(false),
-    bigTent: () => buildings.tent(true),
+    tent: () => buildings.tent(false, prop.look || 'bandit', prop.w, prop.h),
+    bigTent: () => buildings.tent(true, prop.look || 'bandit', prop.w, prop.h),
     banner: () => buildings.banner(prop.color),
     demonSpire: () => buildings.demonSpire(blink),
     watchtower: () => buildings.watchtower(),
@@ -217,11 +237,23 @@ function propSprite(prop, time, game) {
   if (pictures[prop.kind]) return pictures[prop.kind]();
   if (prop.kind === 'fountain') return props.fountain(Math.floor(time * 4) % 2);
   if (prop.kind === 'lamp') return props.lampPost();
-  if (prop.kind === 'torch') return props.torch(Math.floor(time * 8) % 3);
-  if (prop.kind === 'campfire') return props.campfire(Math.floor(time * 8) % 3);
-  if (prop.kind === 'crystal') return props.arcaneCrystal(Math.floor(time * 2) % 2);
+  if (prop.kind === 'torch') return props.torch(flame);
+  if (prop.kind === 'campfire') return props.campfire(flame);
+  if (prop.kind === 'crystal') return props.arcaneCrystal(blink);
   if (prop.kind === 'wall') return props.stoneWall(prop.side || (prop.h > 1 ? 'column' : 'row'));
   if (prop.kind === 'palisade') return props.palisade(prop.side || (prop.h > 1 ? 'column' : 'row'));
+  if (prop.kind === 'spikes') return props.spikes(prop.side || (prop.h > 1 ? 'column' : 'row'));
+  if (prop.kind === 'warTotem') return props.warTotem();
+  if (prop.kind === 'bones') return props.bones();
+  if (prop.kind === 'cage') return props.cage();
+  if (prop.kind === 'gameStall') return props.gameStall();
+  if (prop.kind === 'board') return props.board();
+  if (prop.kind === 'statue') return props.statue();
+  if (prop.kind === 'totem') return props.totem();
+  if (prop.kind === 'rubble') return props.rubble(prop.look);
+  if (prop.kind === 'target') return props.target();
+  if (prop.kind === 'grave') return props.grave();
+  if (prop.kind === 'hay') return props.hay();
   if (prop.kind === 'stall') return props.marketStall();
   if (prop.kind === 'barrels') return props.barrels();
   if (prop.kind === 'crates') return props.crates();
@@ -229,11 +261,16 @@ function propSprite(prop, time, game) {
   return props.fence();
 }
 
-// The props on the floor (plates, rugs) are drawn under everything; the others stand.
-const FLAT = ['plate', 'window'];
+// The props on the floor (plates, rugs, bones, rubble) are drawn under everything; the others stand.
+const FLAT = ['plate', 'window', 'bones', 'rubble'];
+
+// The props around the view (the tall ones whose feet are just below are drawn too).
+function propsOfView(view) {
+  return propsInArea(Math.floor(view.x / T) - 8, Math.floor(view.y / T) - 4, Math.ceil((view.x + view.width) / T) + 8, Math.ceil((view.y + view.height) / T) + 16);
+}
 
 function villageProps(view, time, game) {
-  return allProps().filter((prop) => isNear(view, prop.x, prop.y, prop.w, prop.h + 6)).map((prop) => ({
+  return propsOfView(view).filter((prop) => isNear(view, prop.x, prop.y, prop.w, prop.h + 14)).map((prop) => ({
     y: FLAT.includes(prop.kind) || prop.look === 'rug' ? prop.y - 9 : prop.y + prop.h,
     draw: (ctx) => {
       const sprite = propSprite(prop, time, game);
@@ -375,7 +412,7 @@ function animalDrawings(game, view, time) {
 
 // The boats of the harbors, rocking on the water.
 function boatDrawings(view, time) {
-  return BOATS.filter((boat) => isNear(view, boat.x - 2, boat.y - 3, 4, 4)).map((boat) => ({
+  return PORTS.filter((boat) => isNear(view, boat.x - 2, boat.y - 3, 4, 4)).map((boat) => ({
     y: boat.y + 1,
     draw: (ctx) => put(ctx, buildings.boat(Math.floor(time * 1.5) % 2), (boat.x + 0.5) * T, (boat.y + 1) * T, view),
   }));
@@ -498,12 +535,12 @@ function drawParticleSquares(ctx, particles, view) {
 
 // Sparks rising from the burning houses during a raid. They only depend on the time: nothing to remember.
 function drawEmbers(ctx, game, view, time) {
-  if (!game.raid.active) return;
-  for (const house of HOUSES.filter((item) => isBurning(game, item) && isNear(view, item.x, item.y, 4, 3))) {
-    for (let i = 0; i < 6; i++) {
-      const life = (time * 0.6 + i / 6) % 1;
-      const x = house.x * T + 8 + ((i * 37) % 48) + Math.sin(time * 3 + i) * 4;
-      const y = house.y * T + 4 - life * 40;
+  for (const house of burningHouses(game, view)) {
+    const span = Math.max(16, house.w * T - 16);
+    for (let i = 0; i < 8; i++) {
+      const life = (time * 0.6 + i / 8) % 1;
+      const x = house.x * T + 8 + ((i * 37) % span) + Math.sin(time * 3 + i) * 4;
+      const y = house.y * T + house.h * T * 0.25 - life * 45;
       ctx.fillStyle = life < 0.5 ? '#ffd23f' : '#ff6a2b';
       ctx.fillRect(Math.round(x - view.x), Math.round(y - view.y), 1, 1);
     }
@@ -512,13 +549,12 @@ function drawEmbers(ctx, game, view, time) {
 
 // Dark smoke rising from the burning houses.
 function drawSmoke(ctx, game, view, time) {
-  if (!game.raid.active) return;
-  for (const house of HOUSES.filter((item) => isBurning(game, item) && isNear(view, item.x, item.y, 4, 3))) {
-    for (let i = 0; i < 5; i++) {
-      const life = (time * 0.25 + i / 5) % 1;
-      const size = 3 + Math.round(life * 6);
-      const x = house.x * T + 12 + i * 10 + Math.sin(time + i) * 6 - view.x;
-      const y = house.y * T - life * 70 - view.y;
+  for (const house of burningHouses(game, view)) {
+    for (let i = 0; i < 6; i++) {
+      const life = (time * 0.25 + i / 6) % 1;
+      const size = 3 + Math.round(life * 7);
+      const x = house.x * T + house.w * T * (0.15 + i * 0.14) + Math.sin(time + i) * 6 - view.x;
+      const y = house.y * T + house.h * T * 0.2 - life * 75 - view.y;
       ctx.fillStyle = 'rgba(40, 32, 44, ' + 0.55 * (1 - life) + ')';
       ctx.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
     }
@@ -540,11 +576,11 @@ function lightsOf(game, view) {
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
-  for (const prop of allProps().filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, item.w, item.h))) {
+  for (const prop of propsOfView(view).filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, item.w, item.h))) {
     lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind], warm: !COLD_LIGHTS.includes(prop.kind) });
   }
-  for (const house of HOUSES.filter((item) => isBurning(game, item) && isNear(view, item.x, item.y, 4, 3))) {
-    lights.push({ x: (house.x + 2) * T - view.x, y: house.y * T - view.y, radius: 70, warm: true });
+  for (const house of burningHouses(game, view)) {
+    lights.push({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h * 0.3) * T - view.y, radius: Math.max(70, house.w * 8), warm: true });
   }
   return lights;
 }
@@ -645,6 +681,7 @@ export function drawScene(ctx, game, width, height, time) {
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
   const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
+  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) drawEmotes(art, game, view);
   if (fight) drawBattle(art, game, view, time);
@@ -652,6 +689,10 @@ export function drawScene(ctx, game, width, height, time) {
   drawParticleSquares(art, game.run.particles, view);
   drawEmbers(art, game, view, time);
   drawSmoke(art, game, view, time);
+  drawWarEffects(art, game, view, time);
+  drawSocietyEffects(art, game, view, time);
+  drawCampEffects(art, game, view, time);
+  drawBondsEffects(art, game, view, time);
   drawWeather(art, game, view, time);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view), darknessHere(game));
   drawFade(art, game);

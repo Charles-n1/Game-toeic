@@ -7,12 +7,16 @@ const KEYS_UP = ['ArrowUp', 'w', 'z'];
 const KEYS_DOWN = ['ArrowDown', 's'];
 export const ACTION_KEYS = [' ', 'e', 'Enter'];
 
+export function normalizeKey(key) {
+  return key.length === 1 ? key.toLowerCase() : key;
+}
+
 export function makeInput() {
   return { keys: {}, padX: 0, padY: 0 };
 }
 
 function isDown(input, names) {
-  return names.some((name) => input.keys[name]);
+  return names.some((name) => input.keys[name] || (name.length === 1 && input.keys[name.toUpperCase()]));
 }
 
 // The direction wanted: { x, y }, never longer than 1 (so walking in diagonal is not faster).
@@ -25,6 +29,11 @@ export function directionOf(input) {
     y /= length;
   }
   return { x: x, y: y };
+}
+
+// Running: the Shift key held, or the touch stick pushed to its edge (a small push walks).
+export function isRunning(input) {
+  return Boolean(input.keys.Shift || input.keys.ShiftLeft || input.keys.ShiftRight) || Math.hypot(input.padX, input.padY) > 0.92;
 }
 
 // The direction to look at, to go by (dx, dy): 'up' | 'down' | 'left' | 'right'.

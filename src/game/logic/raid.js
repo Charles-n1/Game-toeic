@@ -1,7 +1,6 @@
 import { NPCS } from '../data/npcs';
 import { SCENES } from '../data/story';
 import { zoneAt, villageOf } from '../data/zones';
-import { gatesOf } from '../world/map';
 import { pickRandom } from '../../logic/random';
 import { makeMonster } from './monsters';
 import { isNight, NIGHTFALL, SUNRISE } from './clock';
@@ -16,7 +15,8 @@ import { say, notify } from './messages';
 const DAYS_BETWEEN_RAIDS = 7;
 const BITE_SECONDS = 6; // how long a monster must stay on a villager to kill them
 // The raiders come in by the gates of Eldermoor (in the middle of each gate, 2 tiles outside).
-const GATES = gatesOf(villageOf('lexia')).map((gate) => ({ x: gate.x + (gate.dx === 0 ? 1 : 0.5) + gate.dx * 2, y: gate.y + (gate.dy === 0 ? 1 : 0.5) + gate.dy * 2 }));
+const ELDERMOOR = villageOf('lexia');
+const GATES = ELDERMOOR.plan.gates.map((gate) => ({ x: gate.x + (gate.dx === 0 ? 1 : 0.5) + gate.dx * 2, y: gate.y + (gate.dy === 0 ? 1 : 0.5) + gate.dy * 2 }));
 // The monsters of the 1st raid, of the 2nd... (the last list is used for all the next ones).
 const WAVES = [['wolf', 'goblin'], ['wolf', 'orc'], ['orc', 'skeleton'], ['orc', 'drake'], ['darkKnight', 'shadowMage']];
 
@@ -55,8 +55,13 @@ function startRaid(game) {
   notify(game, '🔥 LEXIA IS UNDER ATTACK! Protect the villagers!', '#ff6060');
 }
 
+// The hero must be close to Eldermoor (else the raid waits for a night when they are there).
+function isHeroNear(game) {
+  return Math.hypot(game.player.x - (ELDERMOOR.x + ELDERMOOR.w / 2), game.player.y - (ELDERMOOR.y + ELDERMOOR.h / 2)) < 200;
+}
+
 function shouldStart(game) {
-  return !game.bosses.king && game.day >= game.raid.nextDay && game.hour >= NIGHTFALL;
+  return !game.bosses.king && game.day >= game.raid.nextDay && game.hour >= NIGHTFALL && isHeroNear(game);
 }
 
 // The people a raider can kill: the adults who are in Eldermoor. (The children hide.)

@@ -45,14 +45,26 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onBack 
   const [hero, setHero] = useState(DEFAULT_HERO);
   const [scoreText, setScoreText] = useState(appScore === null ? '' : String(appScore));
   const [goalId, setGoalId] = useState(null);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customWeights, setCustomWeights] = useState({});
   const canStart = hero.name.trim() !== '' && isValidScore(scoreText) && goalId !== null;
 
   function typeScore(event) {
     setScoreText(event.target.value.replace(/\D/g, '').slice(0, 3)); // digits only
   }
 
+  function changeCustom(catId, raw) {
+    const val = Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
+    setCustomWeights((prev) => {
+      const next = { ...prev };
+      if (val <= 0) delete next[catId];
+      else next[catId] = val;
+      return next;
+    });
+  }
+
   function start() {
-    onStart(goalId, Number(scoreText), { ...hero, name: hero.name.trim() });
+    onStart(goalId, Number(scoreText), { ...hero, name: hero.name.trim() }, customWeights);
   }
 
   return (
@@ -92,6 +104,28 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onBack 
             <span>From your answers in the app, your reading score is about {appScore} / 495. You can change it:</span>
           )}
           <input className="field" style={styles.gap} value={scoreText} onChange={typeScore} inputMode="numeric" placeholder="300" aria-label="score" />
+          <button className="px-button" style={styles.gap} onClick={() => setShowCustom((v) => !v)}>
+            {showCustom ? 'Hide custom TOEIC stats' : 'Custom TOEIC focus / stats (optional)'}
+          </button>
+          {showCustom && (
+            <div style={styles.weightsGrid}>
+              {CATEGORIES.map((cat) => (
+                <label key={cat.id} className="row" style={styles.weightRow}>
+                  <span className="small grow">{cat.name}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={customWeights[cat.id] || ''}
+                    placeholder="Auto"
+                    onChange={(e) => changeCustom(cat.id, e.target.value)}
+                    style={styles.weightInput}
+                  />
+                  <span className="small">%</span>
+                </label>
+              ))}
+            </div>
+          )}
         </Window>
 
         <Window title="Your new life">
@@ -145,5 +179,23 @@ const styles = {
     textAlign: 'center',
     color: '#ffffff',
     textShadow: '1px 1px 0 #0e1430',
+  },
+  weightsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+    gap: 6,
+    marginTop: 10,
+  },
+  weightRow: {
+    gap: 6,
+    alignItems: 'center',
+  },
+  weightInput: {
+    width: 56,
+    padding: '2px 4px',
+    background: '#141a33',
+    color: '#ffffff',
+    border: '1px solid #6b7ab8',
+    fontFamily: 'inherit',
   },
 };

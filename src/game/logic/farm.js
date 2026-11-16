@@ -1,22 +1,26 @@
 import { TILE, tileAt, isSolid, TREASURES, CHESTS } from '../world/map';
 import { ITEMS } from '../data/items';
+import { CAMP_SENTENCES } from '../data/sentences/camp';
 import { pickRandom } from '../../logic/random';
 import { countItem, addItem, removeItem, earnLexis } from './player';
+import { startFight } from './fight';
+import { makeDuel } from './duels';
 import { notify, say } from './messages';
 import { burst, dust, floatText } from './particles';
 import { emote } from './emotes';
+import { cue } from './cues';
 
-// Working the ground: planting carrots, digging for treasures, opening chests.
+// Working the ground: planting carrots/herbs/flowers/wheat, digging for treasures, opening chests.
 
-const GROW_DAYS = 2; // days for a carrot to be ready
+const GROW_DAYS = 2; // days for a crop to be ready
 
 function keyOf(x, y) {
   return Math.floor(x) + ',' + Math.floor(y);
 }
 
-// ---------- Carrots ----------
-// game.crops: { "61,78": { day: 3, grows: 'carrot' } }  (the day it was planted, and what grows)
-const SEEDS = ['carrotSeed', 'herbSeed', 'flowerSeed'];
+// ---------- Crops ----------
+// game.crops: { "61,78": { day: 3, grows: 'carrot', fertilized: false } }
+const SEEDS = ['carrotSeed', 'herbSeed', 'flowerSeed', 'wheatSeed'];
 
 export function cropAt(game, x, y) {
   return game.crops[keyOf(x, y)] || null;
@@ -26,18 +30,54 @@ export function isCropReady(game, crop) {
   return game.day - crop.day >= GROW_DAYS;
 }
 
-function plantSeed(game, x, y, seedId) {
+// Completes planting after the English farming text succeeds.
+function finishPlanting(game, x, y, seedId, fertilized) {
+  if (countItem(game.player, seedId) <= 0 || cropAt(game, x, y)) return;
   removeItem(game.player, seedId);
-  game.crops[keyOf(x, y)] = { day: game.day, grows: ITEMS[seedId].grows };
-  dust(game, x, y, '#8a5a2b');
-  notify(game, '🌱 Planted: ' + ITEMS[ITEMS[seedId].grows].name + '. Ready in ' + GROW_DAYS + ' days.');
+  const grows = ITEMS[seedId].grows;
+  game.crops[keyOf(x, y)] = { day: game.day, grows: grows, fertilized: fertilized };
+  dust(game, x, y, fertilized ? '#7cfc9a' : '#8a5a2b');
+  if (fertilized) burst(game, x, y, '#7cfc9a', 10);
+  cue(game, 'plantSeed');
+  const bonusNote = fertilized ? ' (Fertilized soil: 2× harvest!)' : '';
+  notify(game, '🌱 Planted: ' + ITEMS[grows].name + '.' + bonusNote + ' Ready in ' + GROW_DAYS + ' days.', fertilized ? '#7cfc9a' : '#ffffff');
+}
+
+// Planting confronts the player with a short contextual English fill-in-the-blank farming text (1 sentence).
+function plantSeed(game, x, y, seedId) {
+  if (countItem(game.player, seedId) <= 0) return;
+  const spirit = { id: 'soilSpirit', name: 'Spirit of the Soil', shape: 'treant' };
+  const category = (game.focus && game.focus.current) || 'vocabulary';
+
+  function onWin(fight) {
+    const fast = fight.last && fight.last.first;
+    const fertilized = Math.random() < (fast ? 0.65 : 0.35);
+    finishPlanting(game, x, y, seedId, fertilized);
+  }
+
+  function onLose() {
+    dust(game, x, y, '#9aa6b8');
+    notify(game, '🌱 The soil was not prepared properly. Your ' + ITEMS[seedId].name + ' stays in your bag — try again!', '#ffb070');
+  }
+
+  const duel = makeDuel(spirit, {
+    title: 'Planting ' + ITEMS[seedId].name,
+    category: category,
+    questions: CAMP_SENTENCES,
+    health: 1,
+    mistakesAllowed: 1,
+    speed: 8,
+    onWin: onWin,
+    onLose: onLose,
+  });
+  startFight(game, duel);
 }
 
 // Plants a seed of the bag (if there are several kinds, the player chooses).
 function plant(game, x, y) {
   const seeds = SEEDS.filter((seedId) => countItem(game.player, seedId) > 0);
   if (seeds.length === 0) {
-    notify(game, 'You need seeds. Old Bea sells them (carrots, herbs, flowers).');
+    notify(game, 'You need seeds. Old Bea sells carrots, herbs and flowers; the camp peddler sells wheat seeds.');
     return;
   }
   if (seeds.length === 1) {
@@ -50,12 +90,13 @@ function plant(game, x, y) {
 function harvest(game, x, y) {
   const crop = cropAt(game, x, y);
   const itemId = crop.grows || 'carrot';
-  const count = Math.random() < 0.3 ? 2 : 1;
+  const count = crop.fertilized ? 2 : Math.random() < 0.3 ? 2 : 1;
   delete game.crops[keyOf(x, y)];
   addItem(game.player, itemId, count);
   game.counts.harvested += count;
-  burst(game, x, y, '#ff8c2b', 12);
-  floatText(game, x, y, '+' + count + ' ' + ITEMS[itemId].icon, '#ffb347');
+  const color = itemId === 'wheat' ? '#ffd23f' : itemId === 'herb' ? '#7cfc9a' : itemId === 'flower' ? '#ff9ec4' : '#ff8c2b';
+  burst(game, x, y, color, 12);
+  floatText(game, x, y, '+' + count + ' ' + ITEMS[itemId].icon, color);
 }
 
 // The player uses the soil tile at (x, y): plant, harvest, or wait.

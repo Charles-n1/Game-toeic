@@ -10,7 +10,7 @@ import { placeHere, placeOf, mainQuestMark, sideQuestMarks } from '../../logic/p
 import { maxHealth, maxMana } from '../../logic/player';
 import { zoneAt } from '../../data/zones';
 
-const ZOOMS = [1, 2, 4];
+const ZOOMS = [1, 2, 4, 8, 16];
 const MAP_NAMES = ['No map: you only know where you went', 'Village Map', 'Region Map', 'Treasure Map'];
 const NEXT_HINT = [
   'Rin sells maps in Seabridge: the Village Map shows the villages and the roads.',
@@ -140,7 +140,7 @@ function Party({ game }) {
     <div className="grow">
       <span className="section">Party</span>
       <PartyLine look={player.look} name={player.name + ' · Lv. ' + player.level}>
-        <Bar value={player.health / maxHealth(player)} color="#e8423f" height={7} />
+        <Bar value={player.health / maxHealth(player, game)} color="#e8423f" height={7} />
         <Bar value={player.mana / maxMana(player)} color="#3a7bff" height={7} />
       </PartyLine>
       {player.party.map((id) => (
@@ -171,7 +171,7 @@ function Legend() {
 export default function MapPanel({ game }) {
   const view = useRef(firstView(game)); // what part of the map is shown (changed by dragging, not by React)
   const [selected, setSelected] = useState(() => placeHere(game));
-  const [zoomIndex, setZoomIndex] = useState(1);
+  const [zoomIndex, setZoomIndex] = useState(3);
   const level = game.player.mapLevel;
 
   useEffect(listenToKeys, []);

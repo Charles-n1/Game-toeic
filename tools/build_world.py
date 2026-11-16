@@ -4,10 +4,16 @@ The map is cut in 256 x 256 tiles (one tile = about 5 pixels of the painting). F
 pixels say what it is: sea, river, forest, meadow, road, sand, snow, rock, lava...
 Then nature is added (trees, rocks, cacti, lava cracks) following how dark or bright the painting is there.
 
-Writes src/game/world/terrain.js: the ground of every tile and its land (biome), as compressed text,
-and src/game/assets/world/world-map.jpg: the painting itself, for the world map of the menu.
-The villages, the dungeons, the castle and the people are NOT here: they are placed by the game
-(see data/zones.js), on top of this ground.
+The painting is only the ABSTRACT version of the world: in the game, each cell of it becomes 10 x 10 tiles
+(see world/size.js), and the details (each tree, each rock, the ponds, the flowers) are made by the game
+(see world/ground.js), following what this tool says about each cell:
+  GROUND_TEXT  the big shapes: sea and rivers, green land, sand, snow, ash, lava, cliffs (no tree, no road);
+  BIOME_TEXT   the land of each cell (meadow, forest, mountain, demon, desert, coast);
+  FOREST_TEXT  how many trees grow there, from a (none) to j (a deep forest);
+  ROAD_TEXT    the middle line of the painted roads (r = a road passes here).
+Writes src/game/world/terrain.js (that text), and src/game/assets/world/world-map.jpg: the painting itself,
+for the world map of the menu. The villages, the dungeons, the castle and the people are NOT here: they are
+placed by the game (see world/places.js), on top of this ground.
 
 Run it again after changing the map:  python3 tools/build_world.py
 To see what it made:                   python3 tools/build_world.py preview.png
@@ -218,6 +224,89 @@ def connect_lands(ground):
                     ground[ty, tx] = 'bridge' if ground[ty, tx] == 'water' else 'path'
 
 
+# ---------- The big shapes, the forests, the roads ----------
+
+# The ground of a cell, without what the game adds itself (trees, rocks, flowers, roads).
+SHAPE_OF = {
+    'water': 'w', 'bridge': 'w', 'grass': 'g', 'flower': 'g', 'tree': 'g', 'rock': 'g', 'path': 'g',
+    'sand': 's', 'snow': 'n', 'ash': 'a', 'deadTree': 'a', 'lava': 'l', 'cliff': 'c',
+}
+# Under a road, a tree or a rock: the ground of the land around.
+GROUND_OF_BIOME = {'desert': 's', 'mountain': 'n', 'demon': 'a', 'coast': 's'}
+
+
+def shapes(ground, biome):
+    """The letter of the big shape of each cell."""
+    rows = []
+    for y in range(SIZE):
+        row = []
+        for x in range(SIZE):
+            item = ground[y, x]
+            letter = SHAPE_OF[item]
+            if item in ('tree', 'rock', 'path', 'flower', 'grass') and biome[y, x] in GROUND_OF_BIOME:
+                letter = GROUND_OF_BIOME[biome[y, x]] if not (biome[y, x] == 'coast' and item != 'path') else 'g'
+            row.append(letter)
+        rows.append(row)
+    lonely_water(rows, biome)
+    return rows
+
+
+def lonely_water(rows, biome):
+    """A lonely cell of water in the snow is only a shadow of the painting: it becomes snow."""
+    for y in range(1, SIZE - 1):
+        for x in range(1, SIZE - 1):
+            if rows[y][x] != 'w' or biome[y, x] != 'mountain':
+                continue
+            wet = sum(rows[y + dy][x + dx] == 'w' for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            if wet <= 1:
+                rows[y][x] = 'n'
+
+
+def forests(ground):
+    """How many trees grow around each cell: a letter from a (none) to j (a deep forest)."""
+    trees = np.isin(ground, ['tree', 'deadTree']).astype(float)
+    density = ndimage.gaussian_filter(trees, 1.2)
+    levels = np.clip(np.round(density / 0.6 * 9), 0, 9).astype(int)
+    return [['abcdefghij'[level] for level in row] for row in levels]
+
+
+def thin(mask):
+    """The middle line of each road, one cell wide (the "Zhang-Suen" thinning: the borders are peeled off,
+    one layer at a time, as long as it does not cut the line)."""
+    m = mask.astype(np.uint8)
+    changed = True
+    while changed:
+        changed = False
+        for step in (0, 1):
+            p = np.pad(m, 1)
+            p2, p3, p4, p5 = p[:-2, 1:-1], p[:-2, 2:], p[1:-1, 2:], p[2:, 2:]
+            p6, p7, p8, p9 = p[2:, 1:-1], p[2:, :-2], p[1:-1, :-2], p[:-2, :-2]
+            around = [p2, p3, p4, p5, p6, p7, p8, p9]
+            count = sum(around)
+            turns = sum(((around[i] == 0) & (around[(i + 1) % 8] == 1)).astype(int) for i in range(8))
+            if step == 0:
+                sides = (p2 * p4 * p6 == 0) & (p4 * p6 * p8 == 0)
+            else:
+                sides = (p2 * p4 * p8 == 0) & (p2 * p6 * p8 == 0)
+            peel = (m == 1) & (count >= 2) & (count <= 6) & (turns == 1) & sides
+            if peel.any():
+                m[peel] = 0
+                changed = True
+    return m.astype(bool)
+
+
+def roads(ground):
+    """The middle lines of the painted roads (and of the bridges): 'r' on the line, 'o' elsewhere."""
+    painted = np.isin(ground, ['path', 'bridge'])
+    line = thin(painted)
+    labels, count = ndimage.label(line, structure=np.ones((3, 3)))
+    sizes = ndimage.sum(line, labels, range(1, count + 1))
+    for i, size in enumerate(sizes):
+        if size < 4:
+            line[labels == i + 1] = False  # a lonely bit of road: forgotten
+    return [['r' if item else 'o' for item in row] for row in line]
+
+
 # ---------- Writing ----------
 
 def compressed(rows):
@@ -250,15 +339,16 @@ def main(preview_path):
     hide_labels(fractions)
     ground, biome = decide(fractions)
     connect_lands(ground)
-    letters_ground = [[GROUND[item] for item in row] for row in ground]
     letters_biome = [[BIOME[item] for item in row] for row in biome]
     OUT.write_text(
         '// Made by tools/build_world.py from art/MAP.png: do not change by hand.\n'
-        '// One row per line of tiles, separated by |. Each part: a letter and how many tiles have it.\n'
-        '// GROUND letters: see GROUND_LETTERS in world/map.js. BIOME letters: see BIOME_LETTERS.\n'
+        '// One row per line of cells, separated by |. Each part: a letter and how many cells have it.\n'
+        '// The letters: see world/painting.js.\n'
         f'export const TERRAIN_SIZE = {SIZE};\n'
-        f"export const GROUND_TEXT = '{compressed(letters_ground)}';\n"
+        f"export const GROUND_TEXT = '{compressed(shapes(ground, biome))}';\n"
         f"export const BIOME_TEXT = '{compressed(letters_biome)}';\n"
+        f"export const FOREST_TEXT = '{compressed(forests(ground))}';\n"
+        f"export const ROAD_TEXT = '{compressed(roads(ground))}';\n"
     )
     PAINTING.parent.mkdir(parents=True, exist_ok=True)
     Image.open(MAP).convert('RGB').save(PAINTING, quality=88)

@@ -1,7 +1,10 @@
 import { secondsPerQuestion } from '../../data/sections';
+import { pickRandom } from '../../logic/random';
+import { ITEMS } from '../data/items';
+import { GEAR_ITEMS } from '../data/items/gear';
 import { weaknessOf } from '../data/types';
 import { pickQuestion, pickSpellQuestion, recordAnswer, monsterCategory } from './learning';
-import { speedOf, strikePower, armorOf, criticalChance, gainXp, heal, restoreMana, earnLexis } from './player';
+import { speedOf, strikePower, armorOf, spellPowerBonus, criticalChance, gainXp, heal, restoreMana, earnLexis, addItem } from './player';
 import { TAG_POWER, spellLevel } from './skills';
 import { classBonus } from './classes';
 import { lootMonster } from './loot';
@@ -9,6 +12,12 @@ import { knockOut } from './death';
 import { saveGame } from './save';
 import { isInStormField } from './powers';
 import { floatText } from './particles';
+import { notify } from './messages';
+import { finalizeLinkTests } from './statLinks';
+import { fatigueMultiplier, addCompanionFatigue } from './camp';
+import { companionAttackBonus, companionStatBonuses, companionSpecialMove, recordCompanionCombat } from './bonds/training';
+import { onFightEndWar } from './war';
+import { onFightEndSociety } from './society';
 
 // A fight = questions. A good answer strikes the opponent, a bad one (or no answer in time) lets it strike.
 // The opponent is a monster, or a person in a "duel" (negotiating a price, a game, a job): same rules,
@@ -33,14 +42,17 @@ export function allyCount(player) {
   return player.party.length + player.soldiers;
 }
 
-// The damage of one strike before the opponent's resistance: the weapon, the friends, the class.
+// The damage of one strike before the opponent's resistance: the weapon, the friends, companions, the class.
 export function attackPower(game) {
-  return strikePower(game.player) + allyCount(game.player) * ALLY_DAMAGE + classBonus(game, 'ally') + classBonus(game, 'attack');
+  const comp = companionStatBonuses(game);
+  const compDamage = Math.round((companionAttackBonus(game) + comp.attack) * fatigueMultiplier(game));
+  return strikePower(game.player, game) + allyCount(game.player) * ALLY_DAMAGE + compDamage + classBonus(game, 'ally') + classBonus(game, 'attack');
 }
 
-// The armor of the hero, with the class.
+// The armor of the hero, with the class and companion defense buffs.
 export function armorPower(game) {
-  return armorOf(game.player) + classBonus(game, 'armor');
+  const comp = companionStatBonuses(game);
+  return armorOf(game.player, game) + classBonus(game, 'armor') + Math.round(comp.defense * fatigueMultiplier(game));
 }
 
 // The seconds to answer a question, in the real exam. A question with a text to read gets more.
@@ -53,7 +65,8 @@ function examSeconds(question) {
 // leaves half the time, a much slower one leaves more.
 export function timeLimit(game, fight) {
   const player = game.player;
-  const speedRatio = clamp(speedOf(player) / fight.opponent.speed, 0.5, 1.6);
+  const heroSpeed = speedOf(player, game) + Math.round(companionStatBonuses(game).speed * fatigueMultiplier(game));
+  const speedRatio = clamp(heroSpeed / fight.opponent.speed, 0.5, 1.6);
   const potion = player.haste ? 1.5 : 1;
   const storm = fight.inStorm ? 1.3 : 1;
   const relaxed = game.run.relaxed ? 1.5 : 1; // the relaxed mode of the options
@@ -130,18 +143,21 @@ export function nextRound(game) {
 function playerHit(game, fight) {
   const opponent = fight.opponent;
   const isSpell = fight.mode !== 'strike';
-  let power = attackPower(game) + (fight.inStorm ? 10 : 0);
+  const comp = companionStatBonuses(game);
+  const critical = Math.random() < criticalChance(game.player) + (classBonus(game, 'critical') + comp.critical) / 100;
+  const special = !isSpell && (critical || fight.combo >= 3) ? companionSpecialMove(game) : null;
+  let power = attackPower(game) + (fight.inStorm ? 10 : 0) + (special ? Math.round(special.bonusDamage * fatigueMultiplier(game)) : 0);
   let blocked = opponent.resistance;
   if (isSpell) {
-    power = SPELL_POWER * (1 + (spellLevel(game, fight.mode) - 1) * 0.5) * (1 + classBonus(game, 'spell') / 100);
+    const spellScale = Math.max(0.25, 1 + (classBonus(game, 'spell') + spellPowerBonus(game) + comp.spell) / 100);
+    power = SPELL_POWER * (1 + (spellLevel(game, fight.mode) - 1) * 0.5) * spellScale;
     if (weaknessOf(opponent.category) === fight.mode) power *= 2;
     blocked = opponent.magicResistance;
   }
-  const critical = Math.random() < criticalChance(game.player) + classBonus(game, 'critical') / 100;
   const combo = 1 + COMBO_BONUS * Math.min(COMBO_MAX, fight.combo - 1);
   const tag = TAG_POWER[fight.question.difficulty] || 1;
   const damage = varied(Math.max(MIN_DAMAGE, power * (1 - blocked) * combo) * tag) * (critical ? 2 : 1);
-  return { damage: damage, critical: critical };
+  return { damage: damage, critical: critical, special: special ? special.name : null };
 }
 
 // A hit is never exactly the same: from 90% to 110% of its power. (More fun to watch.)
@@ -158,10 +174,10 @@ function monsterHit(game, opponent, half) {
   return half ? Math.ceil(damage / 2) : damage;
 }
 
-// The class of the hero after a good blow: some heal (Witch, Paladin, Druid), some steal life (Necromancer).
-function classAfterHit(game, damage) {
-  const healed = classBonus(game, 'heal') + Math.round((damage * classBonus(game, 'drain')) / 100);
-  if (healed > 0) heal(game.player, healed);
+// The class & companion effects of the hero after a good blow: some heal (Witch, Paladin, Druid, Lyra, Garrick).
+function classAfterHit(game, damage, companionHeal = 0) {
+  const healed = classBonus(game, 'heal') + companionHeal + Math.round((damage * classBonus(game, 'drain')) / 100);
+  if (healed > 0) heal(game.player, healed, game);
 }
 
 function phaseAfter(game, fight) {
@@ -189,8 +205,12 @@ export function answer(game, fight, index) {
     opponent.health -= hit.damage;
     last.damage = hit.damage;
     last.critical = hit.critical;
-    last.first = strikesFirst(used, speedOf(game.player), opponent.speed);
-    if (!opponent.duel) classAfterHit(game, hit.damage);
+    last.special = hit.special || null;
+    const heroSpeed = speedOf(game.player, game) + companionStatBonuses(game).speed;
+    last.first = strikesFirst(used, heroSpeed, opponent.speed);
+    if (!opponent.duel) {
+      classAfterHit(game, hit.damage, companionStatBonuses(game).heal);
+    }
     if (!last.first && opponent.health > 0) last.taken = monsterHit(game, opponent, true);
   } else {
     last.taken = monsterHit(game, opponent, false);
@@ -210,7 +230,7 @@ function countCombo(fight, isCorrect) {
 
 // Running away: easier when the player is faster. Failing costs a hit. Nobody runs from a boss or a duel.
 export function flee(game, fight) {
-  const chance = clamp(0.5 + (speedOf(game.player) - fight.opponent.speed) * 0.04, 0.2, 0.95);
+  const chance = clamp(0.5 + (speedOf(game.player, game) - fight.opponent.speed) * 0.04, 0.2, 0.95);
   if (Math.random() < chance) {
     fight.phase = 'fled';
     return;
@@ -224,15 +244,31 @@ export function flee(game, fight) {
 // XP depends on the answers of the fight: 100% correct = all the XP, 50% = half. (+ the Plague Doctor's bonus)
 export function xpOfFight(game, fight) {
   if (fight.asked === 0) return 0;
-  const bonus = 1 + classBonus(game, 'xp') / 100;
+  const bonus = 1 + (classBonus(game, 'xp') + companionStatBonuses(game).xp) / 100;
   return Math.round(((fight.opponent.xp * fight.correct) / fight.asked) * bonus);
+}
+
+function maybeDropGear(game, opponent) {
+  const gearKeys = Object.keys(GEAR_ITEMS);
+  if (gearKeys.length === 0) return;
+  const chance = opponent.boss ? 0.75 : opponent.tag && opponent.tag !== 'normal' ? 0.35 : 0.16;
+  if (Math.random() >= chance) return;
+  const unowned = gearKeys.filter((id) => !game.player.bag[id] && game.player[ITEMS[id].kind] !== id);
+  const pool = unowned.length > 0 ? unowned : gearKeys;
+  const id = pickRandom(pool);
+  addItem(game.player, id, 1);
+  notify(game, '✨ Rare gear drop: ' + ITEMS[id].name + '!', '#ffd23f');
 }
 
 function winBattle(game, fight) {
   const xp = xpOfFight(game, fight);
+  const compLexis = companionStatBonuses(game).lexis;
   lootMonster(game, fight.opponent);
-  earnLexis(game, Math.round((fight.opponent.lexis * classBonus(game, 'lexis')) / 100)); // the Brigand's share
+  earnLexis(game, Math.round((fight.opponent.lexis * (classBonus(game, 'lexis') + compLexis)) / 100)); // the Brigand's & companion share
   restoreMana(game.player, classBonus(game, 'mana'));
+  recordCompanionCombat(game);
+  addCompanionFatigue(game, fight.opponent.boss ? 12 : 6);
+  maybeDropGear(game, fight.opponent);
   floatText(game, game.player.x, game.player.y, '+' + xp + ' XP', '#7CFC9A');
   gainXp(game, xp);
 }
@@ -252,6 +288,7 @@ export function endFight(game) {
   game.run.screen = 'play';
   game.run.safeUntil = Date.now() + 2500; // a short moment where no monster can start a new fight
   useUpBoosts(game.player);
+  finalizeLinkTests(game);
 
   if (opponent.duel) {
     if (fight.phase === 'won') opponent.onWin(fight);
@@ -261,5 +298,7 @@ export function endFight(game) {
   } else if (fight.phase === 'lost') {
     knockOut(game);
   }
+  onFightEndWar(game, fight);
+  onFightEndSociety(game, fight);
   if (game.run.screen !== 'over') saveGame(game); // after each fight (not after a real death: the save is gone)
 }

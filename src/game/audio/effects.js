@@ -1,4 +1,9 @@
 import { isAwake, now, outputs, tone, noise, frequencyOf } from './synth';
+import { WAR_SOUNDS } from './sounds/war';
+import { SOCIETY_SOUNDS } from './sounds/society';
+import { CAMP_SOUNDS } from './sounds/camp';
+import { BONDS_SOUNDS } from './sounds/bonds';
+import { FIGHT_SOUNDS } from './sounds/fight';
 
 // The sound effects of the game, made by the synthesizer (no sound file).
 
@@ -39,6 +44,12 @@ const EFFECTS = {
     noise(to, { start: t, duration: 0.12, volume: 0.45, lowpass: 6000 });
     noise(to, { start: t + 0.08, duration: 1.6, volume: 0.3, lowpass: 300 });
   },
+  // The sounds of each part of the game (see audio/sounds/).
+  ...WAR_SOUNDS,
+  ...SOCIETY_SOUNDS,
+  ...CAMP_SOUNDS,
+  ...BONDS_SOUNDS,
+  ...FIGHT_SOUNDS,
 };
 
 // Plays an effect of EFFECTS. Nothing happens while the sound is asleep (before the first tap).

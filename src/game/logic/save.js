@@ -23,9 +23,13 @@ function isValidSave(saved) {
 export function loadGame(slot) {
   const saved = loadGameData(slot);
   if (!isValidSave(saved)) return null;
-  saved.slot = slot;
-  wakeUp(saved);
-  return saved;
+  try {
+    saved.slot = slot;
+    wakeUp(saved);
+    return saved;
+  } catch (error) {
+    return null;
+  }
 }
 
 export function forgetGame(slot) {

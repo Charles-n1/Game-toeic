@@ -6,6 +6,7 @@ import { TIERS } from '../data/monsters';
 import { typeOf } from '../data/types';
 import { TAGS, tagOf, countTagAnswer, spellLevel } from './skills';
 import { notify } from './messages';
+import { recordLinkTestAnswer } from './statLinks';
 
 // The game trains ONE grammar category at a time: the "focus" (the weakest one).
 // Most monsters are of this type. When the goal of the player is reached in it, the focus swaps to the next
@@ -69,8 +70,47 @@ export function returnDueFocus(game) {
   notify(game, '🔁 ' + typeOf(due).short + ' is back: show you still know it!', '#9fd8ff');
 }
 
-// The type of a new wild monster: mostly the focus, sometimes another one.
+// Custom TOEIC encounter weights ({ categoryId: 0..100 }) let the player focus monster types (e.g. 60% verbTenses).
+export function customCategoryPercent(game, categoryId) {
+  return (game.toeicWeights && game.toeicWeights[categoryId]) || 0;
+}
+
+export function setToeicWeight(game, categoryId, percent) {
+  if (!game.toeicWeights) game.toeicWeights = {};
+  const clamped = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  if (clamped <= 0) delete game.toeicWeights[categoryId];
+  else game.toeicWeights[categoryId] = clamped;
+  if (game.run && Array.isArray(game.run.monsters)) {
+    game.run.monsters = game.run.monsters.filter((m) => m.key || m.raid);
+  }
+}
+
+export function clearToeicWeights(game) {
+  game.toeicWeights = {};
+  if (game.run && Array.isArray(game.run.monsters)) {
+    game.run.monsters = game.run.monsters.filter((m) => m.key || m.raid);
+  }
+}
+
+// The type of a new wild monster: honors custom TOEIC weights when set, otherwise mostly the focus.
 export function monsterCategory(game) {
+  const weights = game.toeicWeights || {};
+  const entries = Object.entries(weights).filter(([, value]) => value > 0);
+  if (entries.length > 0) {
+    const sum = entries.reduce((total, [, value]) => total + value, 0);
+    const cap = Math.min(100, sum);
+    const roll = Math.random() * 100;
+    if (roll < cap) {
+      let cursor = (roll / cap) * sum;
+      for (const [catId, weight] of entries) {
+        cursor -= weight;
+        if (cursor <= 0) return catId;
+      }
+      return entries[entries.length - 1][0];
+    }
+    const rest = CATEGORIES.map((c) => c.id).filter((id) => !weights[id]);
+    if (rest.length > 0) return pickRandom(rest);
+  }
   if (Math.random() < FOCUS_CHANCE) return game.focus.current;
   return pickRandom(CATEGORIES).id;
 }
@@ -79,6 +119,7 @@ export function monsterCategory(game) {
 export function recordAnswer(game, question, isCorrect) {
   game.mastery = addAnswer(game.mastery, question.category, isCorrect);
   countTagAnswer(game, question, isCorrect);
+  recordLinkTestAnswer(game, question, isCorrect);
   game.counts.answers += 1;
   if (isCorrect) game.counts.correct += 1;
   if (question.category === game.focus.current) {
@@ -101,7 +142,7 @@ function firstNotEmpty(lists) {
 // exam, a text is read once and answered several times.
 // Then the questions to recover today (failed before, due now): "it returns when it's time".
 export function pickQuestion(game, opponent, usedIds, lastText) {
-  const sections = TIERS[opponent.tier].sections;
+  const sections = (TIERS[opponent.tier] || TIERS.small).sections;
   const tag = opponent.tag || tagOf(game, opponent.category);
   const bank = opponent.questions || game.run.questions; // a negotiation has its own sentences
   const fresh = bank.filter((q) => !usedIds.includes(q.id));

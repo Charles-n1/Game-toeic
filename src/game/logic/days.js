@@ -5,10 +5,16 @@ import { placeDungeonMonsters } from './monsters';
 import { healFully } from './player';
 import { burnTorch } from './torch';
 import { updateSurvival } from './survival';
-import { growVillages, placeVillagers, placeAnimals } from './villages';
+import { growVillages } from './villages';
+import { placeVillagers } from './villagers';
+import { placeAnimals } from './animals';
 import { refreshWorld } from './worldState';
 import { isRaining } from './weather';
 import { notify } from './messages';
+import { newDayWar } from './war';
+import { newDaySociety } from './society';
+import { newDayCamp } from './camp';
+import { newDayBonds } from './bonds';
 
 // Time passing: the clock moves, and a new day changes the world.
 
@@ -21,6 +27,10 @@ function newDay(game) {
   placeVillagers(game);
   placeAnimals(game);
   game.gathered = {}; // the trees and the rocks have grown back
+  newDayWar(game);
+  newDaySociety(game);
+  newDayCamp(game);
+  newDayBonds(game);
   notify(game, '🌅 Day ' + game.day);
 }
 

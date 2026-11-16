@@ -363,9 +363,48 @@
 /* ---------- Dialogs ---------- */
 .dialog-area {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   left: 8px;
   right: 8px;
   bottom: 12px;
+}
+
+.dialog-top {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  pointer-events: none;
+}
+
+.dialog-top .choices {
+  margin-bottom: 0;
+  pointer-events: auto;
+}
+
+.dialog-expression {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 6px;
+  background: linear-gradient(#243268, #141c40);
+  border: 2px solid #dfe4f0;
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px #0e1430;
+  flex-shrink: 0;
+  pointer-events: auto;
+  animation: slide-up 0.16s ease-out;
+}
+
+.dialog-expression-label {
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.4px;
 }
 
 .dialog {

@@ -1,5 +1,5 @@
-import { allProps } from '../world/map';
-import { TILE, tileAt, biomeAt } from '../world/map';
+import { propsAround, TILE, tileAt, biomeAt } from '../world/map';
+import { zoneAt, dungeonOf } from '../data/zones';
 import { ITEMS } from '../data/items';
 import { countItem, addItem, removeItem } from './player';
 import { notify } from './messages';
@@ -48,7 +48,7 @@ export function craftTorch(game) {
 // The burning thing close to the hero (null = none). Its middle is where the flame is.
 export function fireNear(game) {
   const player = game.player;
-  return allProps().find((prop) => FIRE_KINDS.includes(prop.kind) && Math.hypot(prop.x + 0.5 - player.x, prop.y + 0.5 - player.y) < FIRE_RANGE) || null;
+  return propsAround(player.x, player.y, FIRE_RANGE).find((prop) => FIRE_KINDS.includes(prop.kind)) || null;
 }
 
 // Can the hero light a torch here? (A torch in the bag, not already lit, and a fire near or 2 flint stones.)
@@ -93,7 +93,10 @@ function gatherableAt(x, y) {
   if (tile === TILE.TREE && biomeAt(x, y) !== 'desert') return 'branch';
   if (tile === TILE.DEAD_TREE) return 'branch';
   if (tile === TILE.ROCK) return 'flint';
-  if (tile === TILE.ORE) return (Math.floor(x) * 7 + Math.floor(y) * 13) % 3 === 0 ? 'crystal' : 'ore';
+  if (tile === TILE.ORE) {
+    if (dungeonOf(zoneAt(x, y).dungeon)?.crystals) return 'crystal';
+    return ((Math.floor(x) * 7 + Math.floor(y) * 13) % 10 + 10) % 10 === 0 ? 'crystal' : 'ore';
+  }
   return null;
 }
 
@@ -109,6 +112,6 @@ export function gather(game, x, y) {
   if (!itemId) return;
   game.gathered[keyOf(x, y)] = game.day;
   addItem(game.player, itemId);
-  burst(game, x + 0.5, y + 0.5, itemId === 'branch' ? '#a0683a' : '#9aa6b8', 8);
+  burst(game, x + 0.5, y + 0.5, itemId === 'branch' ? '#a0683a' : itemId === 'crystal' ? '#7fd6ff' : '#9aa6b8', 8);
   floatText(game, x + 0.5, y, '+1 ' + ITEMS[itemId].name, '#ffe9a8');
 }

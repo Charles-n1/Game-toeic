@@ -1,5 +1,6 @@
 import { setOverrides, setDynamic } from '../world/map';
-import { villageWalls, villageBridges } from './villages';
+import { villageBridges } from './villages';
+import { villageWalls } from './walls';
 import { puzzleProps } from './puzzles';
 import { furnitureProps } from './home';
 

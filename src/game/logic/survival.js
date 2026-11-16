@@ -1,7 +1,8 @@
 import { ITEMS } from '../data/items';
-import { allProps, TILE, tileAt } from '../world/map';
+import { propsAround, TILE, tileAt } from '../world/map';
 import { insideOf } from '../data/zones';
 import { countItem, addItem, removeItem, heal } from './player';
+import { applyDishBoosts } from './camp/recipes';
 import { notify, say } from './messages';
 import { cue } from './cues';
 import { floatText } from './particles';
@@ -49,7 +50,7 @@ export function drink(game) {
 export function canRefill(game, front) {
   if (game.player.bottle >= BOTTLE_SIZE) return false;
   if (tileAt(front.x, front.y) === TILE.WATER) return true;
-  return allProps().some((prop) => (prop.kind === 'well' || prop.kind === 'fountain') && Math.hypot(prop.x + prop.w / 2 - game.player.x, prop.y + prop.h / 2 - game.player.y) < 2);
+  return propsAround(game.player.x, game.player.y, 2).some((prop) => prop.kind === 'well' || prop.kind === 'fountain');
 }
 
 export function refill(game) {
@@ -74,6 +75,7 @@ export function eat(game, itemId) {
   player.hunger = clamp(player.hunger + item.food);
   if (item.water) player.thirst = clamp(player.thirst + item.water);
   if (item.heal) heal(player, item.heal);
+  applyDishBoosts(game, itemId);
   if (item.raw && Math.random() < 0.35) {
     player.health = Math.max(1, player.health - 10);
     notify(game, '🤢 The raw meat did not agree with you. −10 HP. Cook it next time!', '#ff8a95');
@@ -93,7 +95,7 @@ export const RECIPES = [
 
 // Is there a fire to cook on near the hero? (A campfire, a torch on its stake, the stove of the home.)
 export function fireToCookNear(game) {
-  return allProps().some((prop) => FIRE_KINDS.includes(prop.kind) && Math.hypot(prop.x + prop.w / 2 - game.player.x, prop.y + prop.h / 2 - game.player.y) < 2.2);
+  return propsAround(game.player.x, game.player.y, 2.2).some((prop) => FIRE_KINDS.includes(prop.kind));
 }
 
 export function canCook(game, recipe) {

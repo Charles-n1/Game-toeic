@@ -3,6 +3,8 @@ import { npcOf } from '../data/npcs';
 import { personSprite, swordSprite, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
 import { spriteOf, once } from './pixels';
+import { effectSprite } from './gearArt';
+import { companionRank, companionEffectsList } from '../logic/bonds/training';
 import { OUTLINE } from './palette';
 import { TILE_PX } from './tiles';
 
@@ -331,6 +333,44 @@ function drawAllies(ctx, game, hero, time, inFront) {
   });
 }
 
+// Draws companion effects scaling with their strength (Rank 0 = none/faint, 1..4 = up to 4 distinct sprites/auras).
+function drawCompanionEffects(ctx, game, middle, last, ages) {
+  if (!last || last.damage <= 0 || ages.foeHit < 0 || ages.foeHit > 260) return;
+  const party = game.player.party || [];
+  if (party.length === 0) return;
+  const progress = ages.foeHit / 260;
+  party.forEach((npcId, pIdx) => {
+    const npc = npcOf(npcId);
+    const rank = companionRank(game, npcId);
+    const effects = companionEffectsList(game, npcId);
+    const sheet = npc?.look?.sheet;
+    if (rank === 0) {
+      // Newly recruited companion: single subtle spark (limited effect until trained).
+      ctx.globalAlpha = 1 - progress;
+      ctx.fillStyle = effects[0]?.color || '#ffffff';
+      ctx.fillRect(Math.round(middle.x - 4 + pIdx * 6), Math.round(middle.y - 4 - progress * 6), 3, 3);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    const maxTier = last.special ? Math.max(rank, 4) : rank;
+    for (let tier = 1; tier <= maxTier; tier += 1) {
+      const spr = sheet ? effectSprite(sheet, tier) : null;
+      const angle = (tier - 1) * 1.4 + progress * 2.5 + pIdx;
+      const ox = Math.round(Math.cos(angle) * (6 + tier * 3));
+      const oy = Math.round(Math.sin(angle) * 5 - 4 - progress * 4);
+      if (spr) {
+        ctx.globalAlpha = Math.max(0.2, 1 - progress * 0.7);
+        drawSprite(ctx, spr, middle.x + ox, middle.y + oy);
+        ctx.globalAlpha = 1;
+      } else {
+        const fx = effects[tier - 1] || effects[0];
+        ctx.fillStyle = fx ? fx.color : '#ffd23f';
+        ctx.fillRect(middle.x + ox - 2, middle.y + oy - 2, 4 + tier, 4 + tier);
+      }
+    }
+  });
+}
+
 // ---------- Everything ----------
 
 // Where everything is right now, in pixels of the screen buffer. camera: the top-left of the screen.
@@ -380,6 +420,7 @@ export function drawBattle(ctx, game, camera, time) {
   if (last && last.damage > 0 && last.mode === 'strike') drawSlash(ctx, { x: hero.x + 3, y: hero.y - 13 }, ages.hero, last);
   if (last && last.damage > 0 && last.mode !== 'strike') drawCast(ctx, hero, middle, ages.hero, typeOf(last.mode).color);
   if (last && last.damage > 0) drawImpact(ctx, middle.x - 4, middle.y, ages.foeHit);
+  drawCompanionEffects(ctx, game, middle, last, ages);
   if (last && last.taken > 0) drawHurtMarks(ctx, hero.x, hero.y - 18, ages.heroHit);
   if (fight.drankAt) drawHealing(ctx, hero.x, hero.y, Date.now() - fight.drankAt);
   if (pose === 'victory') drawVictory(ctx, hero.x, hero.y, time);
@@ -394,6 +435,7 @@ function shoutOf(fight, ages) {
   if (!last) return fight.asked === 0 && Date.now() - fight.startedAt < 1300 ? 'To battle!' : null;
   if (fight.phase === 'won' && ages.all > 750 && ages.all < 2600) return "It's over!";
   if (last.damage <= 0 || ages.hero < 0 || ages.hero > 800) return null;
+  if (last.special) return last.special + '!';
   if (last.critical) return 'Take that!';
   if (last.mode !== 'strike') return typeOf(last.mode).spell + '!';
   if (fight.combo >= 3) return 'One more!';

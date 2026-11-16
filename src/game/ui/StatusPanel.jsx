@@ -49,7 +49,7 @@ export default function StatusPanel({ game }) {
             <span>{player.lexis}</span>
           </div>
         </div>
-        <StatLine label="HP" value={player.health} max={maxHealth(player)} color="#e8423f" />
+        <StatLine label="HP" value={player.health} max={maxHealth(player, game)} color="#e8423f" />
         <StatLine label="MP" value={player.mana} max={maxMana(player)} color="#3a7bff" />
         <div className="row" style={styles.needs}>
           <NeedBar icon="roastMeat" value={player.hunger} color="#e8a050" />

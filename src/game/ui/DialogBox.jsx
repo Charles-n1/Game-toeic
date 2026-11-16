@@ -5,6 +5,38 @@ import { npcOf } from '../data/npcs';
 import { nextLine, choose } from '../logic/messages';
 import { lettersPerSecond } from '../logic/options';
 import { ACTION_KEYS } from '../logic/input';
+import { playEffect } from '../audio/effects';
+import { voiceSoundFor } from '../logic/bonds';
+import { hasExpression, expressionUrl } from '../draw/gearArt';
+import { EXPRESSION_META } from '../draw/bondsArt';
+
+const EXPR_ALIASES = { happy: 'joy', sad: 'sadness' };
+
+function normalizeExpr(raw) {
+  return EXPR_ALIASES[raw] || raw || 'neutral';
+}
+
+function ExpressionBadge({ game, speaker, dialog }) {
+  if (!speaker || !speaker.look || !speaker.look.sheet) return null;
+  const active = game.run.dialogExpression;
+  const raw = dialog.expression || (active && active.npcId === speaker.id ? active.expr : 'neutral');
+  const expr = normalizeExpr(raw);
+  const sheet = speaker.look.sheet;
+  const url = hasExpression(sheet, expr) ? expressionUrl(sheet, expr) : null;
+  const meta = EXPRESSION_META[expr] || EXPRESSION_META.neutral;
+  return (
+    <div className="dialog-expression" style={{ borderColor: meta.color }}>
+      {url ? (
+        <img src={url} width={84} height={84} alt={speaker.name + ' (' + meta.label + ')'} style={{ imageRendering: 'pixelated' }} />
+      ) : (
+        <Portrait look={speaker.look} size={84} />
+      )}
+      <span className="dialog-expression-label" style={{ color: meta.color }}>
+        {meta.label}
+      </span>
+    </div>
+  );
+}
 
 // How many letters of the line are written, `elapsed` seconds after it started.
 function lettersShown(line, textSpeed, elapsed) {
@@ -27,7 +59,7 @@ export default function DialogBox({ game, refresh }) {
   const showChoices = isLastLine && !isWriting && dialog.choices.length > 0;
 
   useEffect(newLine, [dialog, dialog.index]);
-  useEffect(animateLetters, [isWriting]);
+  useEffect(animateLetters, [isWriting, dialog]);
   useEffect(listenToKeys, [dialog, showChoices, cursor, isWriting]);
 
   // A new line starts to be written.
@@ -36,10 +68,15 @@ export default function DialogBox({ game, refresh }) {
     setCursor(0);
   }
 
-  // While the line is written, the box is redrawn often: the letters appear smoothly.
+  // While the line is written, the box is redrawn often: the letters appear smoothly, and the speaker's voice chirps.
   function animateLetters() {
     if (!isWriting) return undefined;
-    const timer = setInterval(() => setTick((tick) => tick + 1), 30);
+    let step = 0;
+    const timer = setInterval(() => {
+      step += 1;
+      if (speaker && step % 3 === 1) playEffect(voiceSoundFor(speaker.id));
+      setTick((tick) => tick + 1);
+    }, 30);
     return () => clearInterval(timer);
   }
 
@@ -74,21 +111,30 @@ export default function DialogBox({ game, refresh }) {
     refresh();
   }
 
+  const showExpression = Boolean(speaker && speaker.look && speaker.look.sheet);
+
   return (
     <div className="dialog-area">
-      {showChoices && (
-        <div className="window choices">
-          {dialog.choices.map((choice, index) => (
-            <button
-              key={choice.label}
-              className={'menu-item' + (index === cursor ? ' selected' : '')}
-              onMouseEnter={() => setCursor(index)}
-              onClick={() => pick(choice)}
-            >
-              {choice.icon && <PixelIcon name={choice.icon} size={28} />}
-              <span>{choice.label}</span>
-            </button>
-          ))}
+      {(showChoices || showExpression) && (
+        <div className="dialog-top">
+          {showChoices ? (
+            <div className="window choices">
+              {dialog.choices.map((choice, index) => (
+                <button
+                  key={choice.label}
+                  className={'menu-item' + (index === cursor ? ' selected' : '')}
+                  onMouseEnter={() => setCursor(index)}
+                  onClick={() => pick(choice)}
+                >
+                  {choice.icon && <PixelIcon name={choice.icon} size={28} />}
+                  <span>{choice.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div />
+          )}
+          <ExpressionBadge game={game} speaker={speaker} dialog={dialog} />
         </div>
       )}
       <div className="window dialog" onClick={showChoices ? null : tap}>

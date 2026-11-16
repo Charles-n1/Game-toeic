@@ -1,6 +1,6 @@
-import { zoneAt, HOME_DOOR, BOATS } from '../data/zones';
-import { isSolid, tileAt, linkAt, TILE } from '../world/map';
-import { directionOf, facingOf } from './input';
+import { zoneAt, HOME_DOOR } from '../data/zones';
+import { isSolid, tileAt, linkAt, TILE, propsAround } from '../world/map';
+import { directionOf, facingOf, isRunning } from './input';
 import { advanceClock, sleepUntilMorning } from './days';
 import { updateMonsters } from './monsters';
 import { updatePeople, personNear, talkTo } from './people';
@@ -16,7 +16,9 @@ import { cue } from './cues';
 import { closedSealAt, explainSeal } from './seals';
 import { canGather, gather, canLightTorch, lightAtFire, hasLight } from './torch';
 import { isNight } from './clock';
-import { updateVillagers, updateAnimals, villagerNear, villageNews } from './villages';
+import { villageNews } from './villages';
+import { updateVillagers, villagerNear, wakeVillages } from './villagers';
+import { updateAnimals, wakeAnimals } from './animals';
 import { updateWeather, knockedOutNear, carry, checkRescue, checkKnockedOut, putDown } from './weather';
 import { updateEncounters } from './encounters';
 import { pushBoulder, wordDoorAt, openWordDoor, obeliskNear, readObelisk, boulderPuzzleAt, offerBoulderReset } from './puzzles';
@@ -24,12 +26,17 @@ import { canRefill, refill, fireToCookNear, offerCooking } from './survival';
 import { isAtHome, furnitureAt, pickUpFurniture, openStorage, nextWallColor, nextBedColor } from './home';
 import { practiceAtDummy } from './school';
 import { refreshWorld } from './worldState';
-import { allProps } from '../world/map';
+import { portNear, offerSail } from './ports';
 import { say, notify, removeOldToasts } from './messages';
+import { updateWar, slowWar, actionsOfWar } from './war';
+import { updateSociety, slowSociety, actionsOfSociety, ridingSpeedMultiplier } from './society';
+import { updateCamp, slowCamp, actionsOfCamp } from './camp';
+import { updateBonds, slowBonds, actionsOfBonds } from './bonds';
 
 // One step of the world. Called at every frame while the player is on the map.
 
-const WALK_SPEED = 4.2; // tiles per second
+const WALK_SPEED = 2.1; // tiles per second (the hero walks slowly...)
+const RUN_SPEED = 4.4; // ...and runs (Shift, or the stick pushed to its edge)
 const BODY = 0.28; // half the width of the hero, in tiles (to not walk into the walls)
 const SAVE_EVERY = 10; // seconds
 const FADE = 350; // milliseconds: the screen goes black when the hero takes stairs
@@ -66,7 +73,9 @@ function walk(game, input, dt) {
   game.run.walking = direction.x !== 0 || direction.y !== 0;
   if (!game.run.walking || Date.now() < game.run.fadeUntil) return;
 
-  const speed = WALK_SPEED * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
+  game.run.running = isRunning(input);
+  const mount = ridingSpeedMultiplier(game);
+  const speed = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
   if (canStand(game, player.x + direction.x * speed, player.y)) player.x += direction.x * speed;
   else if (direction.y === 0) tryPush(game, direction.x, 0);
   if (canStand(game, player.x, player.y + direction.y * speed)) player.y += direction.y * speed;
@@ -74,7 +83,7 @@ function walk(game, input, dt) {
   player.dir = facingOf(direction.x, direction.y);
 
   const stepBefore = Math.floor(player.step);
-  player.step += dt * 7;
+  player.step += dt * (game.run.running ? 9 : 6) * (mount > 1 ? 1.3 : 1);
   if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) {
     dust(game, player.x, player.y);
     cue(game, 'step');
@@ -151,7 +160,7 @@ function goToBed(game) {
 
 // The prop of a kind near the hero (within `range` tiles of its middle), or null.
 function propNear(game, kinds, range) {
-  return allProps().find((prop) => kinds.includes(prop.kind) && Math.hypot(prop.x + prop.w / 2 - game.player.x, prop.y + prop.h / 2 - game.player.y) < range) || null;
+  return propsAround(game.player.x, game.player.y, range).find((prop) => kinds.includes(prop.kind)) || null;
 }
 
 function offerBed(game) {
@@ -159,30 +168,6 @@ function offerBed(game) {
     { label: 'Sleep until morning', icon: 'sleep', run: () => goToBed(game) },
     { label: 'Change the color of the walls', icon: 'options', run: () => nextWallColor(game) },
     { label: 'Change the color of the bed', icon: 'options', run: () => nextBedColor(game) },
-    { label: 'Not now', run: () => {} },
-  ]);
-}
-
-function boatNear(game) {
-  return BOATS.find((boat) => Math.hypot(boat.x + 0.5 - game.player.x, boat.y + 0.5 - game.player.y) < 4) || null;
-}
-
-function offerSail(game, boat) {
-  const to = BOATS.find((item) => item.id === boat.to);
-  say(game, null, ['The boat creaks on the waves. The sailor waves at you: "To ' + to.name + '? 10 Lexis."'], [
-    {
-      label: 'Sail to ' + to.name + ' (10 Lexis)',
-      icon: 'map',
-      run: () => {
-        if (game.player.lexis < 10) {
-          notify(game, 'You need 10 Lexis for the boat.');
-          return;
-        }
-        game.player.lexis -= 10;
-        travelTo(game, to.landing.x + 0.5, to.landing.y + 0.5);
-        notify(game, '⛵ After a few hours at sea: ' + to.name + '.', '#9fd8ff');
-      },
-    },
     { label: 'Not now', run: () => {} },
   ]);
 }
@@ -208,12 +193,16 @@ function actionsOf(game) {
     { when: () => player.carrying !== null, icon: 'people', run: () => putDown(game) },
     { when: () => personNear(game), icon: 'talk', run: () => talkTo(game, personNear(game)) },
     { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
+    ...actionsOfWar(game),
+    ...actionsOfBonds(game),
+    ...actionsOfSociety(game),
+    ...actionsOfCamp(game),
     { when: () => villagerNear(game), icon: 'talk', run: () => talkToVillager(game, villagerNear(game)) },
     { when: () => isAtHomeDoor(player), icon: 'quit', run: () => enterHome(game) },
     { when: () => atHome && furnitureAt(game, front.x, front.y), icon: 'inventory', run: () => pickUpAndRefresh(game, furnitureAt(game, front.x, front.y)) },
     { when: () => atHome && propNear(game, ['bed'], 2.2), icon: 'sleep', run: () => offerBed(game) },
     { when: () => atHome && propNear(game, ['storage'], 1.5), icon: 'chest', run: () => openStorage(game) },
-    { when: () => boatNear(game), icon: 'map', run: () => offerSail(game, boatNear(game)) },
+    { when: () => portNear(game), icon: 'map', run: () => offerSail(game, portNear(game), travelTo) },
     { when: () => canLightTorch(game, false), icon: 'fire', run: () => lightAtFire(game) },
     { when: () => fireToCookNear(game), icon: 'roastMeat', run: () => offerCooking(game) },
     { when: () => wordDoorAt(game, front.x, front.y), icon: 'book', run: () => openWordDoor(game, wordDoorAt(game, front.x, front.y), () => refreshWorld(game)) },
@@ -264,8 +253,14 @@ function slowUpdates(game, dt) {
     explainTheDark(game);
     removeOldToasts(game);
     exploreAround(game);
+    wakeVillages(game);
+    wakeAnimals(game);
     checkRescue(game);
     checkKnockedOut(game);
+    slowWar(game);
+    slowSociety(game);
+    slowCamp(game);
+    slowBonds(game);
   }
   game.run.saveTime += dt;
   if (game.run.saveTime >= SAVE_EVERY) {
@@ -289,6 +284,10 @@ export function updateGame(game, input, dt) {
   updateRaid(game, dt);
   updateWeather(game, dt);
   updateEncounters(game, dt);
+  updateWar(game, dt);
+  updateSociety(game, dt);
+  updateCamp(game, dt);
+  updateBonds(game, dt);
   slowUpdates(game, dt);
 }
 

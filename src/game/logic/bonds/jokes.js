@@ -1,0 +1,253 @@
+// Jokes by style and what kind of humor each character enjoys or dislikes.
+
+export const JOKE_STYLES = [
+  { id: 'pun', label: 'Tell a Pun' },
+  { id: 'dry', label: 'Dry Wit' },
+  { id: 'dark', label: 'Dark Humor' },
+  { id: 'heroic', label: 'Heroic Boast' },
+  { id: 'sweet', label: 'Sweet Line' },
+];
+
+export const JOKES = [
+  // Pun
+  { style: 'pun', text: '"Why did the verb visit the blacksmith? Because it wanted to get conjugated into stronger steel!"' },
+  { style: 'pun', text: '"I told a joke about irregular verbs yesterday... it went, went, gone!"' },
+  { style: 'pun', text: '"What do you call a knight who falls asleep on watch? A siesta-squire... no, a knight-light!"' },
+  { style: 'pun', text: '"Why is the Eldermoor library always so cool? Because it is full of quiet fans of prose!"' },
+  { style: 'pun', text: '"I tried to catch the morning fog near Seabridge harbor. I mist!"' },
+
+  // Dry
+  { style: 'dry', text: '"I asked Old Bea for a loaf that lasts forever. She politely handed me yesterday\'s bread."' },
+  { style: 'dry', text: '"Statistically, one hundred percent of travelers who argue grammar with a dragon lose the debate."' },
+  { style: 'dry', text: '"I told the Guild I was a master of silent letters. They never heard me coming."' },
+  { style: 'dry', text: '"A sign outside the woods reads: Do not feed the slimes. Apparently, the slimes wrote it themselves."' },
+  { style: 'dry', text: '"I keep a tidy list of every time I panicked in a dungeon. It is blank, because I dropped the quill."' },
+
+  // Dark
+  { style: 'dark', text: '"A necromancer walks into a tavern. Everyone leaves—which saves him a fortune on drinks."' },
+  { style: 'dark', text: '"Why do skeletons never duel each other? They simply do not have the guts."' },
+  { style: 'dark', text: '"I asked a crypt ghost how the afterlife was going. He whispered that it was dead quiet."' },
+  { style: 'dark', text: '"Nobody argues over punctuation in the Obsidian Crypt—everyone agrees it is a grave matter."' },
+  { style: 'dark', text: '"What does a lich call an overdue library book? A dead-line."' },
+
+  // Heroic
+  { style: 'heroic', text: '"How many knights does it take to open a locked gate? One, if the gate knows what is good for it!"' },
+  { style: 'heroic', text: '"I challenged a goblin chief to a sentence duel. He surrendered before the comma!"' },
+  { style: 'heroic', text: '"True heroes never retreat—we merely advance enthusiastically toward breakfast!"' },
+  { style: 'heroic', text: '"They said Frostpeak Pass was impassable. I took two steps, and the mountain apologized."' },
+  { style: 'heroic', text: '"Why did the slime hide behind the barrel? It heard our footsteps coming!"' },
+
+  // Sweet
+  { style: 'sweet', text: '"Are you a rare healing herb? Because just seeing you restores all my strength."' },
+  { style: 'sweet', text: '"I forgot what I came to say... probably because my mind was busy admiring you."' },
+  { style: 'sweet', text: '"If words are weapons, your smile is the truce that ends every battle."' },
+  { style: 'sweet', text: '"Even the longest road north feels short when I know you are waiting at the end."' },
+  { style: 'sweet', text: '"I asked the evening stars for a bright tomorrow, and they pointed straight at you."' },
+];
+
+// Each character's approved vs disapproved joke styles and voiced reactions.
+export const JOKE_TASTES = {
+  luna: {
+    likes: ['pun', 'sweet'],
+    dislikes: ['dark'],
+    laugh: ['"Haha! Oh, that is clever! Wait—write that down before it floats away!"'],
+    groan: ['"Eek... why would you joke about ghosts in a quiet study?! Not funny!"'],
+    neutral: ['"Hehe, not bad! A little strange, like a half-cast spell."'],
+  },
+  selene: {
+    likes: ['dry', 'pun'],
+    dislikes: ['dark', 'sweet'],
+    laugh: ['"*A rare, crisp laugh* Precision and wit. Very well constructed."'],
+    groan: ['"Spare me the morbid nonsense—or the sugar. Stick to proper syntax."'],
+    neutral: ['"Hm. Passable timing, I suppose."'],
+  },
+  elara: {
+    likes: ['sweet', 'dark'],
+    dislikes: ['heroic'],
+    laugh: ['"Heehee! Oh, I adore that! Careful, or I will brew you a love tonic!"'],
+    groan: ['"Ugh, knights and their loud boasting... my herbs are wilting just listening."'],
+    neutral: ['"Oh? Cute! Not quite my favorite brew, though."'],
+  },
+  darius: {
+    likes: ['heroic', 'dry'],
+    dislikes: ['sweet'],
+    laugh: ['"Hah! Now THAT hits like a well-balanced hammer!"'],
+    groan: ['"*Coughs over the anvil* Keep the poetry for the bards, friend."'],
+    neutral: ['"Hmph. Decent enough."'],
+  },
+  dorian: {
+    likes: ['dark', 'pun'],
+    dislikes: ['sweet', 'heroic'],
+    laugh: ['"Heh! Sharp tongue. You would survive ten minutes in my old crew."'],
+    groan: ['"Ugh, spare me the noble speeches and roses. My wallet just fell asleep."'],
+    neutral: ['"Alright, mild chuckle. Next time make it sharper."'],
+  },
+  arthur: {
+    likes: ['heroic', 'sweet'],
+    dislikes: ['dark'],
+    laugh: ['"Hahaha! By the Dawn, that lifted my spirits right off this gate!"'],
+    groan: ['"Too grim, traveler. We watch the dark road enough as it is."'],
+    neutral: ['"A polite effort! Thank you, friend."'],
+  },
+  lyra: {
+    likes: ['heroic', 'dry'],
+    dislikes: ['pun', 'dark'],
+    laugh: ['"*Smiles warmly* Disciplined wit. Well struck."'],
+    groan: ['"Wordplay and gallows humor have no place on duty. Focus."'],
+    neutral: ['"Hm. Noted."'],
+  },
+  hinata: {
+    likes: ['dry', 'heroic'],
+    dislikes: ['pun'],
+    laugh: ['"*A quick, bright laugh* Crisp as a clean draw. I liked that."'],
+    groan: ['"...A pun? My blade dulls merely from hearing it."'],
+    neutral: ['"Hm. Unusual humor in this land."'],
+  },
+  kaelthra: {
+    likes: ['heroic', 'dark'],
+    dislikes: ['sweet', 'dry'],
+    laugh: ['"Hah! Fierce and a little wicked—just how I like my runes!"'],
+    groan: ['"Boring! If you want to melt me, try actual fire next time!"'],
+    neutral: ['"Tch. Half a spark, no flame."'],
+  },
+  lucien: {
+    likes: ['dark', 'dry', 'pun'],
+    dislikes: ['heroic'],
+    laugh: ['"*The puppet claps wildly* Bravo! Even my wooden friend laughed!"'],
+    groan: ['"How dreadfully loud... heroic noise ruins the theater."'],
+    neutral: ['"*Tilts mask* An amusing little line."'],
+  },
+  sylvia: {
+    likes: ['sweet', 'pun'],
+    dislikes: ['dark', 'heroic'],
+    laugh: ['"*Soft laughter like leaves* Oh, even the moss curled up smiling!"'],
+    groan: ['"Please... the forest remembers heavy words too long."'],
+    neutral: ['"The wind carries your jest gently."'],
+  },
+  vespera: {
+    likes: ['dark', 'dry'],
+    dislikes: ['sweet', 'heroic'],
+    laugh: ['"*Giggles behind her sleeve* Oh, deliciously morbid! Even my skull grinned."'],
+    groan: ['"Ugh, sunshine and glory? How horribly dull. Let us talk about tombs instead."'],
+    neutral: ['"Curious. Not dead enough, yet not bad."'],
+  },
+  corvin: {
+    likes: ['dark', 'dry'],
+    dislikes: ['sweet', 'pun'],
+    laugh: ['"*A muffled chuckle behind the beak* Clinical. Grim. Surprisingly accurate."'],
+    groan: ['"Irritating wordplay. Please step back before your cheer becomes contagious."'],
+    neutral: ['"Hm. Acceptable symptom of optimism."'],
+  },
+  kael: {
+    likes: ['dry', 'heroic'],
+    dislikes: ['pun', 'sweet'],
+    laugh: ['"*Grins* Even Sombre wagged his tail at that one."'],
+    groan: ['"*Groans softly* Sombre just covered his ears with his paws."'],
+    neutral: ['"Hmm. Wolves do not laugh much."'],
+  },
+  aria: {
+    likes: ['sweet', 'pun'],
+    dislikes: ['dark'],
+    laugh: ['"Haha! Oh, thank you—I needed a smile like that today!"'],
+    groan: ['"Oh... please do not joke about death here. Too many beds stay empty."'],
+    neutral: ['"Hehe, you always try so hard to cheer people up."'],
+  },
+  nyx: {
+    likes: ['dark', 'sweet'],
+    dislikes: ['heroic'],
+    laugh: ['"*Hides a smile* You actually made me laugh... do not tell anyone."'],
+    groan: ['"Heroes bragging... I heard enough of that from across the sea."'],
+    neutral: ['"Hmph. You are weird. Nice, though."'],
+  },
+  tomo: {
+    likes: ['pun', 'heroic'],
+    dislikes: ['dry', 'dark'],
+    laugh: ['"HAHAHAHA! Tell me another one!! That was AWESOME!"'],
+    groan: ['"Booo! That was boring and creepy! Tell a cool one!"'],
+    neutral: ['"Hehe, okay, that was kinda funny!"'],
+  },
+  mira: {
+    likes: ['heroic', 'dry'],
+    dislikes: ['sweet'],
+    laugh: ['"Hah! Sharp and sturdy—good steel in that joke."'],
+    groan: ['"Save the sweet talk, hero. I have horseshoes to hammer."'],
+    neutral: ['"Not bad. Keep swinging."'],
+  },
+  yuki: {
+    likes: ['pun', 'dry'],
+    dislikes: ['dark'],
+    laugh: ['"*Covers a giggle* Shh! Even the books are trying not to laugh!"'],
+    groan: ['"Please... the ink is gloomy enough without morbid jokes."'],
+    neutral: ['"Mm, a clever turn of phrase."'],
+  },
+  hana: {
+    likes: ['sweet', 'pun'],
+    dislikes: ['dark'],
+    laugh: ['"Haha! Oh, my carrots practically sprouted two inches hearing that!"'],
+    groan: ['"Ew, no gloomy talk in the garden, please!"'],
+    neutral: ['"Hehe, sunny enough!"'],
+  },
+  bea: {
+    likes: ['sweet', 'pun'],
+    dislikes: ['dark'],
+    laugh: ['"Oh ho ho! Sweeter than my honey loaf, dear!"'],
+    groan: ['"Shoo with that grim talk near my oven!"'],
+    neutral: ['"Well now, ain\'t you lively."'],
+  },
+  orin: {
+    likes: ['dry', 'pun'],
+    dislikes: ['dark'],
+    laugh: ['"*Chuckles warmly* An old man likes a clean play on words."'],
+    groan: ['"Watch your tongue, young one. Darkness needs no invitation."'],
+    neutral: ['"Heh. Youthful spirit."'],
+  },
+  garrick: {
+    likes: ['dry', 'heroic'],
+    dislikes: ['sweet'],
+    laugh: ['"Hmph! Hah! Good one—keep that grit for the north road."'],
+    groan: ['"Save the poetry, kid. Watch the gate."'],
+    neutral: ['"Alright. Back to post."'],
+  },
+  finn: {
+    likes: ['pun', 'sweet'],
+    dislikes: ['dark'],
+    laugh: ['"Haha! Oh, I am telling Lila that one tonight!"'],
+    groan: ['"Whoa, not around the baby cradle, please!"'],
+    neutral: ['"Haha, nice one!"'],
+  },
+  lila: {
+    likes: ['sweet', 'dry'],
+    dislikes: ['dark'],
+    laugh: ['"*Laughs softly* Every word woven just right!"'],
+    groan: ['"Oh dear, no dark threads in this house, please."'],
+    neutral: ['"How gentle of you."'],
+  },
+  brann: {
+    likes: ['heroic', 'dry'],
+    dislikes: ['sweet'],
+    laugh: ['"Bahaha! Now THAT is Guild spirit!"'],
+    groan: ['"Bah, keep the mushy lines out of my tavern hall!"'],
+    neutral: ['"Hmph. Decent."'],
+  },
+  rin: {
+    likes: ['pun', 'dark'],
+    dislikes: ['dry'],
+    laugh: ['"Nya-haha! Oh, that was slick! Almost worth a discount!"'],
+    groan: ['"*Tail droops* Yaaawn... dry as old parchment."'],
+    neutral: ['"Mm, cute enough!"'],
+  },
+  rosa: {
+    likes: ['sweet', 'heroic'],
+    dislikes: ['dark'],
+    laugh: ['"Hahaha! Sit down and have a mug, you brightened the whole inn!"'],
+    groan: ['"Not in my tavern, traveler. Sailors already bring enough bad omens."'],
+    neutral: ['"Hehe, good heart you have."'],
+  },
+  kai: {
+    likes: ['dry', 'pun'],
+    dislikes: ['sweet'],
+    laugh: ['"Har har! Like a good hook on a quiet tide!"'],
+    groan: ['"Too syrupy for salt water, mate."'],
+    neutral: ['"Aye, fair wind."'],
+  },
+};

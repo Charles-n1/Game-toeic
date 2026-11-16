@@ -1,6 +1,6 @@
 // Reading the time of the world. game.hour goes from 0 to 24 (6 = sunrise, 20 = night).
 
-export const DAY_SECONDS = 480; // a whole day of the game lasts 8 real minutes
+export const DAY_SECONDS = 720; // a whole day of the game lasts 12 real minutes (the world is huge)
 export const SUNRISE = 6;
 export const NIGHTFALL = 20;
 

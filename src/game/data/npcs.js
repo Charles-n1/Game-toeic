@@ -1,5 +1,7 @@
 // The people of the world.
-// x, y: where they stand (in tiles). look: how they are drawn (see draw/people.js).
+// at: where they live: [village, building (see data/buildings.js), a step to the right], ['lexia', 'gate'] (the
+//   north gate), ['wild', id] (a lonely home of world/wildPlaces.js), null (a wanderer, met on the roads).
+//   x, y (where they stand, in tiles) are found from it, at the end of this file. look: how they are drawn.
 //   look.sheet: drawn from a sprite sheet of art/Characters (see draw/characterArt.js); the colors are only
 //   used until the pictures are loaded.
 // life: their story. A new line is told each time the friendship grows (see FRIEND_STEPS in logic/people.js).
@@ -14,9 +16,11 @@
 // bonds: what the others are to them: { otherId: 'love' | 'family' | 'friend' | 'rival' | 'mentor' | 'student' }
 //   (luna: { selene: 'mentor' } = Selene teaches Luna).
 //   A gift makes their friends, family and love happy too, and their rivals a bit jealous (see logic/village.js).
+import { spotOf } from './zones';
+
 export const NPCS = [
   {
-    id: 'aria', name: 'Aria', role: 'Healer of Eldermoor', x: 101.5, y: 114.5, shop: 'clinic', romance: true, likes: ['flower'], bonds: { elara: 'friend', corvin: 'rival' },
+    id: 'aria', name: 'Aria', role: 'Healer of Eldermoor', at: ['lexia', 'clinic'], shop: 'clinic', romance: true, likes: ['flower'], bonds: { elara: 'friend', corvin: 'rival' },
     look: { skin: '#fde0c8', hair: '#ff9ec4', style: 'long', eyes: '#4fb37a', outfit: '#ffffff', trim: '#ff9ec4' },
     hello: ['You are awake! Take it slowly.', 'Words heal here. Wrong ones hurt.', 'Come back alive. Please.'],
     life: [
@@ -27,7 +31,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'mira', name: 'Mira', role: 'Blacksmith', x: 117.5, y: 114.5, shop: 'forge', romance: true, teaches: 'fire', likes: ['gem', 'oldCoin'], bonds: { darius: 'student' },
+    id: 'mira', name: 'Mira', role: 'Blacksmith', at: ['lexia', 'forge'], shop: 'forge', romance: true, teaches: 'fire', likes: ['gem', 'oldCoin'], bonds: { darius: 'student' },
     look: { skin: '#e9b98f', hair: '#e5482e', style: 'pony', eyes: '#f0a020', outfit: '#5a4636', trim: '#e5482e' },
     hello: ['Prices are prices. Unless you can out-talk me.', 'A blade is a sentence: one wrong part and it breaks.', 'Need steel?'],
     life: [
@@ -38,7 +42,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'yuki', name: 'Yuki', role: 'Librarian', x: 95.5, y: 114.5, teachesSkills: ['vocabulary', 'wordForms'], job: 'scribe', romance: true, teaches: 'water', likes: ['oldCoin', 'flower'],
+    id: 'yuki', name: 'Yuki', role: 'Librarian', at: ['lexia', 'library'], teachesSkills: ['vocabulary', 'wordForms'], job: 'scribe', romance: true, teaches: 'water', likes: ['oldCoin', 'flower'],
     look: { skin: '#f7e6dc', hair: '#cfe6ff', style: 'long', eyes: '#5b7bd6', outfit: '#31406e', trim: '#cfe6ff' },
     hello: ['Shh. The books are sleeping.', 'I pay for clean copies. One Lexis per perfect line.', 'Read. Then read again.'],
     life: [
@@ -49,7 +53,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'hana', name: 'Hana', role: 'Farmer', x: 97.5, y: 132.5, romance: true, teaches: 'earth', likes: ['carrot'], bonds: { sylvia: 'friend' },
+    id: 'hana', name: 'Hana', role: 'Farmer', at: ['lexia', 'farm'], romance: true, teaches: 'earth', likes: ['carrot'], bonds: { sylvia: 'friend' },
     look: { skin: '#f3c9a0', hair: '#7ac86a', style: 'twin', eyes: '#8a5a2b', outfit: '#e8c15a', trim: '#7ac86a' },
     hello: ['The field is yours too. Plant, water, wait!', 'Carrots do not lie. Feed them, they feed you.', 'Sunny today!'],
     life: [
@@ -60,7 +64,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'bea', name: 'Old Bea', role: 'Baker', x: 95.5, y: 127.5, shop: 'bakery', likes: ['carrot', 'flower'],
+    id: 'bea', name: 'Old Bea', role: 'Baker', at: ['lexia', 'bakery'], shop: 'bakery', likes: ['carrot', 'flower'],
     look: { skin: '#eac9a8', hair: '#d9d9d9', style: 'bun', eyes: '#6b4a2b', outfit: '#b5651d', trim: '#ffffff' },
     hello: ['Bread first. Heroes second.', 'You are too thin, child.', 'Fresh from the oven!'],
     life: [
@@ -71,7 +75,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'orin', name: 'Elder Orin', role: 'Elder of Eldermoor', x: 101.5, y: 127.5, likes: ['bread'], bonds: { tomo: 'family' },
+    id: 'orin', name: 'Elder Orin', role: 'Elder of Eldermoor', at: ['lexia', 'elder'], likes: ['bread'], bonds: { tomo: 'family' },
     look: { skin: '#e2bf9a', hair: '#f2f2f2', style: 'bald', eyes: '#444444', outfit: '#6b3fa0', trim: '#f2d16b', beard: true },
     hello: ['Every seven nights, the north grows louder.', 'A village is a sentence. Everyone is a word in it.', 'Welcome, fallen one.'],
     life: [
@@ -82,7 +86,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'tomo', name: 'Tomo', role: 'Kid', x: 109.5, y: 120.5, child: true, game: true, likes: ['bread', 'carrot'], bonds: { orin: 'family', lucien: 'friend' },
+    id: 'tomo', name: 'Tomo', role: 'Kid', at: ['lexia', 'elder', 2], child: true, game: true, likes: ['bread', 'carrot'], bonds: { orin: 'family', lucien: 'friend' },
     look: { skin: '#f3c9a0', hair: '#5a3a1e', style: 'short', eyes: '#2b2b2b', outfit: '#3aa0d8', trim: '#ffffff', small: true },
     hello: ['Wanna play Word Sprint? I always win!', 'Are you REALLY from another world?', 'Elder Orin is my grandpa!'],
     life: [
@@ -93,7 +97,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'garrick', name: 'Garrick', role: 'Guard of the north gate', x: 108.5, y: 110.5, fighter: true, likes: ['bread'], bonds: { rosa: 'love', arthur: 'friend' },
+    id: 'garrick', name: 'Garrick', role: 'Guard of the north gate', at: ['lexia', 'gate'], fighter: true, likes: ['bread'], bonds: { rosa: 'love', arthur: 'friend' },
     look: { skin: '#c99872', hair: '#3b2a1a', style: 'short', eyes: '#3b3b3b', outfit: '#7d8597', trim: '#c9a227', beard: true },
     hello: ['Do not go north at night.', 'I count what comes down the road. It is always more.', 'Stay sharp.'],
     life: [
@@ -104,7 +108,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'finn', name: 'Finn', role: 'Carpenter', x: 115.5, y: 119.5, shop: 'carpenter', partner: 'lila', likes: ['bread'], bonds: { lila: 'love' },
+    id: 'finn', name: 'Finn', role: 'Carpenter', at: ['lexia', 'carpenter'], shop: 'carpenter', partner: 'lila', likes: ['bread'], bonds: { lila: 'love' },
     look: { skin: '#e9b98f', hair: '#c98a3b', style: 'short', eyes: '#2f6f4f', outfit: '#4f7d3a', trim: '#e9d8a6' },
     hello: ['The cradle is almost done!', 'Wood listens better than people.', 'Lila says hello. She says it for me.'],
     life: [
@@ -115,7 +119,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'lila', name: 'Lila', role: 'Weaver', x: 117.5, y: 119.5, partner: 'finn', shop: 'weaver', likes: ['flower'], bonds: { finn: 'love' },
+    id: 'lila', name: 'Lila', role: 'Weaver', at: ['lexia', 'weaver'], partner: 'finn', shop: 'weaver', likes: ['flower'], bonds: { finn: 'love' },
     look: { skin: '#fde0c8', hair: '#8a5fd0', style: 'long', eyes: '#d06fa0', outfit: '#d8b4f8', trim: '#8a5fd0' },
     hello: ['Finn talks to the cradle more than to me.', 'Everything is a thread. Pull one, the rest moves.', 'Cloth for a torch? Wrap it tight, it burns longer.'],
     life: [
@@ -126,7 +130,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'brann', name: 'Brann', role: 'Master of the Guild', x: 111.5, y: 114.5, guildMaster: true, likes: ['oldCoin', 'bread'],
+    id: 'brann', name: 'Brann', role: 'Master of the Guild', at: ['lexia', 'guild'], guildMaster: true, likes: ['oldCoin', 'bread'],
     bonds: { arthur: 'friend', garrick: 'friend' },
     look: { skin: '#c99872', hair: '#8a8a8a', style: 'short', eyes: '#3b3b3b', outfit: '#3a5a8a', trim: '#e8b83a', beard: true },
     hello: ['The Guild of Adventurers. Swords for hire, if you can pay. Or talk.', 'Every adventurer has a price. Every price has a sentence.', 'Need hands for a dungeon?'],
@@ -138,7 +142,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'rin', name: 'Rin', role: 'Fox merchant', x: 204.5, y: 130.5, shop: 'market', romance: true, likes: ['gem', 'oldCoin'], bonds: { dorian: 'friend' },
+    id: 'rin', name: 'Rin', role: 'Fox merchant', at: ['port', 'market'], shop: 'market', romance: true, likes: ['gem', 'oldCoin'], bonds: { dorian: 'friend' },
     look: { skin: '#fde0c8', hair: '#ff9a3c', style: 'long', eyes: '#f2c200', outfit: '#2f8f83', trim: '#ffe9c2', ears: true },
     hello: ['Maps, rings, secrets. Two of them are for sale.', 'A good deal has a subject, a verb and a price.', 'Nya... I mean, welcome.'],
     life: [
@@ -149,7 +153,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'rosa', name: 'Rosa', role: 'Innkeeper', x: 210.5, y: 130.5, likes: ['carrot', 'bread'], bonds: { garrick: 'love' },
+    id: 'rosa', name: 'Rosa', role: 'Innkeeper', at: ['port', 'inn'], likes: ['carrot', 'bread'], bonds: { garrick: 'love' },
     look: { skin: '#d9a47a', hair: '#7a2f2f', style: 'bun', eyes: '#5a3a1e', outfit: '#a23b5a', trim: '#ffe9c2' },
     hello: ['Sailors pay in stories. You pay in Lexis.', 'Sit. Eat. Talk.', 'The sea is calm. The north is not.'],
     life: [
@@ -160,7 +164,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'lyra', name: 'Lyra', role: 'Paladin, captain of the Dawn', x: 221.5, y: 130.5, fee: 260, fighter: true, romance: true, teaches: 'wind', likes: ['gem'],
+    id: 'lyra', name: 'Lyra', role: 'Paladin, captain of the Dawn', at: ['port', 'barracks'], fee: 260, fighter: true, romance: true, teaches: 'wind', likes: ['gem'],
     bonds: { arthur: 'student', hinata: 'friend', dorian: 'rival' },
     look: { sheet: 'lyra', skin: '#fde0c8', hair: '#f4dc7a', style: 'long', eyes: '#3a7bd5', outfit: '#e8e4f2', trim: '#e8b83a' },
     hello: ['State your purpose.', 'A sword without discipline is a shout. A shield without faith is a door.', 'Hm. You are still alive. Good.'],
@@ -172,7 +176,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'kai', name: 'Kai', role: 'Fisherman', x: 227.5, y: 130.5, likes: ['bread'],
+    id: 'kai', name: 'Kai', role: 'Fisherman', at: ['port', 'harbor'], likes: ['bread'],
     look: { skin: '#b9825a', hair: '#2b2b3a', style: 'short', eyes: '#2b2b2b', outfit: '#2a6f97', trim: '#ffffff' },
     hello: ['Fish do not care about grammar. Lucky fish.', 'Storm in three days. My knee says so.', 'Ahoy.'],
     life: [
@@ -183,7 +187,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'nyx', name: 'Nyx', role: 'Girl from the north', x: 46.5, y: 73.5, fighter: true, romance: true, nightOnly: true, likes: ['flower', 'bread'], bonds: { vespera: 'friend' },
+    id: 'nyx', name: 'Nyx', role: 'Girl from the north', at: ['wild', 'nyx'], fighter: true, romance: true, nightOnly: true, likes: ['flower', 'bread'], bonds: { vespera: 'friend' },
     look: { skin: '#e6d5e8', hair: '#6a3fb5', style: 'long', eyes: '#e0304e', outfit: '#1c1c28', trim: '#6a3fb5', horns: true },
     hello: ['Do not scream. I am tired of screams.', 'You smell like another world.', 'The night is the only time I can be here.'],
     life: [
@@ -198,7 +202,7 @@ export const NPCS = [
 
   // Eldermoor: the Arcane House and the Arcane School
   {
-    id: 'luna', name: 'Luna', role: 'Mage of the Royal Academy', x: 110.5, y: 119.5, teachesSkills: ['verbTenses', 'gerunds'], romance: true, likes: ['gem', 'flower'],
+    id: 'luna', name: 'Luna', role: 'Mage of the Royal Academy', at: ['lexia', 'arcane'], teachesSkills: ['verbTenses', 'gerunds'], romance: true, likes: ['gem', 'flower'],
     bonds: { selene: 'mentor', elara: 'friend' },
     look: { sheet: 'luna', skin: '#fde0c8', hair: '#8a4b24', style: 'long', eyes: '#3a6fd8', outfit: '#2d3a8e', trim: '#e8b83a' },
     hello: ['Oh! A visitor in the Arcane House! Mind the books, they bite.', 'Magic is grammar that glows.', 'The tenses are a river. I swim in it every morning.'],
@@ -210,7 +214,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'selene', name: 'Selene', role: 'Arcanist, head of the Arcane School', x: 112.5, y: 128.5, teachesSkills: ['connectors', 'subjectVerb'], school: true, romance: true, likes: ['gem', 'oldCoin'],
+    id: 'selene', name: 'Selene', role: 'Arcanist, head of the Arcane School', at: ['lexia', 'school'], teachesSkills: ['connectors', 'subjectVerb'], school: true, romance: true, likes: ['gem', 'oldCoin'],
     bonds: { luna: 'student', elara: 'friend', vespera: 'rival' },
     look: { sheet: 'selene', skin: '#fde0c8', hair: '#d8d4f0', style: 'long', eyes: '#8a6fe0', outfit: '#2a2a6e', trim: '#e8b83a' },
     hello: ['Welcome to the Arcane School. Here, we train the words before we throw them.', 'A connector holds a spell together. Without it, it falls apart.', 'Lessons cost a little. Ignorance costs a lot.'],
@@ -222,7 +226,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'elara', name: 'Elara', role: 'Witch and healer', x: 101.5, y: 119.5, shop: 'potions', romance: true, likes: ['flower', 'carrot'],
+    id: 'elara', name: 'Elara', role: 'Witch and healer', at: ['lexia', 'potions'], shop: 'potions', romance: true, likes: ['flower', 'carrot'],
     bonds: { aria: 'friend', luna: 'friend', selene: 'friend' },
     look: { sheet: 'elara', skin: '#fde0c8', hair: '#5a3a8a', style: 'long', eyes: '#b48cff', outfit: '#2c2342', trim: '#e8b83a' },
     hello: ['A potion for every pain. A word for every potion.', 'Do not drink the green one. Unless you want to.', 'The Arcane Circle says hello. I say hello too.'],
@@ -234,7 +238,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'darius', name: 'Darius', role: 'Smith of the Guild', x: 36.5, y: 113.5, shop: 'forge', romance: true, likes: ['gem', 'oldCoin'],
+    id: 'darius', name: 'Darius', role: 'Smith of the Guild', at: ['greendale', 'smithy'], shop: 'forge', romance: true, likes: ['gem', 'oldCoin'],
     bonds: { mira: 'mentor', dorian: 'family', kaelthra: 'friend' },
     look: { sheet: 'darius', skin: '#e9b98f', hair: '#2b2b3a', style: 'short', eyes: '#c98a3b', outfit: '#3a2a22', trim: '#a8202a' },
     hello: ['Mira lets me use the small anvil. Someday, the big one.', 'A hammer hits where you look, not where you want.', 'Need something forged? Ask Mira. Then ask me again.'],
@@ -246,7 +250,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'arthur', name: 'Arthur', role: 'Knight of the Dawn', x: 111.5, y: 114.5, guild: true, fee: 180, fighter: true, romance: true, likes: ['bread'],
+    id: 'arthur', name: 'Arthur', role: 'Knight of the Dawn', at: ['lexia', 'guild', 2], guild: true, fee: 180, fighter: true, romance: true, likes: ['bread'],
     bonds: { lyra: 'mentor', garrick: 'friend' },
     look: { sheet: 'arthur', skin: '#f3d2b3', hair: '#2b2b3a', style: 'short', eyes: '#3a6fd8', outfit: '#c9d1e0', trim: '#2f50a0' },
     hello: ['Captain Lyra sent me to guard this gate with Garrick.', 'Prepositions are like a formation: in, on, at. Each one in its place.', 'Halt! ...Ah, it is you.'],
@@ -260,7 +264,7 @@ export const NPCS = [
 
   // Seabridge
   {
-    id: 'hinata', name: 'Hinata', role: 'Samurai of the Sakura Legion', x: 0, y: 0, wanderer: true, fee: 240, lands: ['woods', 'watch', 'coast', 'meadow', 'lake'], meet: 'A samurai blocks the road, a hand on her katana. "You walk well. Do you fight as well?"', fighter: true, romance: true, likes: ['flower'],
+    id: 'hinata', name: 'Hinata', role: 'Samurai of the Sakura Legion', at: null, wanderer: true, fee: 240, lands: ['woods', 'watch', 'coast', 'meadow', 'lake'], meet: 'A samurai blocks the road, a hand on her katana. "You walk well. Do you fight as well?"', fighter: true, romance: true, likes: ['flower'],
     bonds: { kaelthra: 'rival', lyra: 'friend' },
     look: { sheet: 'hinata', skin: '#fde0c8', hair: '#2b1f3a', style: 'pony', eyes: '#a8202a', outfit: '#8a1f2f', trim: '#ff9ec4' },
     hello: ['A blade is drawn once. A word, too.', 'Faster than... no. As fast as. Comparatives are a duel.', 'The cherry trees of my land are far.'],
@@ -272,7 +276,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'kaelthra', name: 'Kaelthra', role: 'Runeblade of the Ember Order', x: 0, y: 0, wanderer: true, fee: 260, lands: ['mountain', 'crystal', 'heartwood', 'oldwood'], meet: 'A red-haired swordswoman with a glowing blade. "Out of my way... no, wait. You are the one from the sky."', fighter: true, romance: true, likes: ['gem'],
+    id: 'kaelthra', name: 'Kaelthra', role: 'Runeblade of the Ember Order', at: null, wanderer: true, fee: 260, lands: ['mountain', 'crystal', 'heartwood', 'oldwood'], meet: 'A red-haired swordswoman with a glowing blade. "Out of my way... no, wait. You are the one from the sky."', fighter: true, romance: true, likes: ['gem'],
     bonds: { hinata: 'rival', darius: 'friend' },
     look: { sheet: 'kaelthra', skin: '#fde0c8', hair: '#d0202a', style: 'pony', eyes: '#ffb020', outfit: '#2a1a24', trim: '#d0202a' },
     hello: ['Runes are just words that refuse to be quiet.', 'Hinata? Still alive? Good. I will beat her myself.', 'Burn bright. Burn correctly.'],
@@ -284,7 +288,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'lucien', name: 'Lucien', role: 'Puppeteer of the Umbral Troupe', x: 0, y: 0, wanderer: true, lands: ['meadow', 'lake', 'coast', 'woods', 'forest'], meet: 'A masked puppeteer bows. His puppet bows too, a moment later. "A show, traveler? It is free for the lost."', romance: true, likes: ['oldCoin', 'flower'],
+    id: 'lucien', name: 'Lucien', role: 'Puppeteer of the Umbral Troupe', at: null, wanderer: true, lands: ['meadow', 'lake', 'coast', 'woods', 'forest'], meet: 'A masked puppeteer bows. His puppet bows too, a moment later. "A show, traveler? It is free for the lost."', romance: true, likes: ['oldCoin', 'flower'],
     bonds: { vespera: 'friend', tomo: 'friend' },
     look: { sheet: 'lucien', skin: '#f3e6e0', hair: '#2b1f3a', style: 'short', eyes: '#b48cff', outfit: '#2c2342', trim: '#e8b83a' },
     hello: ['Every puppet needs a subject and a verb. And strings.', 'The show starts at sunset. It never ends.', 'Do not look at the mask. It looks back.'],
@@ -296,7 +300,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'dorian', name: 'Dorian', role: 'Brigand of the Free Mercenaries', x: 0, y: 0, wanderer: true, fee: 200, lands: ['desert', 'teeth', 'forest', 'meadow'], meet: 'A man with a red scarf and two daggers. He looks exactly like Darius the smith. "Wrong twin. I am Dorian."', fighter: true, romance: true, likes: ['oldCoin', 'bread'],
+    id: 'dorian', name: 'Dorian', role: 'Brigand of the Free Mercenaries', at: null, wanderer: true, fee: 200, lands: ['desert', 'teeth', 'forest', 'meadow'], meet: 'A man with a red scarf and two daggers. He looks exactly like Darius the smith. "Wrong twin. I am Dorian."', fighter: true, romance: true, likes: ['oldCoin', 'bread'],
     bonds: { darius: 'family', rin: 'friend', lyra: 'rival' },
     look: { sheet: 'dorian', skin: '#e9b98f', hair: '#5a3a1e', style: 'spiky', eyes: '#5a3a1e', outfit: '#2a2a3a', trim: '#d0202a' },
     hello: ['Free Mercenaries. Free for those who pay.', 'Quicker, sharper, richer. The comparatives of my life.', 'Lyra is watching? Then I am a fisherman.'],
@@ -310,7 +314,7 @@ export const NPCS = [
 
   // In the wild
   {
-    id: 'kael', name: 'Kael', role: 'Beastmaster of the Forest Wardens', x: 0, y: 0, wanderer: true, fee: 220, lands: ['forest', 'heartwood', 'woods', 'mountain'], meet: 'A wolf steps out of the bushes. Then a man, wrapped in furs. "Sombre smelled you an hour ago."', fighter: true, romance: true, likes: ['bread', 'carrot'],
+    id: 'kael', name: 'Kael', role: 'Beastmaster of the Forest Wardens', at: null, wanderer: true, fee: 220, lands: ['forest', 'heartwood', 'woods', 'mountain'], meet: 'A wolf steps out of the bushes. Then a man, wrapped in furs. "Sombre smelled you an hour ago."', fighter: true, romance: true, likes: ['bread', 'carrot'],
     bonds: { sylvia: 'friend' },
     look: { sheet: 'kael', skin: '#e9d8c8', hair: '#2b2b3a', style: 'spiky', eyes: '#8fa6c9', outfit: '#2c2a36', trim: '#e9e2d0' },
     hello: ['The wolf likes you. That is rare. I do not.', 'He, she, they: the pack knows who is who.', 'Sit by the fire. The forest is loud tonight.'],
@@ -322,7 +326,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'sylvia', name: 'Sylvia', role: 'Druid of the Verdant Circle', x: 23.5, y: 89.5, teachesSkills: ['prepositions', 'comparatives'], romance: true, likes: ['flower', 'carrot'],
+    id: 'sylvia', name: 'Sylvia', role: 'Druid of the Verdant Circle', at: ['wild', 'sylvia'], teachesSkills: ['prepositions', 'comparatives'], romance: true, likes: ['flower', 'carrot'],
     bonds: { kael: 'friend', hana: 'friend' },
     look: { sheet: 'sylvia', skin: '#fde0c8', hair: '#5a9a3a', style: 'long', eyes: '#3f9a3c', outfit: '#2f5a2a', trim: '#e8b83a' },
     hello: ['Shh. The moss is speaking.', 'Under, over, between: the roots know every preposition.', 'Few people find this grove. You did.'],
@@ -334,7 +338,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'vespera', name: 'Vespera', role: 'Necromancer of the Obsidian Order', x: 0, y: 0, wanderer: true, lands: ['forest', 'oldwood', 'demon', 'heartwood', 'watch'], meet: 'A girl in a black hood, a skull on her shoulder. "Oh. A living one. How refreshing."', nightOnly: true, romance: true, likes: ['flower', 'gem'],
+    id: 'vespera', name: 'Vespera', role: 'Necromancer of the Obsidian Order', at: null, wanderer: true, lands: ['forest', 'oldwood', 'demon', 'heartwood', 'watch'], meet: 'A girl in a black hood, a skull on her shoulder. "Oh. A living one. How refreshing."', nightOnly: true, romance: true, likes: ['flower', 'gem'],
     bonds: { selene: 'rival', lucien: 'friend', nyx: 'friend', corvin: 'mentor' },
     look: { sheet: 'vespera', skin: '#e8dcec', hair: '#2b1f3a', style: 'long', eyes: '#b48cff', outfit: '#1c1a3a', trim: '#e8b83a' },
     hello: ['The dead speak better English than the living. They had time to practice.', 'The crypt is quiet tonight. Too quiet.', 'Do not be afraid. I only bite verbs.'],
@@ -346,7 +350,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'corvin', name: '???', role: 'Plague Doctor', x: 163.5, y: 116.5, teachesSkills: ['passive', 'pronouns'], nightOnly: true, likes: ['gem', 'oldCoin'],
+    id: 'corvin', name: '???', role: 'Plague Doctor', at: ['wild', 'corvin'], teachesSkills: ['passive', 'pronouns'], nightOnly: true, likes: ['gem', 'oldCoin'],
     bonds: { vespera: 'student', aria: 'rival' },
     look: { sheet: 'corvin', skin: '#e9d8c8', hair: '#1c1726', style: 'short', eyes: '#d0202a', outfit: '#2a1c22', trim: '#a8202a' },
     hello: ['The Silence is a sickness. I study it.', 'Do not come closer. Or do. Science needs volunteers.', 'My name? Later. Names are contagious.'],
@@ -359,6 +363,9 @@ export const NPCS = [
   },
 
 ];
+
+// Where each person stands: in front of the door of their house, at the gate, at their lonely home.
+NPCS.forEach((npc) => Object.assign(npc, spotOf(npc.at)));
 
 export function npcOf(id) {
   return NPCS.find((npc) => npc.id === id);

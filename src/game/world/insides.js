@@ -1,13 +1,16 @@
 import { INSIDES, DUNGEONS, HOME_DOOR, dungeonOf } from '../data/zones';
+import { TILE } from './tileKinds';
+import { getTile, setTile, fillRect } from './grid';
+import { randomOf } from './seeded';
 
-// The insides, out of the island (see INSIDES in data/zones.js): the floors of the dungeons, the mines, the home.
+// The insides, out of the island (see INSIDES in data/zones.js): the floors of the dungeons, the caves, the home.
 // Each floor is made of rooms joined by corridors, always the same (the random numbers come from its name).
 // The stairs join the floors; the first floor joins the door outside.
 // The puzzles:
 //   - a boulder to push on a stone plate: the gate of the plate opens (see logic/puzzles.js);
 //   - a word door: it opens to a good sentence (a hard question).
 
-const T = { WALL: 11, FLOOR: 12, STAIRS: 20, ORE: 21, WOOD_FLOOR: 22, RUG: 23 };
+const T = TILE;
 
 export const INSIDE_PROPS = []; // the things standing inside (furniture, torches...)
 export const LINKS = new Map(); // "x,y" of a stairs tile -> { x, y }: where the walker arrives
@@ -16,31 +19,6 @@ export const INSIDE_CHESTS = []; // { x, y, key, zone }
 export const INSIDE_MONSTERS = []; // { species, x, y, key, zoneId, boss? }
 
 // ---------- Small tools ----------
-
-// Random numbers that are always the same for the same name.
-function randomOf(name) {
-  let seed = 0;
-  for (const letter of name) seed = (seed * 31 + letter.charCodeAt(0)) >>> 0;
-  return () => {
-    seed = (seed + 0x6d2b79f5) >>> 0;
-    let t = seed;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function set(tiles, x, y, tile) {
-  tiles[y * 256 + x] = tile;
-}
-
-function get(tiles, x, y) {
-  return tiles[y * 256 + x];
-}
-
-function fill(tiles, x, y, w, h, tile) {
-  for (let row = y; row < y + h; row++) for (let column = x; column < x + w; column++) set(tiles, column, row, tile);
-}
 
 // Walking on the stairs at (x, y) takes you to (to.x, to.y) (the middle of that tile).
 function linkOneWay(x, y, to) {
@@ -68,23 +46,23 @@ function middleOf(room) {
 }
 
 // A corridor 2 tiles wide from a room to the next: across, then up or down. Returns its tiles in order.
-function corridor(tiles, a, b) {
+function corridor(a, b) {
   const from = middleOf(a);
   const to = middleOf(b);
   const path = [];
   for (let x = from.x; x <= to.x; x++) path.push([x, from.y]);
   const step = to.y > from.y ? 1 : -1;
   for (let y = from.y; y !== to.y; y += step) path.push([to.x, y]);
-  path.forEach(([x, y]) => fill(tiles, x, y, 2, 2, T.FLOOR));
+  path.forEach(([x, y]) => fillRect(x, y, 2, 2, T.FLOOR));
   return path;
 }
 
 // In a mine: some walls next to the floor hold ore (iron or crystal).
-function addOre(tiles, inside, random) {
+function addOre(inside, random) {
   for (let y = inside.y + 1; y < inside.y + inside.h - 1; y++) {
     for (let x = inside.x + 1; x < inside.x + inside.w - 1; x++) {
-      const touchesFloor = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => get(tiles, x + dx, y + dy) === T.FLOOR);
-      if (get(tiles, x, y) === T.WALL && touchesFloor && random() < 0.08) set(tiles, x, y, T.ORE);
+      const touchesFloor = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => getTile(x + dx, y + dy) === T.FLOOR);
+      if (getTile(x, y) === T.WALL && touchesFloor && random() < 0.08) setTile(x, y, T.ORE);
     }
   }
 }
@@ -116,22 +94,22 @@ function corridorEnd(path, room) {
 }
 
 // One floor of a dungeon (or a level of a mine).
-function buildFloor(tiles, inside) {
+function buildFloor(inside) {
   const dungeon = dungeonOf(inside.dungeon);
   const random = randomOf(inside.id);
   const isLast = inside.floor === dungeon.floors;
-  fill(tiles, inside.x, inside.y, inside.w, inside.h, T.WALL);
-  const count = dungeon.look === 'mine' ? 5 : 4 + Math.floor(random() * 2);
+  fillRect(inside.x, inside.y, inside.w, inside.h, T.WALL);
+  const count = dungeon.look === 'mine' ? 5 : dungeon.wild ? 3 + Math.floor(random() * 2) : 4 + Math.floor(random() * 2);
   const rooms = roomsOf(inside, random, count);
-  rooms.forEach((room) => fill(tiles, room.x, room.y, room.w, room.h, T.FLOOR));
+  rooms.forEach((room) => fillRect(room.x, room.y, room.w, room.h, T.FLOOR));
   const corridors = [];
-  for (let i = 0; i < rooms.length - 1; i++) corridors.push(corridor(tiles, rooms[i], rooms[i + 1]));
-  if (dungeon.look === 'mine') addOre(tiles, inside, random);
+  for (let i = 0; i < rooms.length - 1; i++) corridors.push(corridor(rooms[i], rooms[i + 1]));
+  if (dungeon.look === 'mine' || dungeon.wild) addOre(inside, random);
 
   const first = rooms[0];
   const last = rooms[rooms.length - 1];
   const up = { x: first.x + 1, y: first.y };
-  set(tiles, up.x, up.y, T.STAIRS);
+  setTile(up.x, up.y, T.STAIRS);
   inside.up = up;
   inside.landing = { x: up.x, y: up.y + 1 };
   INSIDE_PROPS.push({ kind: 'wallTorch', x: first.x + first.w - 2, y: first.y - 1, w: 1, h: 1, walkable: true });
@@ -139,7 +117,7 @@ function buildFloor(tiles, inside) {
 
   if (!isLast) {
     const down = { x: last.x + last.w - 2, y: last.y };
-    set(tiles, down.x, down.y, T.STAIRS);
+    setTile(down.x, down.y, T.STAIRS);
     inside.down = down;
   }
 
@@ -169,25 +147,25 @@ function buildFloor(tiles, inside) {
 }
 
 // A floor of the old watchtower: one round room, the stairs on both sides, a word door before the stairs up.
-function buildTowerFloor(tiles, inside) {
+function buildTowerFloor(inside) {
   const dungeon = dungeonOf(inside.dungeon);
   const isLast = inside.floor === dungeon.floors;
   const cx = inside.x + 7;
   const cy = inside.y + 7;
   for (let y = inside.y; y < inside.y + inside.h; y++) {
-    for (let x = inside.x; x < inside.x + inside.w; x++) set(tiles, x, y, Math.hypot(x + 0.5 - cx - 0.5, y + 0.5 - cy - 0.5) < 6.5 ? T.FLOOR : T.WALL);
+    for (let x = inside.x; x < inside.x + inside.w; x++) setTile(x, y, Math.hypot(x + 0.5 - cx - 0.5, y + 0.5 - cy - 0.5) < 6.5 ? T.FLOOR : T.WALL);
   }
   const up = { x: cx - 4, y: cy + 4 };
-  set(tiles, up.x, up.y, T.STAIRS);
+  setTile(up.x, up.y, T.STAIRS);
   inside.up = up;
   inside.landing = { x: up.x + 1, y: up.y };
   if (!isLast) {
     const down = { x: cx + 4, y: cy - 4 };
-    set(tiles, down.x, down.y, T.STAIRS);
+    setTile(down.x, down.y, T.STAIRS);
     inside.down = down;
-    fill(tiles, cx + 1, cy - 5, 1, 5, T.WALL); // a wall around the stairs up...
-    fill(tiles, cx + 1, cy - 1, 5, 1, T.WALL);
-    set(tiles, cx + 1, cy - 1, T.WALL);
+    fillRect(cx + 1, cy - 5, 1, 5, T.WALL); // a wall around the stairs up...
+    fillRect(cx + 1, cy - 1, 5, 1, T.WALL);
+    setTile(cx + 1, cy - 1, T.WALL);
     wordDoor(inside.id + ':word', [{ x: cx + 2, y: cy - 1 }, { x: cx + 3, y: cy - 1 }]); // ...with a word door in it
   }
   INSIDE_PROPS.push({ kind: 'wallTorch', x: cx, y: inside.y + 1, w: 1, h: 1, walkable: true });
@@ -197,11 +175,11 @@ function buildTowerFloor(tiles, inside) {
 }
 
 // The home of the player: a room of wood, a bed, a stove, a chest. The door mat leads outside.
-function buildHome(tiles, inside) {
-  fill(tiles, inside.x, inside.y, inside.w, inside.h, T.WALL);
-  fill(tiles, inside.x + 1, inside.y + 2, inside.w - 2, inside.h - 3, T.WOOD_FLOOR);
+function buildHome(inside) {
+  fillRect(inside.x, inside.y, inside.w, inside.h, T.WALL);
+  fillRect(inside.x + 1, inside.y + 2, inside.w - 2, inside.h - 3, T.WOOD_FLOOR);
   const mat = { x: inside.x + Math.floor(inside.w / 2), y: inside.y + inside.h - 1 };
-  set(tiles, mat.x, mat.y, T.STAIRS);
+  setTile(mat.x, mat.y, T.STAIRS);
   inside.landing = { x: mat.x, y: mat.y - 1 };
   linkOneWay(mat.x, mat.y, { x: HOME_DOOR.x, y: HOME_DOOR.y + 1 });
   linkOneWay(HOME_DOOR.x, HOME_DOOR.y, inside.landing); // the door of the house (outside) leads in
@@ -215,13 +193,13 @@ function buildHome(tiles, inside) {
 // ---------- Joining the floors ----------
 
 // The door outside <-> the stairs of the first floor; the stairs down <-> the stairs up of the next floor.
-function joinFloors(tiles) {
+function joinFloors() {
   for (const dungeon of DUNGEONS) {
     const floors = INSIDES.filter((inside) => inside.dungeon === dungeon.id);
     const [doorX, doorY] = dungeon.door;
     const outside = { x: doorX, y: doorY + 1 };
     for (const dx of [0, 1]) {
-      if (tiles[doorY * 256 + doorX + dx] === T.STAIRS) linkOneWay(doorX + dx, doorY, floors[0].landing);
+      if (getTile(doorX + dx, doorY) === T.STAIRS) linkOneWay(doorX + dx, doorY, floors[0].landing);
     }
     linkOneWay(floors[0].up.x, floors[0].up.y, outside);
     for (let i = 0; i < floors.length - 1; i++) {
@@ -233,11 +211,11 @@ function joinFloors(tiles) {
   }
 }
 
-export function buildInsides(tiles) {
+export function buildInsides() {
   for (const inside of INSIDES) {
-    if (inside.kind === 'home') buildHome(tiles, inside);
-    else if (dungeonOf(inside.dungeon).look === 'tower') buildTowerFloor(tiles, inside);
-    else buildFloor(tiles, inside);
+    if (inside.kind === 'home') buildHome(inside);
+    else if (dungeonOf(inside.dungeon).look === 'tower') buildTowerFloor(inside);
+    else buildFloor(inside);
   }
-  joinFloors(tiles);
+  joinFloors();
 }

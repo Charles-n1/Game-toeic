@@ -5,10 +5,35 @@ import { burst } from './particles';
 import { cue } from './cues';
 import { emote } from './emotes';
 import { pickRandom } from '../../logic/random';
+import { boostOf } from './boosts';
+import { statLinkBonus } from './statLinks';
 
-// Health and mana grow with the level. Health is in HP: 100 at level 1, +10 per level.
-export function maxHealth(player) {
-  return 100 + (player.level - 1) * 10;
+const EQUIP_SLOTS = ['weapon', 'armor', 'boots', 'accessory'];
+
+function equippedStat(player, field) {
+  let total = 0;
+  for (const slot of EQUIP_SLOTS) {
+    const id = player[slot];
+    if (id && ITEMS[id] && ITEMS[id][field]) total += ITEMS[id][field];
+  }
+  return total;
+}
+
+export function accessoryStat(player, field) {
+  const id = player.accessory;
+  return (id && ITEMS[id] && ITEMS[id][field]) || 0;
+}
+
+export function spellPowerBonus(game) {
+  if (!game) return 0;
+  return equippedStat(game.player, 'spell') + boostOf(game, 'spell') + statLinkBonus(game, 'spell');
+}
+
+// Health and mana grow with the level, gear, boosts, and English stat links.
+export function maxHealth(player, game = null) {
+  const gear = equippedStat(player, 'health');
+  const link = game ? boostOf(game, 'health') + statLinkBonus(game, 'health') : 0;
+  return Math.max(20, 100 + (player.level - 1) * 10 + gear + link);
 }
 
 export function maxMana(player) {
@@ -16,20 +41,23 @@ export function maxMana(player) {
 }
 
 // The speed of the player in a fight: more speed = more time to answer.
-export function speedOf(player) {
-  return 10 + ITEMS[player.boots].speed + Math.floor(player.level / 2);
+export function speedOf(player, game = null) {
+  const link = game ? boostOf(game, 'speed') + statLinkBonus(game, 'speed') : 0;
+  return Math.max(4, 10 + equippedStat(player, 'speed') + Math.floor(player.level / 2) + link);
 }
 
 // The damage of one strike, in HP (before the resistance of the monster).
-export function strikePower(player) {
+export function strikePower(player, game = null) {
   const obsidian = player.obsidianBlade > 0 ? 20 : 0;
-  return ITEMS[player.weapon].power + obsidian;
+  const link = game ? boostOf(game, 'attack') + statLinkBonus(game, 'attack') : 0;
+  return Math.max(2, equippedStat(player, 'power') + obsidian + link);
 }
 
 // What the armor removes from each hit.
-export function armorOf(player) {
+export function armorOf(player, game = null) {
   const stoneSkin = player.stoneSkin ? 20 : 0;
-  return ITEMS[player.armor].defense + stoneSkin;
+  const link = game ? boostOf(game, 'defense') + statLinkBonus(game, 'defense') : 0;
+  return Math.max(0, equippedStat(player, 'defense') + stoneSkin + link);
 }
 
 // The chance of a critical hit (double damage): 8%, +1% every 2 levels.
@@ -42,16 +70,16 @@ export function xpForLevel(level) {
   return Math.round(40 * Math.pow(level, 1.5));
 }
 
-export function heal(player, amount) {
-  player.health = Math.min(maxHealth(player), player.health + amount);
+export function heal(player, amount, game = null) {
+  player.health = Math.min(maxHealth(player, game), player.health + amount);
 }
 
 export function restoreMana(player, amount) {
   player.mana = Math.min(maxMana(player), player.mana + amount);
 }
 
-export function healFully(player) {
-  player.health = maxHealth(player);
+export function healFully(player, game = null) {
+  player.health = maxHealth(player, game);
   player.mana = maxMana(player);
 }
 
@@ -59,7 +87,7 @@ function levelUp(game) {
   const player = game.player;
   player.xp -= xpForLevel(player.level);
   player.level += 1;
-  healFully(player);
+  healFully(player, game);
   notify(game, '⭐ Level ' + player.level + '!', '#ffd23f');
   cue(game, 'levelUp');
   burst(game, player.x, player.y, '#ffd23f', 40);
@@ -119,7 +147,7 @@ export function usePotion(game, itemId) {
   const item = ITEMS[itemId];
   if (!canUsePotion(game, itemId)) return false;
   removeItem(player, itemId);
-  if (item.heal) heal(player, item.heal);
+  if (item.heal) heal(player, item.heal, game);
   if (item.food) player.hunger = Math.min(100, player.hunger + item.food); // bread, eaten in a fight
   if (item.water) player.thirst = Math.min(100, player.thirst + item.water);
   if (item.mana) restoreMana(player, item.mana);
@@ -132,6 +160,20 @@ export function usePotion(game, itemId) {
 
 // The player owns a new piece of equipment: wear it.
 export function equip(player, itemId) {
-  const kind = ITEMS[itemId].kind; // 'weapon' | 'armor' | 'boots'
+  const kind = ITEMS[itemId]?.kind; // 'weapon' | 'armor' | 'boots' | 'accessory'
+  if (!EQUIP_SLOTS.includes(kind)) return;
+  const prev = player[kind];
+  if (kind === 'accessory' && prev && prev !== itemId) addItem(player, prev, 1);
   player[kind] = itemId;
+}
+
+// Swaps an equipment item from the bag into its slot, returning the old item to the bag.
+export function equipFromBag(player, itemId) {
+  const kind = ITEMS[itemId]?.kind;
+  if (!EQUIP_SLOTS.includes(kind) || countItem(player, itemId) <= 0) return false;
+  removeItem(player, itemId, 1);
+  const prev = player[kind];
+  if (prev && prev !== itemId) addItem(player, prev, 1);
+  player[kind] = itemId;
+  return true;
 }

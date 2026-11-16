@@ -27,10 +27,15 @@ export const LEAF_RAMP = ['#0f2418', '#163a20', '#1e5026', '#29682d', '#388434',
 export const LIGHT_LEAF_RAMP = ['#16391f', '#205227', '#2c6b2e', '#3b8835', '#52a43e', '#74c04d', '#9cd95f', '#c2ec7c'];
 export const PINE_RAMP = ['#0c2620', '#123a2c', '#1a5038', '#246745', '#337f52', '#47995f'];
 export const WOOD_RAMP = ['#3b2414', '#55331b', '#704423', '#8c582d', '#a86e3b', '#c28a52'];
+export const THATCH_RAMP = ['#4d3819', '#6e5225', '#8f6d34', '#b08b47', '#cca760', '#e2c27c'];
 export const ROOF_RAMPS = {
   red: ['#5e1a12', '#80271b', '#a33524', '#c2472e', '#d9613f', '#ea8259'],
   blue: ['#1a2c5e', '#233d80', '#2f50a0', '#3f66bd', '#5a82d4', '#7fa2e6'],
   purple: ['#2a1a4e', '#3a2468', '#4e3288', '#6442a8', '#7d5cc4', '#9c80dc'], // the arcane buildings
+  green: ['#184220', '#235b2c', '#2f7839', '#41964a', '#5db663', '#82d484'],
+  sand: ['#6a4620', '#8c5f2c', '#ad793c', '#cb9550', '#e3b26c', '#f4d08f'],
+  grey: ['#353842', '#494e5a', '#606674', '#7b8291', '#99a0af', '#bac1cf'],
+  dark: ['#16131f', '#221d2e', '#302940', '#413855', '#554a6c', '#6e6288'],
 };
 
 // The color of a type, in the night of a raid... and everything else: mix two colors.

@@ -21,18 +21,20 @@ const ANSWER_KEYS = ['1', '2', '3', '4', 'a', 'b', 'c', 'd']; // 1 = a, 2 = b...
 // One sentence that tells what the last answer did.
 function storyOf(last) {
   if (last.fleeFailed) return { good: false, text: 'You could not escape! −' + last.taken + ' HP' };
-  if (last.isCorrect && last.taken === 0) return { good: true, text: (last.critical ? 'CRITICAL! ' : '') + (last.first ? 'You struck first! ' : 'Correct! ') + last.damage + ' damage' };
-  if (last.isCorrect) return { good: true, text: 'Correct, but slow: it struck too. −' + last.taken + ' HP' };
+  const flair = last.special ? '★ ' + last.special + '! ' : '';
+  if (last.isCorrect && last.taken === 0) return { good: true, text: flair + (last.critical ? 'CRITICAL! ' : '') + (last.first ? 'You struck first! ' : 'Correct! ') + last.damage + ' damage' };
+  if (last.isCorrect) return { good: true, text: flair + 'Correct, but slow: it struck too. −' + last.taken + ' HP' };
   const why = last.index === null ? 'Too slow!' : 'Wrong.';
   return { good: false, text: last.taken > 0 ? why + ' −' + last.taken + ' HP' : why };
 }
 
 // The sparks, the number and the flash on the opponent, when the hero's blow lands.
 function hitFoe(game, places, last, color, combo) {
-  burst(game, places.foe.x, places.foe.y - 0.8, color, last.critical ? 36 : 16);
+  burst(game, places.foe.x, places.foe.y - 0.8, color, last.critical || last.special ? 36 : 16);
   floatText(game, places.foe.x + 0.6, places.foe.y - 0.6, String(last.damage), last.critical ? '#ffd23f' : '#ffffff');
+  if (last.special) floatText(game, places.foe.x, places.foe.y - 1.5, '★ ' + last.special + '!', '#ffd23f');
   if (combo >= 2) floatText(game, places.foe.x, places.foe.y - 2.2, 'COMBO x' + combo, '#7cfc9a');
-  if (last.critical) game.run.flashUntil = Date.now() + 90;
+  if (last.critical || last.special) game.run.flashUntil = Date.now() + 90;
 }
 
 // The sparks, the number, the shaking and the sound on the hero, when the opponent's blow lands.
@@ -48,7 +50,12 @@ function celebrate(game, last, color, combo) {
   const places = battlePlaces(game);
   const moments = hitMoments(last);
   playEffect(last.critical ? 'critical' : last.isCorrect ? 'good' : 'wrong');
-  if (last.damage > 0) setTimeout(() => hitFoe(game, places, last, color, combo), moments.foe);
+  if (last.damage > 0) {
+    setTimeout(() => {
+      playEffect(last.special ? 'specialBurst' : last.mode !== 'strike' ? 'magicCast' : game.player.party.length > 0 && Math.random() < 0.35 ? 'companionStrike' : 'slash');
+      hitFoe(game, places, last, color, combo);
+    }, moments.foe);
+  }
   if (last.taken > 0) setTimeout(() => hitHero(game, places, last), moments.hero);
 }
 

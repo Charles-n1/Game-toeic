@@ -1,4 +1,4 @@
-import { ZONES, HOUSES, SEALS, labelOf, zoneOf, zoneAt } from '../data/zones';
+import { ZONES, HOUSES, SEALS, SPAWN, WORLD_SIZE, labelOf, zoneOf, zoneAt } from '../data/zones';
 import { npcOf } from '../data/npcs';
 import { currentChapter } from './chapters';
 import { activeQuests } from './quests';
@@ -7,7 +7,7 @@ import { isSealOpen } from './seals';
 // The places written on the world map, and the marks of the quests.
 // A place: { id, name, kind ('village' | 'dungeon' | 'castle' | 'land'), icon, x, y, text }
 
-const ICON_OF_KIND = { village: 'town', dungeon: 'dungeon', castle: 'dungeon', land: null };
+const ICON_OF_KIND = { village: 'town', monsterTown: 'dungeon', camp: 'blocked', dungeon: 'dungeon', castle: 'dungeon', land: null };
 
 export const PLACES = ZONES.filter((zone) => zone.kind !== 'inside').map((zone) => ({
   id: zone.id,
@@ -33,8 +33,8 @@ export function placeHere(game) {
 // Where a person is right now: { x, y }.
 function personPosition(game, npcId) {
   const place = game.run.people[npcId];
-  const isOnIsland = place && place.y < 256 && place.x > 0;
-  return isOnIsland ? { x: place.x, y: place.y } : { x: npcOf(npcId).x || 105, y: npcOf(npcId).y || 120 };
+  const isOnIsland = place && place.y < WORLD_SIZE && place.x > 0;
+  return isOnIsland ? { x: place.x, y: place.y } : { x: npcOf(npcId).x || SPAWN.x, y: npcOf(npcId).y || SPAWN.y };
 }
 
 // target: { zone: 'crypt' } or { npc: 'aria' } -> { x, y }
@@ -60,8 +60,8 @@ const SIGN_TO_ICON = { healthPotion: 'shop', ironSword: 'shop', bread: 'shop', m
 
 export const SHOP_MARKS = HOUSES.filter((house) => SIGN_TO_ICON[house.sign]).map((house) => ({
   icon: SIGN_TO_ICON[house.sign],
-  x: house.x + 1.5,
-  y: house.y + 3,
+  x: house.x + house.w / 2,
+  y: house.y + house.h,
 }));
 
 // The closed seals (the red crosses: blocked paths).

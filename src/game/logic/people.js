@@ -1,6 +1,6 @@
 import { NPCS } from '../data/npcs';
 import { PLAZAS, FIELDS, zoneAt, insideOf } from '../data/zones';
-import { allProps } from '../world/map';
+import { propsAround } from '../world/map';
 import { findPath, followPath } from '../world/paths';
 import { isEncountered } from './encounters';
 import { guildChoice } from './guild';
@@ -20,6 +20,13 @@ import { workAsScribe, playWordSprint } from './duels';
 import { countItem, removeItem } from './player';
 import { say, notify } from './messages';
 import { emote } from './emotes';
+import { cue } from './cues';
+import { burst } from './particles';
+import { startFight } from './fight';
+import { isNpcKidnapped } from './war';
+import { revealCrystalCave, isVillain } from './society';
+import { addInfamy } from './society/state';
+import { isStationedInTraining, setExpression, voiceSoundFor, npcBondChoices } from './bonds';
 
 // The people on the map: where they are, and everything the player can do with them.
 
@@ -63,6 +70,7 @@ function isSleepTime(game) {
 export function isOutside(game, npc) {
   const state = game.npcs[npc.id];
   if (!state.alive || game.player.party.includes(npc.id) || game.player.carrying?.id === npc.id) return false;
+  if (isNpcKidnapped(game, npc.id) || isStationedInTraining(game, npc.id)) return false;
   if (state.ko) return true;
   if (game.player.spouse === npc.id) return true;
   if (npc.wanderer) return isEncountered(game, npc.id);
@@ -108,7 +116,7 @@ function errandSpots(npc) {
   const zone = zoneAt(npc.x, npc.y);
   if (zone.kind !== 'village') return [];
   const spots = [...PLAZAS, ...FIELDS].filter((item) => zoneAt(item.x, item.y).id === zone.id).map((item) => ({ x: item.x + Math.floor(item.w / 2), y: item.y + item.h }));
-  const wells = allProps().filter((prop) => prop.kind === 'well' && zoneAt(prop.x, prop.y).id === zone.id).map((prop) => ({ x: prop.x, y: prop.y + 1 }));
+  const wells = propsAround(npc.x, npc.y, 60).filter((prop) => prop.kind === 'well' && zoneAt(prop.x, prop.y).id === zone.id).map((prop) => ({ x: prop.x, y: prop.y + 1 }));
   return [...spots, ...wells];
 }
 
@@ -337,11 +345,65 @@ function proposeChoice(game, npc) {
   return { label: 'Will you marry me?', icon: 'ring', run: propose };
 }
 
+function crystalChoice(game, npc) {
+  if (npc.shop !== 'forge') return null;
+  return { label: 'Ask about magic crystal caves', icon: 'crystal', run: () => revealCrystalCave(game, npc.name) };
+}
+
+function strikeNpcChoice(game, npc) {
+  return {
+    label: 'Strike ' + npc.name + ' (Villain)',
+    icon: 'sword',
+    run: () => {
+      cue(game, 'punch');
+      setExpression(game, npc.id, 'anger');
+      addFriendship(game, npc.id, -20);
+      addInfamy(game, 15);
+      addHappiness(game, -3);
+      const place = game.run.people[npc.id];
+      if (place) burst(game, place.x, place.y - 0.6, '#ff5a6e', 16);
+      if (game.run.villagers) {
+        const zone = zoneAt(game.player.x, game.player.y);
+        for (const v of game.run.villagers) {
+          if (v.village === zone.id && v.knight && !v.ko && !v.dead) v.angry = 60;
+        }
+      }
+      if (npc.fighter && !game.npcs[npc.id].ko) {
+        startFight(game, {
+          name: npc.name,
+          category: 'connectors',
+          tier: 'small',
+          tag: 'normal',
+          shape: 'knight',
+          health: 85,
+          maxHealth: 85,
+          attack: 22,
+          magicAttack: 0,
+          speed: 11,
+          resistance: 0.1,
+          magicResistance: 0.1,
+          xp: 55,
+          lexis: 30,
+          onWin: () => {
+            game.npcs[npc.id].ko = true;
+            notify(game, '💥 You defeated ' + npc.name + '! (+15 Infamy)', '#ff8a95');
+          },
+          onLose: () => notify(game, npc.name + ' bested you and walked away.', '#ff8a95'),
+        });
+        return;
+      }
+      game.npcs[npc.id].ko = true;
+      notify(game, '💥 You knocked down ' + npc.name + '! (+15 Infamy)', '#ff8a95');
+    },
+  };
+}
+
 const CHOICE_MAKERS = [
   talkChoice,
   activeQuestChoice,
   newQuestChoice,
   shopChoice,
+  crystalChoice,
   guildChoice,
   teacherChoice,
   schoolChoice,
@@ -357,8 +419,16 @@ const CHOICE_MAKERS = [
 
 // The player talks to someone: a hello, then everything they can do together.
 export function talkTo(game, npc) {
-  game.npcs[npc.id].met = true; // shown in the Relations of the menu
-  const choices = CHOICE_MAKERS.map((make) => make(game, npc)).filter((choice) => choice !== null);
+  const state = game.npcs[npc.id];
+  state.met = true; // shown in the Relations of the menu
+  const mood = isVillain(game) || state.friendship < 0 ? 'anger' : game.player.spouse === npc.id ? 'love' : 'joy';
+  setExpression(game, npc.id, mood);
+  cue(game, voiceSoundFor(npc.id));
+  const choices = [
+    ...CHOICE_MAKERS.map((make) => make(game, npc)).filter((choice) => choice !== null),
+    ...npcBondChoices(game, npc),
+    strikeNpcChoice(game, npc),
+  ];
   choices.push({ label: 'Leave', run: () => {} });
   say(game, npc.id, [greeting(game, npc)], choices);
 }

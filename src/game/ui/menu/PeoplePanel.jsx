@@ -4,6 +4,9 @@ import { NPCS } from '../../data/npcs';
 import { classOfMaster } from '../../data/classes';
 import { relationOf, bondsOf, BOND_NAMES } from '../../logic/village';
 import { FRIEND_STEPS } from '../../logic/people';
+import { isCouple, isTrainable, isStationedInTraining, companionRank } from '../../logic/bonds';
+import { companionFatigue } from '../../logic/camp';
+import { isNpcKidnapped } from '../../logic/war';
 
 // Has the hero met this person? (Talked once, or made them like the hero.)
 function hasMet(game, npc) {
@@ -28,17 +31,34 @@ function PersonLine({ game, npc }) {
   const state = game.npcs[npc.id];
   const relation = relationOf(game, npc.id);
   const storiesLeft = npc.life.length - state.told;
+  const spouse = game.player.spouse === npc.id;
+  const couple = isCouple(game, npc.id);
+  const kidnapped = isNpcKidnapped(game, npc.id);
+  const trainable = isTrainable(npc);
+  const rank = trainable ? companionRank(game, npc.id) : 0;
+  const stationed = isStationedInTraining(game, npc.id);
+  const fatigue = Math.round(companionFatigue(game, npc.id));
+
   return (
     <div className="line" style={{ opacity: state.alive ? 1 : 0.45 }}>
       <Portrait look={npc.look} size={40} />
       <div className="grow">
         <span>
-          {npc.name} <span className="small">· {npc.role}</span>
+          {npc.name} <span className="small">· {npc.role}</span>{' '}
+          {spouse && <span className="small gold">💍 Spouse</span>}
+          {!spouse && couple && <span className="small" style={{ color: '#ff9ec4' }}>💕 Couple</span>}
+          {kidnapped && <span className="small" style={{ color: '#ff5a6e' }}>🚨 Kidnapped!</span>}
         </span>
         <span className="small" style={{ color: relation.color }}>
           {state.alive ? relation.name : 'Dead'} · {state.friendship} / 100
         </span>
         <Bar value={state.friendship / 100} color={relation.color} height={5} />
+        {trainable && state.alive && (
+          <span className="small">
+            🥋 Rank {rank}/4{stationed ? ' · At Training Corner' : ''}
+            {fatigue > 0 ? ' · Fatigue ' + fatigue + '%' : ''}
+          </span>
+        )}
         {storiesLeft > 0 && state.alive && (
           <span className="small">
             {storiesLeft} part(s) of their story left (next at {FRIEND_STEPS[state.told]} friendship)

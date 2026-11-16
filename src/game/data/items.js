@@ -1,3 +1,8 @@
+import { GEAR_ITEMS } from './items/gear';
+import { CAMP_ITEMS } from './items/camp';
+import { SOCIETY_ITEMS } from './items/society';
+import { WAR_ITEMS } from './items/war';
+
 // Everything the player can own.
 // kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give),
 //       'material' (to make things), 'tool', 'food' (to eat: food = hunger filled, water = thirst), 'furniture'.
@@ -68,6 +73,12 @@ export const ITEMS = {
   cloth: { name: 'Cloth', icon: '🧶', kind: 'material', price: 6, sell: 2, text: 'For a torch.' },
   flint: { name: 'Flint Stone', icon: '🪨', kind: 'material', sell: 1, text: 'From a rock. Strike 2 to light a fire.' },
   torch: { name: 'Torch', icon: '🔦', kind: 'tool', sell: 4, text: 'Light it at a fire, or with 2 flint stones.' },
+
+  // ---------- The items of each part of the game (see data/items/) ----------
+  ...GEAR_ITEMS,
+  ...CAMP_ITEMS,
+  ...SOCIETY_ITEMS,
+  ...WAR_ITEMS,
 };
 
 // The order of the upgrades at the smith: each one replaces the one before.

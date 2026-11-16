@@ -1,5 +1,6 @@
 import { makeGrid, dot, fillRect, fillEllipse, fillBall, toneOf, drawLine, drawPicture, randomOf, addOutline, toCanvas, once, fillTriangle } from './pixels';
 import { OUTLINE, WOOD, WOOD_RAMP, STONE_RAMP, ROOF_RAMPS, darker, lighter } from './palette';
+import { paintBeam, paintTiledRoof, paintStoneMasonry, paintDoorway, paintArchedWindow, paintSignBoard } from './props';
 
 // The buildings and the things of the new world: the guild, the tents of the bandits, the titanic tower of the
 // demon, the old watchtower, the mines, the riddles, the furniture of the home...
@@ -21,55 +22,277 @@ function paintBricks(grid, x, y, w, h, ramp, salt) {
   }
 }
 
-// ---------- The guild of adventurers: a big hall of stone with a blue roof and a banner ----------
+// ---------- The guild of adventurers: 13 x 9 tiles (208 x 144 + peak), blue roof and banner ----------
 
 export function guildSprite() {
   return once('guild', () => {
-    const grid = makeGrid(96, 76);
+    const W = 208;
+    const H = 168;
+    const grid = makeGrid(W, H);
     const roof = ROOF_RAMPS.blue;
-    for (let y = 8; y <= 36; y++) {
-      const inset = Math.round((36 - y) * 0.55);
-      for (let x = inset; x < 96 - inset; x++) {
-        const isSeam = (x + (Math.floor((y - 8) / 4) % 2) * 3) % 6 === 0;
-        dot(grid, x, y, toneOf(roof, 0.8 - ((y - 8) % 4) * 0.14 - (isSeam ? 0.25 : 0), x, y));
-      }
+
+    paintTiledRoof(grid, 0, 24, W, 62, roof, 0.44);
+    // Central wooden gable over the entrance
+    fillTriangle(grid, [68, 86], [96, 36], [124, 86], (x, y) => toneOf(WOOD_RAMP, 0.52 - (x - 96) * 0.008, x, y));
+    fillTriangle(grid, [73, 86], [96, 42], [119, 86], () => '#e6d3ad');
+    paintBeam(grid, 94, 42, 4, 44);
+    paintBeam(grid, 73, 66, 46, 3);
+    // Waving red guild banner on top
+    fillRect(grid, 94, 0, 4, 38, WOOD.dark);
+    fillRect(grid, 98, 2, 22, 12, '#d0202a');
+    fillTriangle(grid, [116, 2], [124, 8], [116, 14], () => '#d0202a');
+    drawLine(grid, 102, 5, 113, 11, '#ffd23f');
+    drawLine(grid, 113, 5, 102, 11, '#ffd23f');
+
+    // Stone masonry walls (y = 86..168)
+    paintStoneMasonry(grid, 4, 86, W - 8, H - 86, STONE_RAMP, 60);
+    paintBeam(grid, 3, 86, W - 6, 4);
+    paintBeam(grid, 3, 122, W - 6, 3);
+    fillRect(grid, 3, H - 8, W - 6, 8, STONE_RAMP[2]);
+    fillRect(grid, 3, H - 8, W - 6, 2, STONE_RAMP[4]);
+
+    for (const wx of [18, 42, 146, 174]) {
+      paintArchedWindow(grid, wx, 96, 14, 16, ['#2f5f8f', '#5a9fd6', '#e6f6ff']);
+      paintArchedWindow(grid, wx, 134, 14, 16, ['#2f5f8f', '#5a9fd6', '#e6f6ff']);
     }
-    fillRect(grid, 16, 8, 64, 1, roof[5]);
-    paintBricks(grid, 2, 37, 92, 39, STONE_RAMP, 60);
-    fillRect(grid, 34, 50, 28, 26, WOOD_RAMP[1]); // the big door
-    fillEllipse(grid, 48, 51, 14, 6, WOOD_RAMP[1]);
-    for (let x = 36; x < 60; x += 4) fillRect(grid, x, 50, 1, 26, WOOD_RAMP[0]);
-    fillBall(grid, 44.5, 64.5, 1.3, 1.3, ['#8a6a12', '#e8b83a', '#fff2a8']);
-    fillBall(grid, 51.5, 64.5, 1.3, 1.3, ['#8a6a12', '#e8b83a', '#fff2a8']);
-    for (const x of [8, 76]) {
-      fillRect(grid, x, 46, 12, 12, '#2f5f8f');
-      fillRect(grid, x + 1, 47, 10, 10, '#8cc5ee');
-      fillRect(grid, x + 5, 46, 2, 12, STONE_RAMP[1]);
+    for (const bx of [66, 120]) {
+      fillRect(grid, bx, 128, 7, 16, '#d0202a');
+      fillTriangle(grid, [bx, 144], [bx + 3.5, 149], [bx + 7, 144], () => '#d0202a');
+      fillRect(grid, bx + 2, 132, 3, 5, '#ffd23f');
     }
-    fillRect(grid, 46, 0, 4, 10, WOOD.dark); // the flag
-    fillRect(grid, 50, 1, 14, 8, '#e8423f');
-    fillTriangle(grid, [60, 1], [64, 5], [60, 9], () => '#e8423f');
-    drawLine(grid, 53, 3, 59, 6, '#ffd23f'); // two swords on the flag
-    drawLine(grid, 59, 3, 53, 6, '#ffd23f');
-    fillRect(grid, 40, 40, 16, 6, WOOD_RAMP[3]); // the sign: a shield
-    fillRect(grid, 45, 41, 6, 4, '#3a7bff');
-    return sprite(grid, 0, 76);
+
+    paintDoorway(grid, 96, H, { doubleDoor: true, style: 'stone' });
+    paintSignBoard(grid, 96, 108, 'guild');
+    return sprite(grid, 0, H);
   });
 }
 
-// ---------- The camp of the bandits ----------
+// ---------- Churches, Windmills, and Royal Palaces ----------
 
-export function tent(isBig) {
-  return once('tent' + isBig, () => {
-    const w = isBig ? 80 : 48;
-    const h = isBig ? 48 : 32;
-    const grid = makeGrid(w, h);
-    const cloth = isBig ? ['#5a1a1a', '#7a2424', '#9a3030', '#b84040'] : ['#6b4a2a', '#8a6034', '#a8783e', '#c8944e'];
-    fillTriangle(grid, [0, h - 1], [w / 2, 0], [w - 1, h - 1], (x) => toneOf(cloth, x < w / 2 ? 0.75 : 0.35, x, 0));
-    fillTriangle(grid, [w / 2 - 6, h - 1], [w / 2, h * 0.35], [w / 2 + 6, h - 1], () => '#1c1418');
-    drawLine(grid, w / 2, 0, w / 2, 4, WOOD.dark);
-    if (isBig) fillRect(grid, w / 2 + 1, 0, 8, 5, '#d0202a');
-    return sprite(grid, 0, h);
+// Church: 11 x 9 tiles (176 x 144 footprint + 32px bell tower = 176 x 176)
+export function churchSprite(house) {
+  const roofKey = house.roof || 'blue';
+  return once('church|' + roofKey, () => {
+    const W = 176;
+    const H = 176;
+    const grid = makeGrid(W, H);
+    const roof = ROOF_RAMPS[roofKey] || ROOF_RAMPS.blue;
+
+    // Sloped nave roofs on left and right
+    paintTiledRoof(grid, 2, 68, W - 4, 38, roof, 0.35);
+
+    // Tall central bell tower & steeple
+    paintStoneMasonry(grid, 64, 34, 42, 72, STONE_RAMP, 61);
+    fillTriangle(grid, [58, 36], [85, 6], [112, 36], (x, y) => toneOf(roof, 0.85 - (x - 58) * 0.012, x, y));
+    fillRect(grid, 84, 0, 2, 9, '#ffd23f');
+    fillRect(grid, 81, 3, 8, 2, '#ffd23f');
+    // Belfry arch with golden church bell
+    fillRect(grid, 75, 42, 20, 22, '#1c1726');
+    fillEllipse(grid, 85, 43, 10, 5, '#1c1726');
+    fillTriangle(grid, [79, 58], [85, 46], [91, 58], (x, y) => toneOf(['#8a6a12', '#c9961e', '#ffd23f', '#fff2a8'], 0.85 - (x - 79) * 0.06, x, y));
+    fillRect(grid, 78, 57, 14, 3, '#c9961e');
+    // Stained-glass rose window
+    fillEllipse(grid, 85, 82, 10, 10, STONE_RAMP[0]);
+    fillEllipse(grid, 85, 82, 8, 8, '#4aa0ff');
+    fillEllipse(grid, 85, 82, 5, 5, '#ff5a7a');
+    fillEllipse(grid, 85, 82, 2.5, 2.5, '#ffd23f');
+    fillRect(grid, 84, 73, 2, 18, STONE_RAMP[1]);
+    fillRect(grid, 76, 81, 18, 2, STONE_RAMP[1]);
+
+    // Stone nave facade & buttresses
+    paintStoneMasonry(grid, 4, 106, W - 8, H - 106, STONE_RAMP, 62);
+    for (const bx of [4, 52, 114, 166]) fillRect(grid, bx, 104, 6, H - 104, STONE_RAMP[2]);
+    fillRect(grid, 3, H - 8, W - 6, 8, STONE_RAMP[2]);
+    fillRect(grid, 3, H - 8, W - 6, 2, STONE_RAMP[4]);
+
+    // Stained-glass arched nave windows
+    for (const [wx, color] of [[15, '#4aa0ff'], [34, '#ff5a7a'], [126, '#b48cff'], [145, '#ffd23f']]) {
+      paintArchedWindow(grid, wx, 122, 13, 26, ['#1c1726', color, '#ffffff']);
+    }
+
+    // Grand arched double doors aligned to doorOf tiles 4 & 5 (cx = 80)
+    paintDoorway(grid, 82, H, { doubleDoor: true, style: 'stone' });
+    return sprite(grid, 0, H);
+  });
+}
+
+// Windmill: 8 x 8 tiles (128 x 128 footprint + roof & sails = 128 x 160)
+export function millSprite(house) {
+  const roofKey = house.roof || 'red';
+  return once('mill|' + roofKey, () => {
+    const W = 128;
+    const H = 160;
+    const grid = makeGrid(W, H);
+    const roof = ROOF_RAMPS[roofKey] || ROOF_RAMPS.red;
+
+    // Tapered round stone tower
+    for (let y = 54; y < H; y++) {
+      const half = Math.round(28 + ((y - 54) / (H - 54)) * 15);
+      for (let x = 64 - half; x < 64 + half; x++) {
+        const band = Math.floor(y / 6) % 2 ? 5 : 0;
+        const mortar = y % 6 === 5 || (x + band) % 10 === 9;
+        const shade = 0.78 - Math.abs(x - 54) / (half * 2.2) + randomOf(x, y, 63) * 0.08;
+        dot(grid, x, y, mortar ? STONE_RAMP[1] : toneOf(STONE_RAMP, shade, x, y));
+      }
+    }
+    paintBeam(grid, 28, 108, 72, 4); // wooden mill gallery belt
+    fillRect(grid, 20, H - 6, 88, 6, STONE_RAMP[2]);
+
+    // Conical shingled roof
+    fillTriangle(grid, [26, 56], [64, 20], [102, 56], (x, y) => toneOf(roof, 0.85 - (x - 26) * 0.008 - ((y % 4) * 0.06), x, y));
+    fillRect(grid, 63, 14, 2, 8, '#ffd23f');
+
+    // Upper window & door aligned to doorOf tile 4 (cx = 69)
+    paintArchedWindow(grid, 58, 78, 12, 14, ['#2a1c16', '#ffd36b', '#fff6d0']);
+    paintDoorway(grid, 68, H, { doubleDoor: false, style: 'stone' });
+    // Grain sacks beside door
+    fillBall(grid, 38, H - 6, 6, 5, ['#8a6a3a', '#c9a86a', '#e8d49a']);
+    fillBall(grid, 48, H - 5, 5, 4, ['#8a6a3a', '#c9a86a', '#e8d49a']);
+
+    // 4-arm diagonal wooden windmill sails centered on hub (64, 58)
+    const hubX = 64;
+    const hubY = 58;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      for (let t = 4; t <= 48; t++) {
+        const px = hubX + sx * t;
+        const py = hubY + sy * t;
+        fillRect(grid, px - 1, py - 1, 3, 3, WOOD.dark);
+        dot(grid, px, py, WOOD.light);
+        if (t >= 12 && t <= 44) {
+          for (let w = 2; w <= 10; w++) {
+            const cx = px - sy * w;
+            const cy = py + sx * w;
+            const color = t === 12 || t === 44 || t % 8 === 0 || w === 2 || w === 10 ? WOOD.base : '#f4ebd6';
+            dot(grid, cx, cy, color);
+            dot(grid, cx + sx, cy, color);
+          }
+        }
+      }
+    }
+    fillBall(grid, hubX, hubY, 5, 5, WOOD_RAMP);
+    return sprite(grid, 0, H);
+  });
+}
+
+// Royal Palace: 26 x 16 tiles (416 x 256 footprint + 24px spires = 416 x 280)
+export function palaceSprite(house) {
+  const roofKey = house.roof || 'red';
+  return once('palace|' + roofKey, () => {
+    const W = 416;
+    const H = 280;
+    const grid = makeGrid(W, H);
+    const roof = ROOF_RAMPS[roofKey] || ROOF_RAMPS.red;
+    const bannerColor = roof[3];
+
+    // Wing roofs behind battlements
+    paintTiledRoof(grid, 36, 62, 112, 42, roof, 0.35);
+    paintTiledRoof(grid, 268, 62, 112, 42, roof, 0.35);
+
+    // 4 flanking towers (outer left/right, inner left/right)
+    const towers = [
+      [8, 52, 46, 228, 18],
+      [130, 42, 38, 238, 12],
+      [248, 42, 38, 238, 12],
+      [362, 52, 46, 228, 18],
+    ];
+    for (const [tx, ty, tw, th, peakH] of towers) {
+      paintStoneMasonry(grid, tx, ty, tw, th, STONE_RAMP, 64);
+      fillTriangle(grid, [tx - 4, ty + 4], [tx + Math.floor(tw / 2), ty - peakH], [tx + tw + 4, ty + 4], (x, y) => toneOf(roof, 0.86 - (x - tx) * 0.015, x, y));
+      fillRect(grid, tx + Math.floor(tw / 2) - 1, ty - peakH - 12, 2, 12, '#ffd23f');
+      fillRect(grid, tx + Math.floor(tw / 2) + 1, ty - peakH - 11, 10, 6, bannerColor);
+      paintArchedWindow(grid, tx + Math.floor(tw / 2) - 6, ty + 32, 12, 18, ['#2f5f8f', '#8cc5ee', '#ffffff']);
+      paintArchedWindow(grid, tx + Math.floor(tw / 2) - 6, ty + 90, 12, 18, ['#2f5f8f', '#8cc5ee', '#ffffff']);
+    }
+
+    // Side wing walls & battlements
+    for (const [wx, ww] of [[54, 78], [284, 78]]) {
+      paintStoneMasonry(grid, wx, 96, ww, H - 96, STONE_RAMP, 65);
+      for (let x = wx; x < wx + ww; x += 10) fillRect(grid, x, 88, 6, 8, STONE_RAMP[4]);
+      for (const ox of [14, 48]) {
+        paintArchedWindow(grid, wx + ox, 118, 13, 20, ['#2f5f8f', '#8cc5ee', '#ffffff']);
+        paintArchedWindow(grid, wx + ox, 162, 13, 20, ['#2f5f8f', '#8cc5ee', '#ffffff']);
+      }
+    }
+
+    // Grand central throne hall
+    paintTiledRoof(grid, 144, 24, 128, 64, roof, 0.45);
+    paintStoneMasonry(grid, 152, 88, 112, H - 88, STONE_RAMP, 66);
+    fillRect(grid, 198, 92, 20, 12, '#ffd23f'); // royal crest
+    fillRect(grid, 202, 95, 12, 6, bannerColor);
+    for (const wx of [164, 200, 236]) paintArchedWindow(grid, wx, 120, 16, 28, ['#2f5f8f', '#8cc5ee', '#ffffff']);
+
+    // Lower colonnade & arched portico
+    fillRect(grid, 44, 204, 328, 72, STONE_RAMP[3]);
+    fillRect(grid, 44, 202, 328, 4, STONE_RAMP[5]);
+    for (let cx = 54; cx <= 354; cx += 24) {
+      if (Math.abs(cx - 208) < 28) continue;
+      fillRect(grid, cx + 8, 214, 12, 54, '#1c1726');
+      fillEllipse(grid, cx + 14, 215, 6, 4, '#1c1726');
+      fillRect(grid, cx, 206, 6, 66, STONE_RAMP[4]);
+      fillRect(grid, cx + 4, 206, 2, 66, STONE_RAMP[2]);
+    }
+    // Royal banners beside entrance
+    for (const bx of [166, 240]) {
+      fillRect(grid, bx, 208, 10, 34, bannerColor);
+      fillTriangle(grid, [bx, 242], [bx + 5, 250], [bx + 10, 242], () => bannerColor);
+      fillRect(grid, bx + 3, 214, 4, 16, '#ffd23f');
+    }
+
+    // Wide marble staircase & grand gilded double doors (centered on 208)
+    for (let step = 0; step < 3; step++) fillRect(grid, 174 - step * 4, H - 10 + step * 3, 68 + step * 8, 4, STONE_RAMP[4 - step]);
+    paintDoorway(grid, 208, H - 10, { doubleDoor: true, style: 'stone' });
+
+    return sprite(grid, 0, H);
+  });
+}
+
+// ---------- The camps of the bandits and the villages of the monsters ----------
+
+export function tent(isBig, look = 'bandit', w = null, h = null) {
+  const key = ['tent', Boolean(isBig), look, w || '', h || ''].join('|');
+  return once(key, () => {
+    const width = w ? (w <= 2 ? 48 : w * 16) : (isBig ? 160 : 96);
+    const height = h ? (h <= 2 ? 34 : h * 16) : (isBig ? 96 : 64);
+    const ax = w && w <= 2 ? Math.floor(width / 2) : 0;
+    const ay = w && w <= 2 ? height - 1 : height;
+    const grid = makeGrid(width, height);
+    const isMonster = look === 'monster';
+    const cloth = isMonster
+      ? ['#241918', '#382724', '#4e3732', '#664a42']
+      : isBig
+        ? ['#4e1218', '#701c24', '#942830', '#b83c42']
+        : ['#5e3e22', '#825832', '#a67242', '#c88e54'];
+
+    const topY = isBig ? 12 : 8;
+    const cx = Math.floor(width / 2);
+    // Main tent body
+    fillTriangle(grid, [2, height - 3], [cx, topY], [width - 3, height - 3], (x, y) => {
+      const stripe = !isMonster && !isBig && Math.abs(x - cx) < Math.max(4, Math.round(width * 0.08));
+      const shade = (x < cx ? 0.78 : 0.36) - ((y - topY) / height) * 0.14;
+      return stripe ? '#942830' : toneOf(cloth, shade, x, y);
+    });
+    if (isBig) {
+      fillTriangle(grid, [0, height - 3], [Math.round(width * 0.25), topY + 12], [Math.round(width * 0.4), height - 3], (x) => toneOf(cloth, 0.7, x, 0));
+      fillTriangle(grid, [width - 1, height - 3], [Math.round(width * 0.75), topY + 12], [Math.round(width * 0.6), height - 3], (x) => toneOf(cloth, 0.3, x, 0));
+    }
+
+    // Wooden ridge pole & corner stakes
+    fillRect(grid, cx - 1, 0, 2, topY + 4, WOOD.dark);
+    if (isMonster) {
+      for (const sx of [Math.round(width * 0.22), Math.round(width * 0.78)]) drawLine(grid, sx, topY + 16, sx + (sx < cx ? -8 : 8), topY + 4, '#d8d0c0');
+      fillEllipse(grid, cx, Math.round(height * 0.45), 4, 3, '#ece5d6'); // bone skull trophy
+      dot(grid, cx - 2, Math.round(height * 0.45), '#d0202a');
+      dot(grid, cx + 2, Math.round(height * 0.45), '#d0202a');
+    } else if (isBig) {
+      fillRect(grid, cx + 1, 0, 14, 7, '#d0202a');
+      fillRect(grid, cx + 3, 2, 8, 2, '#ffd23f');
+    }
+
+    const doorHalf = Math.max(6, Math.round(width * 0.12));
+    fillTriangle(grid, [cx - doorHalf, height - 1], [cx, Math.round(height * 0.46)], [cx + doorHalf, height - 1], () => '#161018');
+    fillRect(grid, 2, height - 4, 3, 4, WOOD.dark);
+    fillRect(grid, width - 5, height - 4, 3, 4, WOOD.dark);
+    return sprite(grid, ax, ay);
   });
 }
 
@@ -423,8 +646,10 @@ export function furniture(kind, color) {
 // ---------- The keeps of the castles: their front wall, and turrets on their corners ----------
 
 const KEEP_LOOKS = {
-  demon: { stone: ['#140a0e', '#24121a', '#341a24', '#46222e', '#58303c'], window: ['#ff6a2b', '#ffe066'], roof: '#1c0a10' },
-  ice: { stone: ['#4a6a98', '#5a7aa8', '#6c8cba', '#7f9fcb', '#9dbbe0'], window: ['#8fd6ff', '#e6f6ff'], roof: '#3a5a88' },
+  demon: { stone: ['#140a0e', '#24121a', '#341a24', '#46222e', '#58303c'], window: ['#ff6a2b', '#ffe066'], roof: ['#140a0e', '#24121a', '#341a24', '#46222e'], flag: '#d0202a' },
+  ice: { stone: ['#4a6a98', '#5a7aa8', '#6c8cba', '#7f9fcb', '#9dbbe0'], window: ['#8fd6ff', '#e6f6ff'], roof: ['#2a4a78', '#3a5a88', '#4f72a2', '#688ec0'], flag: '#ffd23f' },
+  wood: { stone: WOOD_RAMP, window: ['#ffd36b', '#fff6d0'], roof: ROOF_RAMPS.red, flag: '#3a7bff' },
+  stone: { stone: STONE_RAMP, window: ['#ffd36b', '#fff6d0'], roof: ROOF_RAMPS.blue, flag: '#ffd23f' },
 };
 
 // The front of a keep, `tiles` wide and 8 tiles high: bricks, buttresses, windows that glow, a big arched gate
@@ -459,15 +684,20 @@ export function keepFacade(look, tiles, frame) {
 
 // A round turret with a pointed roof and a flag.
 export function turret(look) {
-  return once('turret' + look, () => {
+  return once('turret|' + look, () => {
     const style = KEEP_LOOKS[look] || KEEP_LOOKS.demon;
     const grid = makeGrid(36, 76);
     for (let y = 22; y < 76; y++) for (let x = 3; x < 33; x++) dot(grid, x, y, toneOf(style.stone, 0.75 - Math.abs(x - 14) / 30 + randomOf(x, y, 67) * 0.08, x, y));
-    fillTriangle(grid, [0, 24], [18, 0], [36, 24], (x, y) => toneOf(style.stone, 0.85 - x / 60, x, y));
+    if (look === 'wood' || look === 'stone') {
+      for (let x = 2; x < 34; x += 6) fillRect(grid, x, 20, 4, 4, style.stone[4]); // battlements
+      fillRect(grid, 2, 24, 32, 2, style.stone[1]);
+    }
+    fillTriangle(grid, [0, 24], [18, 0], [36, 24], (x, y) => toneOf(style.roof, 0.85 - x / 60, x, y));
     fillRect(grid, 17, 0, 2, 6, '#2a1f2e');
-    fillRect(grid, 19, 0, 8, 4, look === 'ice' ? '#ffd23f' : '#d0202a');
+    fillRect(grid, 19, 0, 8, 4, style.flag);
     fillRect(grid, 14, 36, 6, 10, '#0d0b14');
     fillRect(grid, 15, 38, 4, 7, style.window[0]);
-    return sprite(grid, 0, 76, '#000000');
+    const outlineColor = look === 'wood' || look === 'stone' ? OUTLINE : '#000000';
+    return sprite(grid, 0, 76, outlineColor);
   });
 }

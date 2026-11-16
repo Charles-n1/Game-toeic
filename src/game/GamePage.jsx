@@ -72,7 +72,9 @@ export default function GamePage({ questions, stats, history, goalRate, onAnswer
   }
 
   function play(slotNumber) {
-    setGame(loadGame(slotNumber));
+    const loaded = loadGame(slotNumber);
+    if (!loaded) return;
+    setGame(loaded);
     setScreen('play');
   }
 
@@ -82,8 +84,8 @@ export default function GamePage({ questions, stats, history, goalRate, onAnswer
   }
 
   // hero: { name, body, style, hair, outfit }
-  function start(goalId, score, hero) {
-    const created = newGame(goalId, score, stats, hero, slot);
+  function start(goalId, score, hero, customWeights = null) {
+    const created = newGame(goalId, score, stats, hero, slot, customWeights);
     saveGame(created); // the slot is taken at once
     setGame(created);
     setScreen('play');

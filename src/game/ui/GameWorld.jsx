@@ -7,7 +7,7 @@ import ShopScreen from './ShopScreen';
 import MenuScreen from './menu/MenuScreen';
 import GameOver from './GameOver';
 import { drawScene } from '../draw/scene';
-import { makeInput, releaseAll, ACTION_KEYS } from '../logic/input';
+import { makeInput, releaseAll, normalizeKey, ACTION_KEYS } from '../logic/input';
 import { updateGame, updateEffects, act } from '../logic/update';
 import { saveGame } from '../logic/save';
 import { takeCues } from '../logic/cues';
@@ -63,29 +63,36 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
   }
 
   function listenToKeyboard() {
+    const clearKeys = () => releaseAll(input);
     window.addEventListener('keydown', keyDown);
     window.addEventListener('keyup', keyUp);
+    window.addEventListener('blur', clearKeys);
     return () => {
       window.removeEventListener('keydown', keyDown);
       window.removeEventListener('keyup', keyUp);
+      window.removeEventListener('blur', clearKeys);
     };
   }
 
   function keyDown(event) {
+    const key = normalizeKey(event.key);
     const current = game.run.screen;
     if (current === 'play') {
-      if (event.key.startsWith('Arrow') || event.key === ' ') event.preventDefault(); // no page scrolling
-      input.keys[event.key] = true;
-      if (ACTION_KEYS.includes(event.key) && !event.repeat) doAction();
-      if (SHORTCUTS[event.key.toLowerCase()]) openMenu(SHORTCUTS[event.key.toLowerCase()]);
-      if (event.key === 'Escape') openMenu(null);
-    } else if ((current === 'menu' || current === 'shop') && event.key === 'Escape') {
+      if (key.startsWith('Arrow') || key === ' ') event.preventDefault(); // no page scrolling
+      input.keys[key] = true;
+      input.keys.Shift = Boolean(event.shiftKey);
+      if (ACTION_KEYS.includes(key) && !event.repeat) doAction();
+      if (SHORTCUTS[key]) openMenu(SHORTCUTS[key]);
+      if (key === 'Escape') openMenu(null);
+    } else if ((current === 'menu' || current === 'shop') && key === 'Escape') {
       close();
     }
   }
 
   function keyUp(event) {
-    input.keys[event.key] = false;
+    const key = normalizeKey(event.key);
+    input.keys[key] = false;
+    input.keys.Shift = Boolean(event.shiftKey);
   }
 
   function doAction() {

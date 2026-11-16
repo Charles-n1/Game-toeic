@@ -1,12 +1,16 @@
 import PixelIcon from '../PixelIcon';
 import { ITEMS } from '../../data/items';
 import { npcOf } from '../../data/npcs';
-import { usePotion, canUsePotion, countItem } from '../../logic/player';
+import { usePotion, canUsePotion, countItem, equipFromBag } from '../../logic/player';
 import { sendHome } from '../../logic/people';
 import { drink, eat, canEat, BOTTLE_SIZE } from '../../logic/survival';
 import { placeFurniture, isAtHome } from '../../logic/home';
 import { refreshWorld } from '../../logic/worldState';
 import { TORCH_RECIPE, TORCH_HOURS, canCraftTorch, craftTorch, canLightTorch, lightAtFire, lightWithFlint, hasLight } from '../../logic/torch';
+import { isNearCamp, canSetCamp, setCampHere, openCampMenu, packCamp, companionFatigue, hasAutoHeater } from '../../logic/camp';
+import { companionRank } from '../../logic/bonds/training';
+import { ensureSociety } from '../../logic/society/state';
+import { interactMountedHorse, interactParkedHorse } from '../../logic/society/horses';
 
 // The torch: what it needs, and the buttons to make it and to light it.
 function TorchCraft({ game, refresh }) {
@@ -53,13 +57,25 @@ function TorchCraft({ game, refresh }) {
 
 // What an item does, in a few words.
 export function describe(item) {
-  if (item.kind === 'weapon') return 'Attack +' + item.power;
-  if (item.kind === 'armor') return 'Armor +' + item.defense;
-  if (item.kind === 'boots') return 'Speed +' + item.speed + ' (more time to answer)';
-  return item.text || '';
+  if (item.text) return item.text;
+  if (item.kind === 'weapon') return 'Attack +' + (item.power || 0);
+  if (item.kind === 'armor') return 'Armor +' + (item.defense || 0);
+  if (item.kind === 'boots') return 'Speed +' + (item.speed || 0) + ' (more time to answer)';
+  return '';
 }
 
-function EquipmentSlot({ itemId }) {
+function EquipmentSlot({ label, itemId }) {
+  if (!itemId || !ITEMS[itemId]) {
+    return (
+      <div className="line">
+        <PixelIcon name="ring" size={28} />
+        <div className="grow">
+          <span>{label}: none</span>
+          <span className="small">Find or buy {label.toLowerCase()} gear across kingdoms.</span>
+        </div>
+      </div>
+    );
+  }
   const item = ITEMS[itemId];
   return (
     <div className="line">
@@ -108,13 +124,23 @@ function ItemButton({ game, itemId, refresh }) {
       </button>
     );
   }
+  if (['weapon', 'armor', 'boots', 'accessory'].includes(item.kind)) {
+    return (
+      <button className="px-button px-gold" onClick={() => run(() => equipFromBag(game.player, itemId))}>
+        Equip
+      </button>
+    );
+  }
   return null;
 }
 
-// The equipment, the bag, and the friends who fight with the hero.
+// The equipment, camp/horse controls, the bag, and the friends who fight with the hero.
 export default function InventoryPanel({ game, refresh }) {
   const player = game.player;
   const itemIds = Object.keys(player.bag);
+  const society = ensureSociety(game);
+  const nearCamp = isNearCamp(game);
+  const campReady = canSetCamp(game);
 
   function useItem(action) {
     action();
@@ -129,9 +155,53 @@ export default function InventoryPanel({ game, refresh }) {
   return (
     <>
       <span className="section">Equipment</span>
-      <EquipmentSlot itemId={player.weapon} />
-      <EquipmentSlot itemId={player.armor} />
-      <EquipmentSlot itemId={player.boots} />
+      <EquipmentSlot label="Weapon" itemId={player.weapon} />
+      <EquipmentSlot label="Armor" itemId={player.armor} />
+      <EquipmentSlot label="Boots" itemId={player.boots} />
+      <EquipmentSlot label="Accessory" itemId={player.accessory} />
+
+      <span className="section">Camp &amp; Travel</span>
+      <div className="line">
+        <PixelIcon name="fire" size={28} />
+        <div className="grow">
+          <span>Field Camp {hasAutoHeater(game) ? '· Auto-Heater Active' : ''}</span>
+          <span className="small">
+            {nearCamp ? 'Camp pitched nearby: cook meals, warm up, or sleep.' : campReady ? 'Pitch a camp in the wild to cook and rest.' : 'Move outside a town square to pitch a camp.'}
+          </span>
+        </div>
+        {nearCamp ? (
+          <>
+            <button className="px-button px-gold" onClick={() => useItem(() => openCampMenu(game))}>
+              Open Camp
+            </button>
+            <button className="px-button" onClick={() => useItem(() => packCamp(game))}>
+              Pack
+            </button>
+          </>
+        ) : (
+          <button className="px-button" disabled={!campReady} onClick={() => useItem(() => setCampHere(game))}>
+            Set Camp
+          </button>
+        )}
+      </div>
+
+      {(society.riding?.active || society.parkedHorse) && (
+        <div className="line">
+          <PixelIcon name="horseFeed" size={28} />
+          <div className="grow">
+            <span>{society.riding?.active ? 'Mounted Horse' : 'Waiting Horse'}</span>
+            <span className="small">
+              Hunger {Math.round((society.riding?.active ? society.riding.hunger : society.parkedHorse?.hunger) || 0)} / 100
+            </span>
+          </div>
+          <button
+            className="px-button"
+            onClick={() => useItem(() => (society.riding?.active ? interactMountedHorse(game) : interactParkedHorse(game)))}
+          >
+            Horse Menu
+          </button>
+        </div>
+      )}
 
       <span className="section">Water</span>
       <div className="line">
@@ -168,7 +238,12 @@ export default function InventoryPanel({ game, refresh }) {
       {player.party.map((npcId) => (
         <div key={npcId} className="line">
           <PixelIcon name="woodSword" size={28} />
-          <span className="grow">{npcOf(npcId).name} · Attack +10</span>
+          <div className="grow">
+            <span>{npcOf(npcId).name}</span>
+            <span className="small">
+              Rank {companionRank(game, npcId)}/4 · Fatigue {Math.round(companionFatigue(game, npcId))}%
+            </span>
+          </div>
           <button className="px-button" onClick={() => dismiss(npcId)}>
             Send home
           </button>

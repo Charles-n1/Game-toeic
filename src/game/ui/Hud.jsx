@@ -13,6 +13,8 @@ import { daysBeforeRaid } from '../logic/raid';
 import { currentChapter } from '../logic/chapters';
 import { actionIcon } from '../logic/update';
 import { hasLight } from '../logic/torch';
+import { isNearCamp } from '../logic/camp';
+import { isVillain, ensureSociety } from '../logic/society/state';
 
 const WEATHER_SIGNS = { cloudy: '☁', rain: '🌧', storm: '⛈' };
 
@@ -65,7 +67,7 @@ function Objective({ game }) {
 // Everything drawn on top of the world: the hero, the goal, the map, the clock, the buttons.
 // onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
 // What the action key does now, in a word (for the keyboard help).
-const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', dots: '...' };
+const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', star: 'Pray', shield: 'Build', quests: 'Board', sword: 'Fight', flower: 'Plant', horseFeed: 'Ride', heart: 'Help', dots: '...' };
 
 // The help of the keyboard, on a computer (instead of the joystick and the big buttons).
 function KeyHelp({ game }) {
@@ -111,6 +113,7 @@ function TouchControls({ game, input, onAction, onMenu }) {
 export default function Hud({ game, input, onAction, onMenu }) {
   const raid = raidText(game);
   const zone = zoneAt(game.player.x, game.player.y);
+  const society = ensureSociety(game);
   const screen = useScreen();
   const showTouch = screen.touch || !screen.wide;
 
@@ -132,6 +135,16 @@ export default function Hud({ game, input, onAction, onMenu }) {
           </span>
           {raid && <span style={styles.raid}>{raid}</span>}
           {lightText(game) && <span style={styles.light}>{lightText(game)}</span>}
+          {society.disaster && (
+            <span style={styles.raid}>{society.disaster.kind === 'tsunami' ? '🌊 TSUNAMI!' : '🌪 TORNADO!'}</span>
+          )}
+          {society.riding?.active && (
+            <span style={society.riding.hunger >= 75 ? styles.raid : styles.light}>
+              {society.riding.hunger >= 75 ? '🐴 Feed horse!' : '🐴 Mounted'}
+            </span>
+          )}
+          {isVillain(game) && <span style={styles.raid}>☠ Villain</span>}
+          {isNearCamp(game) && <span style={styles.light}>⛺ Camp</span>}
         </div>
       </div>
 
