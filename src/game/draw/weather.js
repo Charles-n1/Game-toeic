@@ -2,10 +2,12 @@ import { zoneAt } from '../data/zones';
 import { biomeAt } from '../world/map';
 import { darkness } from '../logic/clock';
 import { TILE_PX } from './tiles';
+import { drawStarShower } from './isekaiArt';
 
 // The effects of the sky and of the places, painted over the world (in the buffer, see scene.js):
 // the rain, the lightning of the storms, the snow of the mountains, the leaves of the forests,
-// the embers of the demon island. They only depend on the time: nothing to remember.
+// the embers of the demon island, the shadows of the clouds, the gusts of a strong wind.
+// They only depend on the time: nothing to remember.
 
 const T = TILE_PX;
 
@@ -145,6 +147,38 @@ function drawBirds(ctx, width, height, time) {
   }
 }
 
+// The shadows of the clouds, gliding slowly over the land. They belong to the world (not to the screen):
+// they stay on the ground when the hero walks. A pattern of CLOUD_SPAN pixels repeats everywhere.
+const CLOUD_SPAN = 1100;
+
+function drawCloudShadows(ctx, view, time, strength) {
+  ctx.fillStyle = 'rgba(10, 20, 40, ' + strength + ')';
+  for (let i = 0; i < 6; i++) {
+    const worldX = fixed(i, 51) * CLOUD_SPAN + time * 9;
+    const worldY = fixed(i, 52) * CLOUD_SPAN + time * 2;
+    const x = ((((worldX - view.x) % CLOUD_SPAN) + CLOUD_SPAN) % CLOUD_SPAN) - 160;
+    const y = ((((worldY - view.y) % CLOUD_SPAN) + CLOUD_SPAN) % CLOUD_SPAN) - 120;
+    const w = 90 + fixed(i, 53) * 90;
+    const h = 30 + fixed(i, 54) * 26;
+    ctx.beginPath();
+    ctx.ellipse(Math.round(x), Math.round(y), w, h, 0, 0, Math.PI * 2);
+    ctx.ellipse(Math.round(x + w * 0.5), Math.round(y + 8), w * 0.6, h * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// A strong wind: long white streaks, fast, from the left to the right.
+function drawWindGusts(ctx, width, height, time) {
+  for (let i = 0; i < 14; i++) {
+    const life = (time * (0.9 + fixed(i, 61) * 0.6) + fixed(i, 62)) % 1;
+    const x = Math.round(life * (width + 120) - 60);
+    const y = Math.round(fixed(i, 63) * height + Math.sin(time * 3 + i) * 4);
+    const length = 10 + Math.round(fixed(i, 64) * 22);
+    ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.45 * Math.sin(life * Math.PI)).toFixed(2) + ')';
+    ctx.fillRect(x, y, length, 1);
+  }
+}
+
 export function drawWeather(ctx, game, view, time) {
   const zone = zoneAt(game.player.x, game.player.y);
   if (zone.kind === 'inside') return;
@@ -153,6 +187,7 @@ export function drawWeather(ctx, game, view, time) {
   const biome = biomeAt(game.player.x, game.player.y);
   const kind = game.weather.kind;
   const dark = darknessHere(game);
+  if ((kind === 'clear' || kind === 'cloudy') && dark < 0.4) drawCloudShadows(ctx, view, time, kind === 'cloudy' ? 0.12 : 0.07);
   if (biome === 'demon') drawEmbers(ctx, width, height, time);
   if (biome === 'mountain' && kind !== 'clear') drawSnow(ctx, width, height, time);
   else if (kind === 'rain') drawRain(ctx, width, height, time, 90);
@@ -161,5 +196,7 @@ export function drawWeather(ctx, game, view, time) {
   if (dark < 0.35 && kind === 'clear' && biome !== 'demon' && biome !== 'mountain') drawButterflies(ctx, width, height, time);
   if (kind !== 'storm' && dark < 0.45) drawBirds(ctx, width, height, time);
   drawFireflies(ctx, game, width, height, time);
+  if (game.weather.windy) drawWindGusts(ctx, width, height, time);
+  drawStarShower(ctx, game, width, height, time);
   drawBolts(ctx, game, view);
 }

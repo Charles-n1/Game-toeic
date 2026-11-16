@@ -1,10 +1,12 @@
 import { darkness } from '../logic/clock';
+import { bloodMoonTint } from './isekaiArt';
 
 // The light of the world: the night falls, the lamps glow, the sunset turns everything orange,
 // and during a raid the burning village lights the sky in red.
 // lights: [{ x, y, radius, warm }] in pixels of the screen buffer.
 
 const lightMap = document.createElement('canvas');
+const NIGHT_STRENGTH = 0.84; // how black the darkest night is (1 = nothing can be seen without a light)
 
 // 0 = no sunset, 1 = the most orange moment (19:00). The morning has a softer pink one.
 function sunsetAmount(hour) {
@@ -18,7 +20,7 @@ function paintNight(ctx, width, height, dark, lights) {
   lightMap.width = width;
   lightMap.height = height;
   const map = lightMap.getContext('2d');
-  map.fillStyle = 'rgba(8, 10, 40, ' + 0.9 * dark + ')'; // without light, almost nothing can be seen
+  map.fillStyle = 'rgba(8, 10, 40, ' + NIGHT_STRENGTH * dark + ')'; // without light, very little can be seen
   map.fillRect(0, 0, width, height);
   map.globalCompositeOperation = 'destination-out';
   for (const light of lights) {
@@ -56,6 +58,7 @@ export function drawLights(ctx, game, width, height, lights, dark = darkness(gam
   const sunset = sunsetAmount(game.hour);
   if (sunset > 0) paintTint(ctx, width, height, 'rgba(255, 120, 50, ' + 0.16 * sunset + ')');
   if (game.raid.active) paintTint(ctx, width, height, 'rgba(255, 60, 20, 0.24)');
+  if (bloodMoonTint(game)) paintTint(ctx, width, height, bloodMoonTint(game));
   if (dark > 0) {
     paintNight(ctx, width, height, dark, lights);
     paintGlows(ctx, lights, dark);

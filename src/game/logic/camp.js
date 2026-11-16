@@ -28,22 +28,17 @@ import {
   describeBoosts,
 } from './camp/recipes';
 import { TASTES, characterDishOpinion } from './camp/tastes';
+import { frontTile } from './input';
 
 // Camping in the wild: pitching camp, firewood vs Magic Auto-Heater, cooking pot recipes
 // (with timed stat boosts), dried meat, character tastes, and companion fatigue.
 
 const CAMP_RANGE = 2.5;
-const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const PEDDLER_GOODS = ['firewood', 'driedMeat', 'wheatSeed', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil', 'autoHeater'];
 const TIRED_WARNING = 75;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-function frontTileOf(player) {
-  const [dx, dy] = FRONT[player.dir] || [0, 1];
-  return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
 }
 
 // ---------- Saved state & defaults ----------
@@ -563,7 +558,7 @@ export function openCampMenu(game) {
 }
 
 function offerWildCampOrDig(game) {
-  const front = frontTileOf(game.player);
+  const front = frontTile(game.player);
   say(game, null, ['Clear wilderness ground. What would you like to do?'], [
     { label: 'Set up camp here', icon: 'fire', run: () => { if (setCampHere(game)) openCampMenu(game); } },
     { label: 'Dig the ground here', icon: 'dig', run: () => dig(game, front.x, front.y) },
@@ -642,7 +637,7 @@ export function newDayCamp(game) {
 
 function shouldYieldToWorldAction(game) {
   const player = game.player;
-  const front = frontTileOf(player);
+  const front = frontTile(player);
   if (PORTS.some((port) => Math.hypot(port.x - player.x, port.y - player.y) < 3)) return true;
   if (fireToCookNear(game) || obeliskNear(game)) return true;
   if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return true;
@@ -660,7 +655,7 @@ export function actionsOfCamp(game) {
     const dist = Math.hypot(game.player.x - camp.x, game.player.y - camp.y);
     if (dist <= 1.6) return true;
     if (dist > CAMP_RANGE) return false;
-    const front = frontTileOf(game.player);
+    const front = frontTile(game.player);
     return !canGather(game, front.x, front.y) && !canRefill(game, front);
   };
   return [

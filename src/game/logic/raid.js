@@ -18,7 +18,7 @@ const BITE_SECONDS = 6; // how long a monster must stay on a villager to kill th
 const ELDERMOOR = villageOf('lexia');
 const GATES = ELDERMOOR.plan.gates.map((gate) => ({ x: gate.x + (gate.dx === 0 ? 1 : 0.5) + gate.dx * 2, y: gate.y + (gate.dy === 0 ? 1 : 0.5) + gate.dy * 2 }));
 // The monsters of the 1st raid, of the 2nd... (the last list is used for all the next ones).
-const WAVES = [['wolf', 'goblin'], ['wolf', 'orc'], ['orc', 'skeleton'], ['orc', 'drake'], ['darkKnight', 'shadowMage']];
+const WAVES = [['wolf', 'goblin'], ['wolf', 'orc'], ['orc', 'skeleton'], ['orc', 'drake'], ['darkKnight', 'shadowMage'], ['demonSoldier', 'demonArcher'], ['darkPaladin', 'succubus']];
 
 function raiders(game) {
   return game.run.monsters.filter((monster) => monster.raid);

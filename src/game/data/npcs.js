@@ -362,6 +362,44 @@ export const NPCS = [
     ],
   },
 
+  // ---------- The classmates: two people of the exam room, who left our world the same day as the hero ----------
+  // classmate: 'summoned' (called by a kingdom, like the hero) or 'reborn' (born again here, as a baby).
+  // recognize: what they say the first time the hero tells them "I know you" (see logic/isekai/classmates.js).
+  {
+    id: 'lea', name: 'Lea', role: 'Hero summoned by Queen Sera', at: ['capital-lexia', 'palace'], classmate: 'summoned', fighter: true, fee: 300, romance: true, likes: ['gem', 'starShard'],
+    bonds: { hugo: 'friend', lyra: 'rival' },
+    look: { skin: '#fbe0cc', hair: '#e8d27a', style: 'pony', eyes: '#3a7bd8', outfit: '#e8ecf5', trim: '#e8b83a' },
+    hello: ['The Queen calls me "the True Hero". I call myself late for my exam.', 'Do you also see a little window with your stats? No? Only me, then.', 'Train. The Demon King will not wait for us.'],
+    recognize: [
+      'You...! The one who always sat by the window!',
+      'So the truck took you too. I woke up in a circle of candles, in this palace. I thought I was alone.',
+      'Do not tell the Queen we know each other. She thinks the goddess sent me as a gift.',
+    ],
+    life: [
+      'I was in the bus behind you. The same truck... and then a voice, and a light.',
+      'They gave me a "cheat skill": Holy Sword. It only works when my sentences are perfect. So, not often.',
+      'At school I never talked to you. Here, you are the only one who knows my real name.',
+      'If we go home one day... we go together. Promise me.',
+    ],
+  },
+  {
+    id: 'hugo', name: 'Hugo', role: 'Innkeeper of Riverford, reborn', at: ['riverford', 'inn'], classmate: 'reborn', shop: 'otherworld', likes: ['carrot', 'bread'],
+    bonds: { lea: 'friend' },
+    look: { skin: '#e9b98f', hair: '#4a3a2a', style: 'short', eyes: '#3b8a4a', outfit: '#7a5a3a', trim: '#f0d080' },
+    hello: ['Try the curry. Nobody here knew what a curry was. Now there is a queue.', 'Mayonnaise made me rich. Do not tell anybody it is only eggs and oil.', 'Seventeen years in this world, and I still dream in my old language.'],
+    recognize: [
+      '...That face. The exam room. Room 204!',
+      'I lent you a pencil that morning. Seventeen years ago... for me. I was born here, a baby who remembered everything.',
+      'Sit down. The first curry is free, classmate.',
+    ],
+    life: [
+      'Being a baby with the mind of a student is the worst. I could not even complain properly.',
+      'You sat two rows in front of me. You fell asleep on your desk before the listening part.',
+      'My mother here is a fisherwoman. She does not know. I love her. Is that strange?',
+      'I do not want to go back. Here, my life has a taste. Do not tell Lea.',
+    ],
+  },
+
 ];
 
 // Where each person stands: in front of the door of their house, at the gate, at their lonely home.

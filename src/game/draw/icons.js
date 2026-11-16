@@ -182,6 +182,14 @@ const ICONS = {
   mysteryCrate: [CHEST, { D: '#5a2d7a', W: '#ffd23f' }],
   mysteryRelic: [CHEST, { D: '#b82a3a', W: '#fff3b0' }],
   warHorn: [MUG, { W: '#ffd23f', Y: '#c48c52' }],
+  // the isekai things (data/items/isekai.js)
+  whisperRing: [RING, { G: '#8a3cff', L: '#d8b4f8', Y: '#5a4a6e' }],
+  hungryAmulet: [ORB, { B: '#8a1f3f', W: '#ff8ca8' }],
+  crownOfThorns: [HAT, { M: '#3a2f4b', Y: '#8a3cff' }],
+  starShard: [GEM, { C: '#fff2a0', L: '#ffffff' }],
+  mayonnaise: [JAR, { Y: '#fff2c0', W: '#ffffff' }],
+  ramen: [BOWL, { C: '#f2d28a', B: '#e8423f' }],
+  curryRice: [BOWL, { C: '#c9852a', B: '#f4ead8' }],
 
   // ---------- The grammar types ----------
   gerunds: [FLOWER, { P: '#ff6fb5', N: '#4caf50' }],
@@ -229,6 +237,7 @@ const ICONS = {
   heart: [HEART, {}],
   sword: [SWORD, blade('#9aa6b8', '#e8eef7')],
   flame: [FLAME, {}],
+  bath: [DROP, { B: '#5fd3e8' }],
 
   // ---------- The world map ----------
   town: [TOWN, { R: '#e8423f', N: '#7a4a24' }],

@@ -45,11 +45,12 @@ export const ROLES = {
   lodge: { size: 'shop', sign: 'meat', name: 'Hunting lodge' },
   mill: { size: 'mill', sign: null, name: 'Windmill' },
   palace: { size: 'palace', sign: null, name: 'Palace' },
+  arena: { size: 'hall', sign: 'sword', name: 'Arena' },
 };
 
 // What each kind of village has, besides its houses (in this order: the first ones are closest to the square).
 export const VILLAGE_NEEDS = {
-  capital: ['church', 'market', 'inn', 'clinic', 'guild', 'forge', 'bakery', 'potions', 'barracks', 'stable', 'library', 'weaver', 'barracks', 'inn'],
+  capital: ['church', 'market', 'arena', 'inn', 'clinic', 'guild', 'forge', 'bakery', 'potions', 'barracks', 'stable', 'library', 'weaver', 'barracks', 'inn'],
   town: ['church', 'inn', 'market', 'clinic', 'forge', 'barracks', 'bakery', 'stable'],
   village: ['inn', 'clinic', 'forge', 'bakery'],
   hamlet: [],

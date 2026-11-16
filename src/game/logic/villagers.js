@@ -21,6 +21,8 @@ const ADULTS_SHOWN = { capital: 26, town: 16, village: 11, hamlet: 6, farm: 10 }
 const KIDS_SHOWN = { capital: 6, town: 5, village: 4, hamlet: 2, farm: 3 };
 const WORK_START = 7;
 const WORK_END = 18;
+const EVENING_END = 21; // after work, many stay on the square until then: they talk, the kids play
+const EVENING_CHANCE = 0.6;
 const KNIGHT_LOOK = { outfit: '#9aa6b8', pants: '#5d6676', boots: '#3a3442', helmet: true, sword: true };
 
 // ---------- Who lives there ----------
@@ -179,7 +181,19 @@ function isWorkTime(game) {
   return !isNight(game) && game.hour >= WORK_START && game.hour < WORK_END;
 }
 
-// The day of a villager: work from 7 to 18, home at night (they are inside then: not drawn).
+function isEvening(game) {
+  return game.hour >= WORK_END && game.hour < EVENING_END;
+}
+
+// The work is over: home... or first the square, to see the others (the evening of the village).
+function endOfWork(game, villager) {
+  const village = villageOf(villager.village);
+  const goesOut = isEvening(game) && village.plan.square && Math.random() < EVENING_CHANCE;
+  villager.task = goesOut ? 'toSquare' : 'toHome';
+  goTo(villager, goesOut ? randomTileIn(village.plan.square) : villager.home);
+}
+
+// The day of a villager: work from 7 to 18, the square in the evening, home at night (inside: not drawn).
 // A knight keeps guarding at night. A village under attack: see logic/defense.js.
 function updateVillager(game, villager, dt) {
   if (villager.ko || villager.dead || villager.fighting) return;
@@ -189,17 +203,19 @@ function updateVillager(game, villager, dt) {
     villager.task = 'toWork';
     goTo(villager, workSpotOf(villager));
   } else if (villager.task === 'work' && !isOnDuty) {
+    endOfWork(game, villager);
+  } else if (villager.task === 'evening' && (villager.wait <= 0 || !isEvening(game))) {
     villager.task = 'toHome';
     goTo(villager, villager.home);
   } else if (villager.task === 'work' && villager.wait <= 0) {
     villager.task = 'toWork'; // a new tree, a new rock, another gate...
     goTo(villager, workSpotOf(villager));
   }
-  if (villager.task === 'toWork' || villager.task === 'toHome') {
+  if (['toWork', 'toSquare', 'toHome'].includes(villager.task)) {
     const speed = villager.kid ? 1.8 : villager.drunk > 0 ? 0.9 : 1.4;
     if (followPath(villager, speed, dt)) {
-      villager.task = villager.task === 'toWork' ? 'work' : 'home';
-      villager.wait = 12 + Math.random() * 25;
+      villager.task = { toWork: 'work', toSquare: 'evening', toHome: 'home' }[villager.task];
+      villager.wait = villager.task === 'evening' ? 60 + Math.random() * 60 : 12 + Math.random() * 25;
       villager.working = villager.task === 'work';
     }
   }

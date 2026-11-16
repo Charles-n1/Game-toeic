@@ -1,7 +1,7 @@
 import { GROUND_TEXT, BIOME_TEXT, FOREST_TEXT, ROAD_TEXT } from './terrain';
 import { CELLS } from './size';
 
-// What the painting (art/MAP.png) says about each of its cells, read from world/terrain.js
+// What the painting (art/MAP2.png) says about each of its cells, read from world/terrain.js
 // (made by tools/build_world.py). A cell = 10 x 10 tiles of the game.
 //   ground: 'water' | 'grass' | 'sand' | 'snow' | 'ash' | 'lava' | 'cliff'   (the big shapes)
 //   biome: 'meadow' | 'forest' | 'mountain' | 'demon' | 'desert' | 'coast'    (the land)

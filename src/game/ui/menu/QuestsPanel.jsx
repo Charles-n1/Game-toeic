@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Bar from '../Bar';
 import Portrait from '../Portrait';
 import PixelIcon from '../PixelIcon';
+import DiaryTab from './DiaryTab';
 import { VILLAGES, VILLAGE_LEVELS, villageOf } from '../../data/zones';
 import { NPCS, npcOf } from '../../data/npcs';
 import { questOf } from '../../data/quests';
@@ -183,6 +184,7 @@ export default function QuestsPanel({ game }) {
     { id: 'focus', icon: '🎯', label: 'Focus' },
     { id: 'villages', icon: '🏰', label: 'Towns', count: VILLAGES.length },
     { id: 'people', icon: '♥', label: 'Bonds', count: met.length },
+    { id: 'diary', icon: '📖', label: 'Diary' },
   ];
 
   return (
@@ -336,6 +338,8 @@ export default function QuestsPanel({ game }) {
           </div>
         </>
       )}
+
+      {tab === 'diary' && <DiaryTab game={game} />}
 
       {tab === 'people' && (
         <>

@@ -36,6 +36,14 @@ export function isRunning(input) {
   return Boolean(input.keys.Shift || input.keys.ShiftLeft || input.keys.ShiftRight) || Math.hypot(input.padX, input.padY) > 0.92;
 }
 
+const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+// The tile just in front of someone (the hero): where the action button acts.
+export function frontTile(player) {
+  const [dx, dy] = FRONT[player.dir] || FRONT.down;
+  return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
+}
+
 // The direction to look at, to go by (dx, dy): 'up' | 'down' | 'left' | 'right'.
 export function facingOf(dx, dy) {
   if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';

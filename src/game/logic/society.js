@@ -7,6 +7,7 @@ import { canGather } from './torch';
 import { canRefill, fireToCookNear } from './survival';
 import { wordDoorAt, obeliskNear, boulderPuzzleAt } from './puzzles';
 import { isSoil, chestNear } from './farm';
+import { frontTile } from './input';
 import {
   firstSociety,
   ensureSociety,
@@ -60,7 +61,6 @@ import {
 // village feasts, bandit bounties, decorating a town, turrets, statues/totems, and rare climate disasters.
 // The main loop calls firstSociety, updateSociety, slowSociety, newDaySociety, and actionsOfSociety.
 
-const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 export {
   firstSociety,
@@ -73,11 +73,6 @@ export {
   onFightEndSociety,
   triggerDisaster,
 };
-
-function frontTile(player) {
-  const [dx, dy] = FRONT[player.dir] || [0, 1];
-  return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
-}
 
 function propNear(player, kinds, range) {
   return propsAround(player.x, player.y, range).find((prop) => kinds.includes(prop.kind)) || null;

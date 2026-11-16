@@ -13,6 +13,8 @@ import { daysBeforeRaid } from '../logic/raid';
 import { currentChapter } from '../logic/chapters';
 import { actionIcon } from '../logic/update';
 import { hasLight, torchTimeLeft, toggleTorch } from '../logic/torch';
+import { eventTitle } from '../logic/isekai/events';
+import { isCursed } from '../logic/isekai/curses';
 import { isNearCamp } from '../logic/camp';
 import { isVillain, ensureSociety } from '../logic/society/state';
 
@@ -84,7 +86,7 @@ function Objective({ game, compact }) {
 // Everything drawn on top of the world: the hero, the goal, the map, the clock, the buttons.
 // onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
 // What the action key does now, in a word (for the keyboard help).
-const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', star: 'Pray', shield: 'Build', quests: 'Board', sword: 'Fight', flower: 'Plant', horseFeed: 'Ride', heart: 'Help', dots: '...' };
+const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', star: 'Pray', shield: 'Build', quests: 'Board', sword: 'Fight', flower: 'Plant', horseFeed: 'Ride', heart: 'Help', bath: 'Bathe', starShard: 'Take', dots: '...' };
 
 // The help of the keyboard, on a computer (instead of the joystick and the big buttons).
 function KeyHelp({ game }) {
@@ -152,6 +154,8 @@ export default function Hud({ game, input, onAction, onMenu }) {
           </span>
           {raid && <span style={styles.raid}>{raid}</span>}
           <TorchButton game={game} />
+          {eventTitle(game) && <span style={styles.event}>{eventTitle(game)}</span>}
+          {isCursed(game) && <span style={styles.curse}>💀 Cursed</span>}
           {society.disaster && (
             <span style={styles.raid}>{society.disaster.kind === 'tsunami' ? '🌊 TSUNAMI!' : '🌪 TORNADO!'}</span>
           )}
@@ -266,6 +270,14 @@ const styles = {
     font: 'inherit',
     cursor: 'pointer',
     textAlign: 'left',
+  },
+  event: {
+    fontSize: 13,
+    color: '#ffd23f',
+  },
+  curse: {
+    fontSize: 13,
+    color: '#c78bff',
   },
   toasts: {
     position: 'absolute',

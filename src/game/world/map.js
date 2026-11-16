@@ -10,7 +10,7 @@ import { pavePaintedRoads, paintedRoadCells, paveNewRoad, paveLine } from './roa
 
 export { TILE, MAP_WIDTH, noise, smoothNoise, LINKS, PUZZLES, getTile };
 
-// The map: a grid of tiles (see world/grid.js): the island (2560 x 2560 tiles, from art/MAP.png), and under it
+// The map: a grid of tiles (see world/grid.js): the island (2560 x 2560 tiles, from art/MAP2.png), and under it
 // the insides (dungeons, caves, the home). Nature is made from the painting (world/ground.js); here the people
 // build on it: the villages, the roads, the ports, the dungeons. It is always built the same way, so it is never
 // saved. What changes during a game (a bridge built by a village, a wall broken, a gate opened by a puzzle)

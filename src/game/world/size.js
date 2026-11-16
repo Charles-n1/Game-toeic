@@ -1,5 +1,5 @@
 // The size of the world.
-// The painting (art/MAP.png) is the abstract version of the world: 256 x 256 cells. In the game, each cell is
+// The painting (art/MAP2.png) is the abstract version of the world: 256 x 256 cells. In the game, each cell is
 // SCALE x SCALE tiles, so the island is 2560 x 2560 tiles. Under it, out of sight, the INSIDES: the floors of
 // the dungeons and the caves, the home of the hero. Each inside has its own room (a "slot") in that band.
 

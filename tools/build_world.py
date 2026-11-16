@@ -1,4 +1,4 @@
-"""Builds the world of the game from the painted map art/map2.png.
+"""Builds the world of the game from the painted map art/MAP2.png.
 
 The map is cut in 256 x 256 tiles (one tile = about 8 pixels of the painting). For each tile, the colors of its
 pixels say what it is: sea, river, forest, meadow, road, sand, snow, rock, lava...
@@ -12,7 +12,7 @@ The painting is only the ABSTRACT version of the world: in the game, each cell o
   FOREST_TEXT  how many trees grow there, from a (none) to j (a deep forest);
   ROAD_TEXT    the middle line of the painted roads (r = a road passes here).
 Writes src/game/world/terrain.js (that text), and src/game/assets/world/map2.png: the painting itself,
-for the world map of the menu. The villages, the dungeons, the castle and the people are NOT here: they are
+without its written names (the game writes its own), for the world map of the menu. The villages, the dungeons, the castle and the people are NOT here: they are
 placed by the game (see world/places.js), on top of this ground.
 
 Run it again after changing the map:  python3 tools/build_world.py
@@ -27,7 +27,7 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parent.parent
-MAP = ROOT / 'art' / 'map2.png'
+MAP = ROOT / 'art' / 'MAP2.png'
 OUT = ROOT / 'src' / 'game' / 'world' / 'terrain.js'
 PAINTING = ROOT / 'src' / 'game' / 'assets' / 'world' / 'map2.png'
 
@@ -41,19 +41,23 @@ GROUND = {
 # The letters of the lands (biomes).
 BIOME = {'meadow': 'm', 'forest': 'f', 'mountain': 'n', 'demon': 'v', 'desert': 'd', 'coast': 'c'}
 
-# The names written on the painting: these tiles take the ground around them. (x, y, w, h) in tiles.
-LABELS = [
-    (34, 40, 34, 9), (36, 101, 31, 9), (89, 130, 29, 9), (136, 42, 33, 9), (206, 67, 35, 9), (208, 129, 31, 10),
-    (161, 148, 35, 9), (31, 177, 43, 10), (107, 178, 40, 10), (134, 207, 37, 10), (200, 198, 37, 9), (42, 212, 41, 9),
+# The names written on the painting: these tiles take the ground around them.
+# (left, top, right, bottom) in thousandths of the painting (0 = the left / the top, 1000 = the right / the bottom).
+LABEL_BOXES = [
+    (193, 110, 288, 135), (35, 219, 125, 241), (716, 82, 828, 105), (492, 138, 580, 162), (720, 175, 812, 200),
+    (866, 266, 958, 290), (226, 297, 306, 320), (86, 358, 145, 384), (390, 385, 470, 411), (824, 404, 908, 428),
+    (606, 432, 700, 458), (434, 532, 550, 556), (158, 529, 268, 552), (216, 605, 326, 630), (795, 633, 895, 657),
+    (560, 650, 660, 675), (33, 722, 134, 746), (403, 723, 475, 748), (658, 798, 760, 821), (476, 848, 554, 873),
+    (118, 882, 218, 905), (795, 921, 904, 946),
 ]
 
 # The big lands, drawn by hand on the painting (polygons in tiles). Everything else is green land.
-VOLCANO = [(0, 0), (100, 0), (98, 14), (88, 28), (80, 40), (72, 52), (66, 62), (56, 66), (0, 66)]
-SNOW = [(118, 0), (222, 0), (222, 40), (214, 58), (180, 62), (150, 60), (120, 62), (118, 40)]
-DESERT = [(0, 128), (70, 128), (100, 140), (106, 175), (96, 205), (84, 232), (60, 238), (0, 236)]
+VOLCANO = [(0, 0), (101, 0), (97, 16), (88, 30), (76, 40), (60, 44), (54, 54), (52, 68), (44, 80), (24, 84), (0, 82)]
+SNOW = [(110, 0), (206, 0), (206, 36), (196, 50), (150, 52), (116, 50), (110, 30)]
+DESERT = [(14, 96), (60, 92), (104, 98), (114, 130), (114, 168), (96, 184), (58, 186), (22, 172), (12, 134)]
 
-# The moat of the demon island: a line of water around it (only one bridge crosses it, see data/zones.js).
-MOAT = [(0, 68), (30, 69), (58, 68), (68, 60), (75, 48), (83, 35), (92, 22), (101, 10), (104, 0)]
+# The moat of the demon land: a line of water around it (only one bridge crosses it, see data/zones.js).
+MOAT = [(0, 85), (24, 86), (45, 82), (54, 69), (56, 55), (61, 46), (77, 42), (90, 31), (99, 17), (104, 0)]
 MOAT_WIDTH = 4
 
 
@@ -101,11 +105,15 @@ def noise(salt):
 def hide_labels(fractions):
     """The tiles under the written names copy the closest tile outside of them."""
     hidden = np.zeros((SIZE, SIZE), dtype=bool)
-    for x, y, w, h in LABELS:
-        hidden[y : y + h, x : x + w] = True
+    for left, top, right, bottom in LABEL_BOXES:
+        x0, y0 = int(left * SIZE / 1000) - 1, int(top * SIZE / 1000) - 1
+        x1, y1 = int(right * SIZE / 1000) + 2, int(bottom * SIZE / 1000) + 2
+        hidden[y0:y1, x0:x1] = True
     _, (near_y, near_x) = ndimage.distance_transform_edt(hidden, return_indices=True)
     for name in fractions:
         fractions[name] = fractions[name][near_y, near_x]
+    for name in ('brown', 'dark', 'gray'):
+        fractions[name][hidden] = 0  # no rock under a name: the copied tiles would draw stripes of cliffs
 
 
 # ---------- Deciding the ground ----------
@@ -124,6 +132,13 @@ def draw_line(mask, points, width):
                         mask[ty, tx] = True
 
 
+def without_small_pieces(mask, smallest):
+    """The mask, without its pieces of less than `smallest` tiles."""
+    labels, count = ndimage.label(mask)
+    sizes = ndimage.sum(mask, labels, range(1, count + 1))
+    return np.isin(labels, [i + 1 for i in range(count) if sizes[i] >= smallest])
+
+
 def decide(fractions):
     """The ground and the land of every tile: two arrays of words."""
     f = fractions
@@ -133,6 +148,7 @@ def decide(fractions):
     desert = inside_polygon(DESERT) & (soft('tan') + soft('brown') > 0.3)
     water = f['water'] > 0.5
     water = ndimage.binary_opening(water, iterations=1) | (f['water'] > 0.8)  # no lonely blue pixel, keep thin rivers
+    water = without_small_pieces(water, 24)  # a shadow or a blue roof of the painting is not a lake
     moat = np.zeros((SIZE, SIZE), dtype=bool)
     draw_line(moat, MOAT, MOAT_WIDTH)
     water |= moat
@@ -189,6 +205,7 @@ def decide(fractions):
 # ---------- Checking that everything can be reached ----------
 
 WALKABLE = ['grass', 'flower', 'path', 'bridge', 'sand', 'snow', 'ash']
+HEART = (93, 111)  # (row, column) of Eldermoor: the land every big piece must be joined to
 
 
 def connect_lands(ground):
@@ -197,7 +214,7 @@ def connect_lands(ground):
     for _ in range(12):
         walkable = np.isin(ground, WALKABLE)
         labels, count = ndimage.label(walkable)
-        main = labels[125, 100]  # Eldermoor
+        main = labels[tuple(np.argwhere(walkable)[np.abs(np.argwhere(walkable) - HEART).sum(axis=1).argmin()])]
         sizes = ndimage.sum(walkable, labels, range(1, count + 1))
         lonely = [i + 1 for i in range(count) if sizes[i] > 400 and i + 1 != main]
         if not lonely:
@@ -307,6 +324,34 @@ def roads(ground):
     return [['r' if item else 'o' for item in row] for row in line]
 
 
+# ---------- The painting of the world map ----------
+
+def label_rects(width, height, margin):
+    """The boxes of the written names, in pixels of the painting: (left, top, right, bottom)."""
+    return [
+        (int(left * width / 1000) - margin, int(top * height / 1000) - margin, int(right * width / 1000) + margin, int(bottom * height / 1000) + margin)
+        for left, top, right, bottom in LABEL_BOXES
+    ]
+
+
+def without_labels(image):
+    """The painting without its written names (the game writes its own, see draw/worldmap.js): each name is
+    covered by a copy of the painting just above it (or below, at the top border), with soft edges."""
+    result = image.copy()
+    height, width = image.shape[:2]
+    feather = 5
+    for left, top, right, bottom in label_rects(width, height, margin=4):
+        h = bottom - top
+        source_top = top - h - 2 if top - h - 2 >= 0 else bottom + 2
+        patch = image[source_top : source_top + h, left:right].astype(float)
+        ys, xs = np.mgrid[0:h, 0 : right - left]
+        edge = np.minimum.reduce([ys + 1, h - ys, xs + 1, right - left - xs]).astype(float)
+        alpha = np.clip(edge / feather, 0, 1)[..., None]
+        old = result[top:bottom, left:right].astype(float)
+        result[top:bottom, left:right] = (patch * alpha + old * (1 - alpha)).astype(np.uint8)
+    return result
+
+
 # ---------- Writing ----------
 
 def compressed(rows):
@@ -341,7 +386,7 @@ def main(preview_path):
     connect_lands(ground)
     letters_biome = [[BIOME[item] for item in row] for row in biome]
     OUT.write_text(
-        '// Made by tools/build_world.py from art/map2.png: do not change by hand.\n'
+        '// Made by tools/build_world.py from art/MAP2.png: do not change by hand.\n'
         '// One row per line of cells, separated by |. Each part: a letter and how many cells have it.\n'
         '// The letters: see world/painting.js.\n'
         f'export const TERRAIN_SIZE = {SIZE};\n'
@@ -351,7 +396,8 @@ def main(preview_path):
         f"export const ROAD_TEXT = '{compressed(roads(ground))}';\n"
     )
     PAINTING.parent.mkdir(parents=True, exist_ok=True)
-    Image.open(MAP).convert('RGB').save(PAINTING, quality=88)
+    painting = np.array(Image.open(MAP).convert('RGB'))
+    Image.fromarray(without_labels(painting)).save(PAINTING, optimize=True)
     if preview_path:
         preview = np.array([[PREVIEW_COLORS[item] for item in row] for row in ground], dtype=np.uint8)
         Image.fromarray(preview).resize((SIZE * 3, SIZE * 3), Image.NEAREST).save(preview_path)

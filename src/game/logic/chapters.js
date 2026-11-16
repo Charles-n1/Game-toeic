@@ -2,6 +2,7 @@ import { CHAPTERS, ENDINGS, SCENES } from '../data/story';
 import { earnLexis } from './player';
 import { isNight } from './clock';
 import { say } from './messages';
+import { endingLines } from './isekai/lostHero';
 
 // The story moving forward: the chapters of the chosen goal, and the scenes that happen once.
 
@@ -12,7 +13,7 @@ export function currentChapter(game) {
 
 function tellEnding(game) {
   game.ended = true;
-  say(game, null, ENDINGS[game.goal]);
+  say(game, null, endingLines(game, ENDINGS[game.goal]));
   say(game, null, ['THE END... of this story. The world stays open: live in it as long as you like.']);
 }
 

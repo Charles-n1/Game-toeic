@@ -8,7 +8,7 @@ import { PLACES, SHOP_MARKS, mainQuestMark, sideQuestMarks, blockedMarks } from 
 import { iconCanvas } from './icons';
 import { makeGrid, fillEllipse, drawLine, addOutline, toCanvas, once } from './pixels';
 
-// The world map: the high-detail painting of the world itself (art/map2.png).
+// The world map: the high-detail painting of the world itself (art/MAP2.png).
 // Until it is loaded, the cells of the painting are shown, one color each.
 // Each frame draws a part of it, the fog on the places the player does not know yet, and the marks:
 // places, quests, shops, the player. The corner map of the HUD shows the real tiles around the player.

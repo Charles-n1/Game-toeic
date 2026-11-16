@@ -1,7 +1,8 @@
 import PixelIcon from '../PixelIcon';
 import { ITEMS } from '../../data/items';
 import { npcOf } from '../../data/npcs';
-import { usePotion, canUsePotion, countItem, equipFromBag, openMysteryItem } from '../../logic/player';
+import { usePotion, canUsePotion, countItem, openMysteryItem } from '../../logic/player';
+import { wear, isStuck } from '../../logic/isekai/curses';
 import { sendHome } from '../../logic/people';
 import { drink, eat, canEat, BOTTLE_SIZE } from '../../logic/survival';
 import { placeFurniture, isAtHome } from '../../logic/home';
@@ -12,6 +13,7 @@ import { companionRank } from '../../logic/bonds/training';
 import { dismissSoldiers, dismissPet } from '../../logic/powers';
 import { ensureSociety } from '../../logic/society/state';
 import { interactMountedHorse, interactParkedHorse } from '../../logic/society/horses';
+import { frontTile } from '../../logic/input';
 
 // The torch of the hero: always in hand. One button lights it or puts it out.
 function TorchSwitch({ game, refresh }) {
@@ -53,7 +55,8 @@ export function describe(item) {
   return '';
 }
 
-function EquipmentSlot({ label, itemId }) {
+// A piece of equipment worn (a cursed one says so: it will not come off).
+function EquipmentSlot({ game, label, itemId }) {
   if (!itemId || !ITEMS[itemId]) {
     return (
       <div className="line">
@@ -72,18 +75,12 @@ function EquipmentSlot({ label, itemId }) {
       <div className="grow">
         <span>{item.name}</span>
         <span className="small">{describe(item)}</span>
+        {isStuck(game, itemId) && <span className="small" style={{ color: '#c78bff' }}>💀 Cursed: it drinks your life. Lift it at a goddess shrine or a church.</span>}
       </div>
     </div>
   );
 }
 
-const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-
-// The tile in front of the hero (where a piece of furniture goes).
-function frontOf(player) {
-  const [dx, dy] = FRONT[player.dir];
-  return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
-}
 
 // The button of an item of the bag: use a potion, eat food, place a piece of furniture (at home).
 function ItemButton({ game, itemId, refresh }) {
@@ -108,14 +105,14 @@ function ItemButton({ game, itemId, refresh }) {
   }
   if (item.kind === 'furniture') {
     return (
-      <button className="px-button" disabled={!isAtHome(game)} onClick={() => run(() => placeFurniture(game, itemId, frontOf(game.player)) && refreshWorld(game))}>
+      <button className="px-button" disabled={!isAtHome(game)} onClick={() => run(() => placeFurniture(game, itemId, frontTile(game.player)) && refreshWorld(game))}>
         Place
       </button>
     );
   }
   if (['weapon', 'armor', 'boots', 'accessory'].includes(item.kind)) {
     return (
-      <button className="px-button px-gold" onClick={() => run(() => equipFromBag(game.player, itemId))}>
+      <button className="px-button px-gold" onClick={() => run(() => wear(game, itemId))}>
         Equip
       </button>
     );
@@ -158,10 +155,10 @@ export default function InventoryPanel({ game, refresh }) {
       </div>
 
       <span className="section">Equipment</span>
-      <EquipmentSlot label="Weapon" itemId={player.weapon} />
-      <EquipmentSlot label="Armor" itemId={player.armor} />
-      <EquipmentSlot label="Boots" itemId={player.boots} />
-      <EquipmentSlot label="Accessory" itemId={player.accessory} />
+      <EquipmentSlot game={game} label="Weapon" itemId={player.weapon} />
+      <EquipmentSlot game={game} label="Armor" itemId={player.armor} />
+      <EquipmentSlot game={game} label="Boots" itemId={player.boots} />
+      <EquipmentSlot game={game} label="Accessory" itemId={player.accessory} />
 
       <span className="section">Camp &amp; Travel</span>
       <div className="line">

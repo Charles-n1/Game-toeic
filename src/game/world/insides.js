@@ -122,11 +122,16 @@ function buildFloor(inside) {
   }
 
   // the monsters of the middle rooms, the boss (or the guardian) and the treasure in the last room
-  rooms.slice(1, isLast ? -1 : undefined).forEach((room, i) => {
+  const floorBoss = dungeon.floorBosses ? dungeon.floorBosses[inside.floor] : null;
+  rooms.slice(1, isLast || floorBoss ? -1 : undefined).forEach((room, i) => {
     const middle = middleOf(room);
     const species = dungeon.guards[Math.floor(random() * dungeon.guards.length)];
     INSIDE_MONSTERS.push({ species: species, x: middle.x + 0.5, y: middle.y + 0.5, key: inside.id + ':' + i, zoneId: inside.id });
   });
+  if (floorBoss && !isLast) {
+    const middle = middleOf(last);
+    INSIDE_MONSTERS.push({ species: floorBoss, x: middle.x + 0.5, y: middle.y + 0.5, key: inside.id + ':boss', zoneId: inside.id, boss: true });
+  }
   if (isLast) {
     const middle = middleOf(last);
     const boss = dungeon.boss || dungeon.guardian;

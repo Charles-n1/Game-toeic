@@ -20,7 +20,7 @@ const CAVE_NAMES = {
   coast: ['Sea', 'Salt', 'Tide', 'Smuggler'],
   demon: ['Ember', 'Ash', 'Burning'],
 };
-const GUARDIANS = { 0: 'orc', 1: 'orc', 2: 'stoneGolem', 3: 'boneGolem', 4: 'drake' };
+const GUARDIANS = { 0: 'orc', 1: 'orc', 2: 'stoneGolem', 3: 'boneGolem', 4: 'hellknight' };
 
 const ALL_PLACES = [...SETTLEMENTS.people, ...SETTLEMENTS.monsters, ...SETTLEMENTS.camps, ...DUNGEON_RECTS];
 
@@ -101,11 +101,11 @@ export const WILD_OBELISKS = OBELISKS.map((obelisk) => ({ kind: 'obelisk', x: ob
 
 // The people who live alone in the wild (see data/npcs.js: home: { wild: id }): x, y in cells of the painting.
 export const WILD_HOMES = [
-  { id: 'sylvia', x: 23.5, y: 89.5, prop: 'hut', text: 'The hut of the druid' },
-  { id: 'nyx', x: 46.5, y: 73.5, prop: 'campfire', text: 'A lonely campfire' },
-  { id: 'corvin', x: 163.5, y: 116.5, prop: 'tent', text: 'A black tent' },
-  { id: 'hermit1', x: 124, y: 64, prop: 'hut', text: 'The hut of a hermit' },
-  { id: 'hermit2', x: 186, y: 98, prop: 'hut', text: 'The hut of a hermit' },
+  { id: 'sylvia', x: 24, y: 93, prop: 'hut', text: 'The hut of the druid' },
+  { id: 'nyx', x: 72, y: 70, prop: 'campfire', text: 'A lonely campfire' },
+  { id: 'corvin', x: 170, y: 112, prop: 'tent', text: 'A black tent' },
+  { id: 'hermit1', x: 118, y: 58, prop: 'hut', text: 'The hut of a hermit' },
+  { id: 'hermit2', x: 196, y: 92, prop: 'hut', text: 'The hut of a hermit' },
 ].map((home) => ({ ...home, x: Math.round(home.x * SCALE), y: Math.round(home.y * SCALE) }));
 
 // A few campfires in the wild, where travelers stop (to cook, to light a torch).
@@ -121,7 +121,8 @@ function findCampfires() {
 
 export const WILD_CAMPFIRES = findCampfires();
 
-// ---------- Isekai wilderness structures: monster camps, bandit traps, wayfarer camps, goddess shrines ----------
+// ---------- Isekai wilderness structures ----------
+// Monster camps, bandit traps, wayfarer camps, goddess shrines, hot springs and the graves of the Lost Hero.
 
 const structRandom = randomOf('isekai');
 const CAMP_SPECIES = {
@@ -139,12 +140,14 @@ function findIsekaiStructures() {
   const props = [];
   const occupied = [...CAVES, ...TOTEMS, ...WILD_CAMPFIRES];
 
-  const pickSpot = (gapVillage, gapStruct, allowDemon = false) => {
-    for (let tries = 0; tries < 120; tries++) {
+  // wanted: the lands where it may stand (null = any land but the demon one, unless allowDemon).
+  const pickSpot = (gapVillage, gapStruct, allowDemon = false, wanted = null) => {
+    for (let tries = 0; tries < 160; tries++) {
       const cx = between(structRandom, 7, CELLS - 8);
       const cy = between(structRandom, 7, CELLS - 8);
       const biome = paintedBiome(cx, cy);
       if (!allowDemon && biome === 'demon') continue;
+      if (wanted && !wanted.includes(biome)) continue;
       if (!isWalkableCell(cx, cy) || !isWalkableCell(cx + 1, cy) || !isWalkableCell(cx, cy + 1)) continue;
       const freeAll = [...ALL_PLACES, ...occupied, ...structures.map((s) => ({ x: s.x - 4, y: s.y - 4, w: 8, h: 8 }))].every((place) => {
         const mid = cellOf(place);
@@ -224,6 +227,32 @@ function findIsekaiStructures() {
     props.push({ kind: isPortal ? 'portalRuins' : 'shrine', x: sx, y: sy - 1, w: 1, h: 1, structId: id });
     props.push({ kind: 'ruinPillar', x: sx - 2, y: sy + 1, w: 1, h: 1, structId: id });
     props.push({ kind: 'ruinPillar', x: sx + 2, y: sy + 1, w: 1, h: 1, structId: id });
+  }
+
+  // 5. 5 Hot Springs in the mountains and the forests (a bath: rest, friends, see logic/isekai/springs.js)
+  for (let i = 0; i < 5; i++) {
+    const spot = pickSpot(7, 8, false, ['mountain', 'forest']);
+    if (!spot) break;
+    const sx = spot.cx * SCALE + 5;
+    const sy = spot.cy * SCALE + 5;
+    const id = 'spring-' + i;
+    structures.push({ id: id, kind: 'hotSpring', name: 'Hot Spring', x: sx, y: sy, w: 8, h: 6 });
+    props.push({ kind: 'hotSpring', x: sx - 2, y: sy - 1, w: 4, h: 3, structId: id });
+    props.push({ kind: 'bench', x: sx + 3, y: sy + 2, w: 1, h: 1, structId: id });
+    props.push({ kind: 'signpost', x: sx - 3, y: sy + 2, w: 1, h: 1, structId: id });
+  }
+
+  // 6. 6 Graves of the friends of the Lost Hero, the first summoned one (a page of his diary at each, see logic/isekai/lostHero.js)
+  for (let i = 0; i < 6; i++) {
+    const spot = pickSpot(6, 10, false);
+    if (!spot) break;
+    const sx = spot.cx * SCALE + 5;
+    const sy = spot.cy * SCALE + 5;
+    const id = 'grave-' + i;
+    structures.push({ id: id, kind: 'heroGrave', name: 'Forgotten Grave', grave: i, x: sx, y: sy, w: 5, h: 4 });
+    props.push({ kind: 'heroGrave', x: sx, y: sy, w: 1, h: 1, structId: id });
+    props.push({ kind: 'grave', x: sx - 2, y: sy + 1, w: 1, h: 1, structId: id });
+    props.push({ kind: 'grave', x: sx + 2, y: sy + 1, w: 1, h: 1, structId: id });
   }
 
   return { structures, props };

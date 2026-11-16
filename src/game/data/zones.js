@@ -9,7 +9,7 @@ import { LANDS } from './lands';
 import { STORY_DUNGEONS, DOOR_FROM_BOTTOM } from './dungeons';
 import { KINGDOMS } from './kingdoms';
 
-// The world: an island of 2560 x 2560 tiles, from the painting art/MAP.png (see world/size.js, world/ground.js).
+// The world: an island of 2560 x 2560 tiles, from the painting art/MAP2.png (see world/size.js, world/ground.js).
 // Under it, out of sight, the INSIDES: the floors of the dungeons and of the caves, the home of the player.
 //
 // A zone = a named place. The villages, the dungeons and the insides are rectangles (x, y = the top-left tile).

@@ -1,6 +1,6 @@
 import { zoneAt, HOME_DOOR } from '../data/zones';
 import { isSolid, tileAt, linkAt, TILE, propsAround } from '../world/map';
-import { directionOf, facingOf, isRunning } from './input';
+import { directionOf, facingOf, isRunning, frontTile } from './input';
 import { advanceClock, sleepUntilMorning } from './days';
 import { updateMonsters } from './monsters';
 import { updatePeople, personNear, talkTo } from './people';
@@ -20,6 +20,7 @@ import { canGather, gather, hasLight } from './torch';
 import { isNight } from './clock';
 import { villageNews } from './villages';
 import { updateVillagers, villagerNear, wakeVillages } from './villagers';
+import { updateVillagerLife } from './villagerLife';
 import { updateAnimals, wakeAnimals } from './animals';
 import { updateWeather, knockedOutNear, carry, checkRescue, checkKnockedOut, putDown } from './weather';
 import { updateEncounters } from './encounters';
@@ -37,6 +38,7 @@ import { updateBonds, slowBonds, actionsOfBonds } from './bonds';
 import { exitVisitedHouseIfStairs, actionsOfHouses } from './houses';
 import { updateIsekaiStructures, actionsOfStructures } from './isekaiStructures';
 import { updateWorldParties, syncWorldParties, actionsOfParties, onFightEndParties } from './worldParties';
+import { actionsOfIsekai, slowIsekai, updateIsekai } from './isekai';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -46,7 +48,6 @@ const MAX_MOVE_STEP = 0.25; // max tiles per collision sub-step
 const BODY = 0.28; // half the width of the hero, in tiles (to not walk into the walls)
 const SAVE_EVERY = 10; // seconds
 const FADE = 350; // milliseconds: the screen goes black when the hero takes stairs
-const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 // ---------- Walking ----------
 
@@ -142,12 +143,6 @@ function noticeZone(game) {
 
 // ---------- The action button ----------
 
-// The tile just in front of the hero.
-function frontTile(player) {
-  const [dx, dy] = FRONT[player.dir];
-  return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
-}
-
 function isAtHomeDoor(player) {
   const front = frontTile(player);
   return front.x === HOME_DOOR.x && front.y === HOME_DOOR.y;
@@ -204,6 +199,7 @@ function actionsOf(game) {
     { when: () => player.carrying !== null, icon: 'people', run: () => putDown(game) },
     { when: () => personNear(game), icon: 'talk', run: () => talkTo(game, personNear(game)) },
     { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
+    ...actionsOfIsekai(game),
     ...actionsOfWar(game),
     ...actionsOfParties(game),
     ...actionsOfBonds(game),
@@ -268,6 +264,7 @@ function slowUpdates(game, dt) {
     removeOldToasts(game);
     exploreAround(game);
     wakeVillages(game);
+    updateVillagerLife(game);
     wakeAnimals(game);
     checkRescue(game);
     checkKnockedOut(game);
@@ -276,6 +273,7 @@ function slowUpdates(game, dt) {
     slowCamp(game);
     slowBonds(game);
     slowSparring(game);
+    slowIsekai(game);
     updateIsekaiStructures(game);
     syncWorldParties(game);
   }
@@ -302,6 +300,7 @@ export function updateGame(game, input, dt) {
   updateGuildHall(game, dt);
   updateRaid(game, dt);
   updateWeather(game, dt);
+  updateIsekai(game, dt);
   updateEncounters(game, dt);
   updateWar(game, dt);
   updateSociety(game, dt);

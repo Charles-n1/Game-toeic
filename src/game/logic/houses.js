@@ -11,15 +11,10 @@ import { cureCold } from './weather';
 import { passHours } from './days';
 import { healFully } from './player';
 import { buildGuildHall } from './guildHall';
+import { frontTile } from './input';
 
 // Entering other villagers' and NPCs' houses: dining room, bathroom/toilets, and 1 or 2 bedrooms depending on family.
 
-const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-
-function frontTile(player) {
-  const [dx, dy] = FRONT[player.dir] || [0, 1];
-  return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
-}
 
 function residentsForHouse(game, house, door) {
   const named = NPCS.filter((npc) => npc.at && npc.at[0] === house.village && npc.at[1] === house.role);

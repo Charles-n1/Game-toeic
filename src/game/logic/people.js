@@ -28,6 +28,7 @@ import { isNpcKidnapped } from './war';
 import { revealCrystalCave, isVillain } from './society';
 import { addInfamy } from './society/state';
 import { isStationedInTraining, setExpression, voiceSoundFor, npcBondChoices } from './bonds';
+import { recognizeChoice, rivalChoice } from './isekai/classmates';
 
 // The people on the map: where they are, and everything the player can do with them.
 
@@ -400,7 +401,9 @@ function strikeNpcChoice(game, npc) {
 }
 
 const CHOICE_MAKERS = [
+  recognizeChoice,
   talkChoice,
+  rivalChoice,
   sparringChoice,
   activeQuestChoice,
   newQuestChoice,

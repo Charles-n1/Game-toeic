@@ -5,6 +5,7 @@ import { priceFactor } from './village';
 import { addItem, removeItem, equip, earnLexis } from './player';
 import { classBonus } from './classes';
 import { villagePriceMultiplier } from './society';
+import { isStuck } from './isekai/curses';
 
 const GEAR_IDS = Object.keys(GEAR_ITEMS);
 const ACCESSORY_IDS = GEAR_IDS.filter((id) => GEAR_ITEMS[id].kind === 'accessory');
@@ -44,6 +45,7 @@ export function buy(game, itemId) {
   if (game.player.lexis < price) return false;
   game.player.lexis -= price;
   if (item.kind === 'map') game.player.mapLevel = item.level;
+  else if (isStuck(game, game.player[item.kind])) addItem(game.player, itemId); // a cursed thing holds that place
   else if (['weapon', 'armor', 'boots', 'accessory'].includes(item.kind)) {
     const prev = game.player[item.kind];
     if (item.gearIcon && prev && prev !== itemId && !['woodSword', 'clothes', 'sandals'].includes(prev)) {

@@ -4,6 +4,7 @@ Each sheet holds 3 monsters, one per band (from the top). In each band:
   - a panel of 3 rows (IDLE, WALK, RUN) of 4 pictures;
   - ATTACKS: 3 rows, the monster first (then its effect);
   - DEATH: the monster falling.
+The army of the Demon King (art/Monsters/Demon king/) uses the same sheets; the King and the Queen have their own.
 
 The walks of the sheets are a mess: some rows are a real walk (4 steps to the side), others show the 4
 DIRECTIONS (down, left, right, up) with one picture each. MONSTERS (below) says which pictures make a good
@@ -65,6 +66,32 @@ MONSTERS = {
     'spider': {'sheet': 'Wolf, orc, spider.png', 'band': 2, 'height': 20, 'walk': CYCLE, 'looks': 'right', 'stand': (0, 0)},
 }
 
+# The army of the Demon King (art/Monsters/Demon king/*.png): the same sheets, columns down, LEFT, right, up.
+DEMON_SHEETS = {
+    'Royal guard, dark paladin, abyss hound.png': [('royalGuard', 38), ('darkPaladin', 40), ('abyssHound', 30)],
+    'Succubus, demon priest, demon soldier.png': [('succubus', 34), ('demonPriest', 36), ('demonSoldier', 38)],
+    'demon archer, demon behemoth, demon lich.png': [('demonArcher', 36), ('demonBehemoth', 48), ('demonLich', 38)],
+    'demon general (ravnos), demon general (thamuz), demon general (velmora).png': [('ravnos', 46), ('thamuz', 48), ('velmora', 46)],
+    'demon general, demon general, demon general.png': [('warGeneral', 44), ('sorcererGeneral', 44), ('hellknight', 46)],
+}
+for sheet_name, monsters in DEMON_SHEETS.items():
+    for band, (monster_id, height) in enumerate(monsters):
+        MONSTERS[monster_id] = {'sheet': 'Demon king/' + sheet_name, 'band': band, 'height': height, 'walk': TURNS, 'looks': 'left', 'stand': (0, 1), 'death_left': 1302}
+
+# The standing row of the soldier touches the words above it: its walk and its run are used instead.
+MONSTERS['demonSoldier'].update({'walk': [(1, 1), (2, 1), (1, 1), (2, 1)], 'stand': (1, 1)})
+
+# The Demon King and the Demon Queen have a sheet each, drawn another way: `parts` says where to look
+# (left, top, right, bottom) for the moves, the first picture of the attacks (None = no attack picture), the death.
+MONSTERS['demonKing'] = {
+    'sheet': 'Demon king/Demon king.png', 'height': 60, 'walk': TURNS, 'looks': 'left', 'stand': (0, 1),
+    'parts': {'moves': (575, 70, 905, 405), 'attacks': None, 'death': (1105, 860, 1215, 1005)},
+}
+MONSTERS['demonQueen'] = {
+    'sheet': 'Demon king/Demon queen.png', 'height': 58, 'walk': TURNS, 'looks': 'left', 'stand': (0, 1),
+    'parts': {'moves': (590, 40, 950, 440), 'attacks': None, 'death': (1335, 60, 1525, 440)},
+}
+
 
 # ---------- Finding the pictures ----------
 
@@ -101,7 +128,22 @@ def in_rows(boxes):
             rows[-1]['boxes'].append(box)
         else:
             rows.append({'middle': middle, 'boxes': [box]})
-    return [sorted(row['boxes']) for row in rows]
+    return [split_wide(sorted(row['boxes'])) for row in rows]
+
+
+def split_wide(boxes):
+    """Two pictures that touch were found as one wide box: it is cut in two halves."""
+    if len(boxes) < 2:
+        return boxes
+    usual = float(np.median([box[2] for box in boxes]))
+    result = []
+    for left, top, width, height in boxes:
+        if width > usual * 1.7:
+            half = width // 2
+            result += [(left, top, half, height), (left + half, top, width - half, height)]
+        else:
+            result.append((left, top, width, height))
+    return result
 
 
 # ---------- Cutting (the same way as tools/cut_characters.py) ----------
@@ -171,14 +213,29 @@ def anchor_of(picture):
 
 # ---------- One monster ----------
 
-def pictures_of(monster):
+def parts_of(monster):
+    """Where the pictures of the monster are on its sheet: { 'moves', 'attacks', 'death' } -> (left, top, right, bottom)."""
+    if 'parts' in monster:
+        return monster['parts']
+    top, bottom = BANDS[monster['band']]
+    return {
+        'moves': (MOVES[0], top + 40, MOVES[1], bottom),
+        'attacks': (ATTACKS[0], top + 40, ATTACKS[1], bottom),
+        'death': (monster.get('death_left', DEATH[0]), top + 55, DEATH[1], bottom),  # under the title "DEATH"
+    }
+
+
+def pictures_of(monster, monster_id=''):
     """{ name: picture }: 'stand', 'walk-0'...'walk-3', 'attack', 'death-0'...: all looking to the LEFT."""
     sheet = np.array(Image.open(SHEETS / monster['sheet']).convert('RGB'))
-    top, bottom = BANDS[monster['band']]
-    moves = in_rows(find_shapes(sheet, MOVES[0], top + 40, MOVES[1], bottom))
-    attacks = in_rows(find_shapes(sheet, ATTACKS[0], top + 40, ATTACKS[1], bottom, merge=1))  # the label is close
-    deaths = find_shapes(sheet, DEATH[0], top + 55, DEATH[1], bottom, min_height=16)  # under the title "DEATH"
+    parts = parts_of(monster)
+    moves = in_rows(find_shapes(sheet, *parts['moves']))
+    attacks = in_rows(find_shapes(sheet, *parts['attacks'], merge=1)) if parts['attacks'] else []  # the label is close
+    deaths = find_shapes(sheet, *parts['death'], min_height=16)
     deaths = sorted(deaths, key=lambda b: (b[1] + b[3] // 2) // 60 * 1000 + b[0])  # read like a book
+    used_rows = {row for row, _ in [monster['stand'], *monster['walk']]}
+    if any(len(moves[row]) != 4 for row in used_rows):
+        print('  check', monster_id, 'pictures found in each row of moves:', [len(row) for row in moves])
     stand = cut_out(sheet, moves[monster['stand'][0]][monster['stand'][1]])
     factor = stand.shape[0] / monster['height']
 
@@ -238,7 +295,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     everything = {}
     for monster_id, monster in MONSTERS.items():
-        for name, picture in pictures_of(monster).items():
+        for name, picture in pictures_of(monster, monster_id).items():
             everything[(monster_id, name)] = picture
     anchors = {key: anchor_of(picture) for key, picture in everything.items()}
     atlas, places = pack(everything)

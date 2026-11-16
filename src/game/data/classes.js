@@ -28,6 +28,12 @@ export const CLASSES = [
   { id: 'druid', name: 'Druid', master: 'sylvia', skills: ['prepositions', 'connectors'], bonus: { heal: 2, mana: 1 }, text: 'Heals at each good answer, mana after each victory.' },
   { id: 'necromancer', name: 'Necromancer', master: 'vespera', skills: ['gerunds', 'passive'], bonus: { drain: 10 }, text: 'Your blows steal life.' },
   { id: 'plagueDoctor', name: 'Plague Doctor', master: 'corvin', skills: ['wordForms', 'subjectVerb'], bonus: { xp: 15 }, text: 'You learn more from each fight (+XP).' },
+  // the classes of the isekai stories
+  { id: 'swordSaint', name: 'Sword Saint', master: 'lea', skills: ['verbTenses', 'prepositions'], bonus: { attack: 5, critical: 4 }, text: 'Harder strikes, and more critical hits.' },
+  { id: 'merchant', name: 'Otherworld Merchant', master: 'hugo', skills: ['vocabulary', 'connectors'], bonus: { discount: 6, lexis: 15 }, text: 'Cheaper shops and more Lexis: the tricks of another world.' },
+  { id: 'sage', name: 'Sage', master: 'yuki', skills: ['passive', 'connectors'], bonus: { spell: 15, xp: 8 }, text: 'Stronger spells, and you learn more from each fight.' },
+  { id: 'saint', name: 'Saint', master: 'aria', skills: ['pronouns', 'wordForms'], bonus: { heal: 3, mana: 1 }, text: 'Each good answer heals you, and the mana comes back after a victory.' },
+  { id: 'assassin', name: 'Shadow Assassin', master: 'nyx', skills: ['comparatives', 'subjectVerb'], bonus: { critical: 6, time: 6 }, text: 'More critical hits, and a little more time to answer.' },
 ];
 
 export function classOf(id) {

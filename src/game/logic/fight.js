@@ -19,6 +19,7 @@ import { companionAttackBonus, companionStatBonuses, companionSpecialMove, recor
 import { onFightEndWar } from './war';
 import { onFightEndSociety } from './society';
 import { onFightEndParties } from './worldParties';
+import { callTheKingByName } from './isekai/lostHero';
 
 // A fight = questions. A good answer strikes the opponent, a bad one (or no answer in time) lets it strike.
 // The opponent is a monster, or a person in a "duel" (negotiating a price, a game, a job): same rules,
@@ -117,6 +118,7 @@ export function castSpell(game, fight, categoryId) {
 // opponent: who the hero fights. others: the monsters fighting with it (a duo or a trio): each one gets a
 // question in turn, so a round of a trio is 3 answers. The fight is won when all of them are beaten.
 export function startFight(game, opponent, others = []) {
+  callTheKingByName(game, opponent); // the Demon King hesitates when the hero knows his true name
   const fight = {
     opponent: opponent, // the one the current question targets
     opponents: [opponent, ...others],

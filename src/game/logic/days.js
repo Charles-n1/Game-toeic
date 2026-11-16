@@ -4,6 +4,7 @@ import { growFamilies } from './families';
 import { placeDungeonMonsters } from './monsters';
 import { healFully } from './player';
 import { burnTorch } from './torch';
+import { drainCurse } from './isekai/curses';
 import { updateSurvival } from './survival';
 import { growVillages } from './villages';
 import { placeVillagers } from './villagers';
@@ -37,6 +38,7 @@ function newDay(game) {
 function addHours(game, hours) {
   burnTorch(game, hours); // the rain and the wind put it out (see logic/torch.js)
   updateSurvival(game, hours);
+  drainCurse(game, hours);
   game.hour += hours;
   if (game.hour >= 24) {
     game.hour -= 24;

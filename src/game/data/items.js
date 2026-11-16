@@ -2,6 +2,7 @@ import { GEAR_ITEMS } from './items/gear';
 import { CAMP_ITEMS } from './items/camp';
 import { SOCIETY_ITEMS } from './items/society';
 import { WAR_ITEMS } from './items/war';
+import { ISEKAI_ITEMS } from './items/isekai';
 
 // Everything the player can own.
 // kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give),
@@ -79,6 +80,7 @@ export const ITEMS = {
   ...CAMP_ITEMS,
   ...SOCIETY_ITEMS,
   ...WAR_ITEMS,
+  ...ISEKAI_ITEMS,
 };
 
 // The order of the upgrades at the smith: each one replaces the one before.
@@ -96,6 +98,7 @@ export const SHOPS = {
   carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'painting', 'rugRed', 'rugBlue'],
   market: ['map1', 'map2', 'map3', 'ring', 'healthPotion', 'manaPotion', 'oil'],
   weaver: ['cloth'],
+  otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion'],
 };
 
 // The next item of an upgrade path (null = already the best).

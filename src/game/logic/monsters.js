@@ -8,6 +8,8 @@ import { isNight } from './clock';
 import { startFight } from './fight';
 import { isBarrier } from './powers';
 import { isLairCleared } from './isekaiStructures';
+import { monsterCrowd } from './isekai/events';
+import { dust } from './particles';
 
 // The monsters walking on the map. Touching one starts a fight.
 // Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
@@ -18,6 +20,7 @@ const SPAWN_EVERY = 1.5; // seconds between two tries to add a wild monster
 const TOO_FAR = 34; // tiles: a wild monster this far from the player disappears
 const SIGHT = 5.5; // tiles: a monster this close runs to the player
 const TOUCH = 0.7; // tiles: this close = the fight starts
+const TURN_AT = 0.15; // tiles: a monster turns to a side after walking this far to it (else it would flicker left / right)
 
 const ELITE_CHANCE = 0.1; // in the dangerous lands, a wild monster is sometimes one tag above the hero
 const PACK_CHANCE = 0.3; // a wild monster sometimes comes with friends: a duo...
@@ -56,6 +59,8 @@ export function makeMonster(game, speciesId, x, y, extra = {}) {
     walkY: 0,
     walkTime: 0, // seconds before it picks a new direction
     step: Math.random() * 10, // for its little animation
+    dir: Math.random() < 0.5 ? 'left' : 'right', // where it looks
+    moving: false,
     ...extra,
   };
 }
@@ -87,7 +92,7 @@ function isWild(monster) {
 }
 
 // The monsters of a land; at night the ghosts come out too (and bats in the gentle lands).
-const NIGHT_GUESTS = { meadow: ['bat'], lake: ['bat', 'drowner'], coast: ['drowner'], woods: ['bat', 'banshee'], forest: ['banshee'], heartwood: ['wraith'], oldwood: ['wraith', 'banshee'], watch: ['banshee'] };
+const NIGHT_GUESTS = { meadow: ['bat'], lake: ['bat', 'drowner'], coast: ['drowner'], woods: ['bat', 'banshee'], forest: ['banshee'], heartwood: ['wraith'], oldwood: ['wraith', 'banshee'], watch: ['banshee'], swamp: ['wraith', 'banshee'], oldroad: ['bat'], southshore: ['bat'], storm: ['drowner'] };
 
 const CAMP_SOURCES = [
   ...MONSTER_TOWNS.map((t) => ({ id: t.id, kind: 'monsterTown', x: t.x + t.w / 2, y: t.y + t.h / 2, species: [t.species] })),
@@ -156,7 +161,7 @@ function spawnPlace(game) {
 }
 
 function spawnWild(game) {
-  const max = isNight(game) ? WILD_BY_NIGHT : WILD_BY_DAY;
+  const max = Math.round((isNight(game) ? WILD_BY_NIGHT : WILD_BY_DAY) * monsterCrowd(game)); // more on a Blood Moon, a stampede
   if (game.run.monsters.filter(isWild).length >= max) return;
   const place = spawnPlace(game);
   if (!place) return;
@@ -231,11 +236,20 @@ function wander(game, monster, dt) {
   push(game, monster, monster.walkX * speed, monster.walkY * speed);
 }
 
+// A little dust under the feet of a running monster, from time to time (only near the hero: they see it).
+const DUST_EVERY = 0.35; // seconds of running
+const DUST_RANGE = 12; // tiles
+
 function runTo(game, monster, target, dt) {
   const far = distance(monster, target);
   if (far < 0.05) return;
   const speed = walkSpeed(monster) * dt;
   push(game, monster, ((target.x - monster.x) / far) * speed, ((target.y - monster.y) / far) * speed);
+  monster.dustTime = (monster.dustTime || 0) + dt;
+  if (monster.dustTime >= DUST_EVERY && distance(monster, game.player) < DUST_RANGE) {
+    monster.dustTime = 0;
+    dust(game, monster.x, monster.y);
+  }
 }
 
 // The player is safe inside a village (except during a raid).
@@ -244,8 +258,22 @@ function canSeePlayer(game, monster) {
   return !isPlayerSafe && distance(monster, game.player) < SIGHT;
 }
 
+// Where the monster looks (monster.dir) and if it walks (monster.moving), from how it really moved since the last
+// frame (whoever moved it: this file, a raid, a war). It only turns after TURN_AT tiles to a side: going up, down
+// or resting, it keeps looking where it looked.
+function watchMove(monster, dt) {
+  const dx = monster.x - (monster.lastX ?? monster.x);
+  const dy = monster.y - (monster.lastY ?? monster.y);
+  monster.lastX = monster.x;
+  monster.lastY = monster.y;
+  monster.sideways = Math.max(-TURN_AT, Math.min(TURN_AT, (monster.sideways || 0) + dx));
+  if (Math.abs(monster.sideways) >= TURN_AT) monster.dir = monster.sideways < 0 ? 'left' : 'right';
+  monster.moving = Math.hypot(dx, dy) > 0.0005;
+  if (monster.moving) monster.step += dt; // its legs only move when it walks
+}
+
 function moveMonster(game, monster, dt) {
-  monster.step += dt;
+  watchMove(monster, dt);
   if (canSeePlayer(game, monster)) runTo(game, monster, game.player, dt);
   else if (monster.raid) runTo(game, monster, monster.target, dt); // the raid chooses its target (see raid.js)
   else wander(game, monster, dt);

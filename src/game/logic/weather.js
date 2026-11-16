@@ -16,14 +16,14 @@ import { emote } from './emotes';
 // game.npcs[id].ko: { since } (hours). game.player.carrying: { kind: 'npc' | 'villager', id } or null.
 
 const KINDS = [
-  ['clear', 50],
+  ['clear', 54],
   ['cloudy', 20],
   ['rain', 20],
-  ['storm', 10],
+  ['storm', 6],
 ];
 const WINDY_CHANCE = { clear: 0.1, cloudy: 0.25, rain: 0.3, storm: 1 }; // the chance of a strong wind, for each sky
 const KO_HOURS = 12; // after that, a KO person dies
-const STRIKE_EVERY = [6, 16]; // seconds between two lightning strikes, in a storm
+const STRIKE_EVERY = [35, 80]; // seconds between two lightning strikes, in a storm (rare: a strike is an event)
 const STRIKE_RANGE = 9; // tiles around the hero (the strikes far away are not seen)
 const HIT_RANGE = 1.2;
 
@@ -104,8 +104,8 @@ function nextStrikePlace(game) {
   const player = game.player;
   const targets = [...NPCS.filter((npc) => game.run.visible[npc.id]).map((npc) => game.run.people[npc.id]), ...game.run.villagers.filter((villager) => !villager.ko)];
   const near = targets.filter((target) => Math.hypot(target.x - player.x, target.y - player.y) < STRIKE_RANGE);
-  if (near.length > 0 && Math.random() < 0.18) return pickRandom(near);
-  if (Math.random() < 0.06) return player;
+  if (near.length > 0 && Math.random() < 0.08) return pickRandom(near);
+  if (Math.random() < 0.02) return player;
   return { x: player.x + (Math.random() - 0.5) * STRIKE_RANGE * 2, y: player.y + (Math.random() - 0.5) * STRIKE_RANGE * 1.4 };
 }
 

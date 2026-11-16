@@ -16,7 +16,7 @@ import { TILE_PX, groundTile, flowersDecal, setHomeWallColor } from './tiles';
 import { personSprite, walkPose, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
 import { drawBattle, battleGap, writeBattleWords } from './battle';
-import { activeEmotes } from '../logic/emotes';
+import { activeEmotes, emoteOwner } from '../logic/emotes';
 import { drawLights } from './lights';
 import { makeGrid, fillEllipse, toCanvas, once } from './pixels';
 import * as props from './props';
@@ -25,6 +25,7 @@ import { societyDrawings, drawSocietyEffects } from './societyArt';
 import { campDrawings, drawCampEffects } from './campArt';
 import { bondsDrawings, drawBondsEffects } from './bondsArt';
 import { partyDrawings, drawPartyEffects } from './partiesArt';
+import * as isekaiArt from './isekaiArt';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
 // then the buffer is drawn 2 to 4 times bigger on the screen, without smoothing: crisp pixel art.
@@ -374,6 +375,8 @@ function propSprite(prop, time, game) {
     furniture: () => buildings.furniture(prop.look, prop.color),
     keepFacade: () => buildings.keepFacade(prop.look, prop.w, blink),
     turret: () => buildings.turret(prop.look),
+    hotSpring: () => isekaiArt.hotSpring(Math.floor(time * 3) % 3),
+    heroGrave: () => isekaiArt.heroGrave(blink),
   };
   if (pictures[prop.kind]) return pictures[prop.kind]();
   if (prop.kind === 'fountain') return props.fountain(Math.floor(time * 4) % 2);
@@ -686,11 +689,12 @@ function followerDrawings(game, view, time) {
   });
 }
 
-// A monster looks at the player when it is close, else where it walks.
-function facingOf(monster, player) {
-  const isClose = Math.hypot(player.x - monster.x, player.y - monster.y) < 6;
-  const dx = isClose ? player.x - monster.x : monster.target ? monster.target.x - monster.x : monster.walkX;
-  return dx < 0 ? 'left' : 'right';
+// The picture of a monster on the map: 4 steps when it walks, a slow breath when it stands.
+// It looks to the side it last walked to (monster.dir, see logic/monsters.js).
+function monsterPicture(monster, time) {
+  const dir = monster.dir || 'left';
+  if (monster.moving === false) return monsterSprite(monster, dir, Math.floor(time * 1.5 + monster.step) % 2, 'idle');
+  return monsterSprite(monster, dir, Math.floor(monster.step * 6) % 4);
 }
 
 function smallHealthBar(ctx, monster, x, y) {
@@ -716,7 +720,7 @@ function monsterDrawings(game, view, time) {
       draw: (ctx) => {
         const hitAge = monster.hitAt ? now - monster.hitAt : 9999;
         const shake = hitAge >= 0 && hitAge < 180 ? Math.round(Math.sin(hitAge * 0.09) * 2) : 0;
-        const sprite = monsterSprite(monster, facingOf(monster, game.player), Math.floor(time * 3 + monster.step) % 2);
+        const sprite = monsterPicture(monster, time);
         const x = monster.x * T + shake;
         const y = monster.y * T;
         put(ctx, shadow(), x, y, view);
@@ -736,10 +740,9 @@ function monsterDrawings(game, view, time) {
 // The emotes over the heads: they pop up, then stay a moment.
 function drawEmotes(ctx, game, view) {
   for (const item of activeEmotes(game)) {
-    const place = item.who === 'hero' ? game.player : game.run.people[item.who];
+    const { place, look } = emoteOwner(game, item, (id) => npcOf(id).look);
     if (!place) continue;
     const pop = Math.max(0, Math.round((item.until - Date.now() - 1450) / 50)); // the first moment: higher
-    const look = item.who === 'hero' ? null : npcOf(item.who).look;
     put(ctx, props.emoteBubble(item.icon), place.x * T + 6, place.y * T - headHeight(look) - pop, view);
   }
 }
@@ -831,15 +834,20 @@ function drawSmoke(ctx, game, view, time) {
 // ---------- Lights ----------
 
 // The things that burn or glow.
-const LIGHT_KINDS = { lamp: 44, torch: 44, campfire: 56, cauldron: 46, crystal: 36, wallTorch: 52, stove: 40, homeLamp: 40, obelisk: 20, shrine: 34, portalRuins: 42 }; // their radius, in pixels
-const COLD_LIGHTS = ['crystal', 'obelisk', 'shrine', 'portalRuins']; // a magic light: no warm halo
+const LIGHT_KINDS = { lamp: 58, torch: 52, campfire: 70, cauldron: 50, crystal: 40, wallTorch: 58, stove: 44, homeLamp: 44, obelisk: 24, shrine: 40, portalRuins: 46, hotSpring: 40, heroGrave: 26 }; // their radius, in pixels
+const COLD_LIGHTS = ['crystal', 'obelisk', 'shrine', 'portalRuins', 'hotSpring', 'heroGrave']; // a magic light: no warm halo
+const HERO_TORCH_LIGHT = 92; // pixels
+const WINDOW_LIGHT = 44;
+const KNIGHT_TORCH_LIGHT = 46;
+const DEMON_GLOW = 26;
+const BEDTIME = [21, 24]; // each house puts its lights out between these hours (and lights them again before dawn)
 
 // No light by default at night: only the torch of the hero, the lamps, the fires and the magic.
 function lightsOf(game, view, time = 0) {
   const lights = [];
   if (hasLight(game)) {
     const flick = Math.round(Math.sin(time * 7) * 3);
-    lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 64 + flick, warm: true });
+    lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: HERO_TORCH_LIGHT + flick, warm: true });
   }
   if (game.run.fight) {
     // a fight at night: a big light on the two fighters (and on the friends behind the hero)
@@ -852,6 +860,33 @@ function lightsOf(game, view, time = 0) {
   }
   for (const house of burningHouses(game, view)) {
     lights.push({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h * 0.3) * T - view.y, radius: Math.max(70, house.w * 8), warm: true });
+  }
+  lights.push(...windowLights(game, view), ...walkingLights(game, view, time), ...isekaiArt.isekaiLights(game, view, time));
+  return lights;
+}
+
+// Is somebody still awake in this house? Each house has its own bedtime, and wakes up a bit before the sun.
+function hasLitWindows(game, house) {
+  const bedtime = BEDTIME[0] + noise(house.x, house.y, 61) * (BEDTIME[1] - BEDTIME[0]);
+  return (game.hour >= 17 && game.hour < bedtime) || (game.hour >= 5 && game.hour < 8);
+}
+
+// The windows of the houses where people are awake: a warm light on their front wall.
+function windowLights(game, view) {
+  return housesNear(view)
+    .filter((house) => house.style !== 'tent' && isNear(view, house.x - 3, house.y - 3, house.w + 6, house.h + 6) && hasLitWindows(game, house))
+    .map((house) => ({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h - 1.4) * T - view.y, radius: WINDOW_LIGHT + house.w * 2, warm: true }));
+}
+
+// The lights that walk: the torches of the knights on guard, the red glow of the demons.
+function walkingLights(game, view, time) {
+  const lights = [];
+  for (const knight of visibleVillagers(game).filter((villager) => villager.knight && isNear(view, villager.x - 3, villager.y - 3, 6, 6))) {
+    const flick = Math.round(Math.sin(time * 6 + knight.x) * 2);
+    lights.push({ x: knight.x * T - view.x, y: knight.y * T - 10 - view.y, radius: KNIGHT_TORCH_LIGHT + flick, warm: true });
+  }
+  for (const monster of game.run.monsters.filter((item) => item.tier === 'demon' && isNear(view, item.x - 2, item.y - 3, 4, 4))) {
+    lights.push({ x: monster.x * T - view.x, y: monster.y * T - 10 - view.y, radius: DEMON_GLOW, warm: true });
   }
   return lights;
 }
@@ -998,6 +1033,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawCampEffects(art, game, view, time);
   drawBondsEffects(art, game, view, time);
   drawPartyEffects(art, game, view);
+  isekaiArt.drawIsekaiEffects(art, game, view, time);
   drawWeather(art, game, view, time);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));
   drawFade(art, game);

@@ -24,9 +24,10 @@ import { firstSociety } from './society';
 import { firstCamp } from './camp';
 import { firstBonds } from './bonds';
 import { firstStatLinks, ensureStatLinks } from './statLinks';
+import { firstIsekai } from './isekai/common';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
-export const WORLD_VERSION = 3; // 3: expanded 2560 x 2560 world of 5 kingdoms & 33 villages (migrates v1/v2 maps safely)
+export const WORLD_VERSION = 4; // 4: the world of the painting art/MAP2.png (a save of an older world moves to it)
 
 // Everything that is NOT saved: what is on screen right now. It is rebuilt each time the game opens.
 export function makeRun() {
@@ -55,6 +56,8 @@ export function makeRun() {
     caravans: [],
     skirmishes: [],
     bolts: [], // the lightning strikes of the moment (see weather.js)
+    fallenStars: [], // the stars fallen on the Night of Falling Stars (see isekai/events.js)
+    starTime: 10,
     strikeTime: 8,
     encounter: null, // someone met on the road (see encounters.js)
     encounterTime: 30,
@@ -234,6 +237,7 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
     war: firstWar(), // the warbands, the fallen villages, the caravans (see war.js)
     society: firstSociety(), // trade, reputation, horses, feasts, disasters (see society.js)
     camp: firstCamp(), // the camp, the cooking (see camp.js)
+    isekai: firstIsekai(), // curses, the Lost Hero, the classmates, the arenas, the events (see isekai/)
     bonds: firstBonds(), // the bonds with the characters (see bonds.js)
     run: makeRun(),
   };
@@ -244,12 +248,14 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
   return game;
 }
 
-// A save of an earlier world (256x256): the hero keeps stats, gear and friends, and moves safely onto the expanded map.
+// A save of an earlier world: the hero keeps stats, gear and friends, and wakes up at home in the new world.
+// Everything that was tied to the old map starts again (what was explored, the fields, the villages, the wars).
 function moveToNewWorld(game) {
   if (game.world === WORLD_VERSION) return;
-  const fromSmallWorld = typeof game.explored !== 'string' || game.explored.length !== emptyExplored().length || (game.player.x < 350 && game.player.y < 350);
   game.world = WORLD_VERSION;
-  if (!fromSmallWorld) return;
+  game.villages = firstVillages();
+  game.war = { ...firstWar(), disarmedTraps: {}, clearedLairs: {} };
+  game.camp.active = null;
   game.player.x = SPAWN.x;
   game.player.y = SPAWN.y;
   game.explored = emptyExplored();
@@ -334,6 +340,7 @@ function addMissing(game) {
   if (!game.society.luredCrates) game.society.luredCrates = {};
   if (!game.camp) game.camp = firstCamp();
   if (!game.bonds) game.bonds = firstBonds();
+  if (!game.isekai) game.isekai = firstIsekai();
   if (!game.targetScore) game.targetScore = game.score || 400;
   if (!game.goalRate) game.goalRate = Math.max(55, Math.min(96, Math.round((game.targetScore / 495) * 100)));
   if (typeof game.explored !== 'string' || game.explored.length !== emptyExplored().length) game.explored = emptyExplored();
