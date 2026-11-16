@@ -9,14 +9,13 @@ import { playEffect } from '../audio/effects';
 import { TYPES, typeOf, weaknessOf } from '../data/types';
 import { ITEMS } from '../data/items';
 import { answer, nextRound, endFight, flee, xpOfFight, castSpell, SPELL_MANA } from '../logic/fight';
-import { spellRank } from '../logic/learning';
-import { TAG_NAMES, TAG_COLORS, TAG_POWER, tagOf } from '../logic/skills';
+import { TAGS, TAG_NAMES, TAG_COLORS, TAG_POWER, spellLevel } from '../logic/skills';
 import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
 import { battlePlaces, hitMoments } from '../draw/battle';
 
 const AUTO_NEXT = 1100; // milliseconds: after a GOOD answer, the next question comes by itself
-const POTIONS = ['healthPotion', 'bigPotion', 'bread', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
+const POTIONS = ['healthPotion', 'bigPotion', 'bread', 'roastMeat', 'herbStew', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
 const ANSWER_KEYS = ['1', '2', '3', '4', 'a', 'b', 'c', 'd']; // 1 = a, 2 = b...
 
 // One sentence that tells what the last answer did.
@@ -71,12 +70,12 @@ function TagBadge({ tag }) {
   );
 }
 
-// The menu on the left: how the next good answer will strike.
-// A spell changes the question for one of its school, at the tag the hero has reached in it.
+// The menu on the left: only 4 commands. Fight (the sword), Skills (the spells learned from the researchers:
+// a spell changes the question for one of its school, at the level it was learned), Items, Flee.
 function Commands({ game, fight, refresh, onFlee }) {
-  const [list, setList] = useState('main'); // 'main' | 'magic' | 'item'
+  const [list, setList] = useState('main'); // 'main' | 'skills' | 'items'
   const player = game.player;
-  const spells = TYPES.filter((type) => spellRank(game, type.id) > 0);
+  const spells = TYPES.filter((type) => spellLevel(game, type.id) > 0);
   const potions = POTIONS.filter((id) => countItem(player, id) > 0);
   const weakness = weaknessOf(fight.opponent.category);
 
@@ -98,36 +97,39 @@ function Commands({ game, fight, refresh, onFlee }) {
     refresh();
   }
 
-  if (list === 'magic') {
+  if (list === 'skills') {
     return (
-      <div className="window commands">
-        <button className="menu-item" onClick={() => setList('main')}>
-          ◀
+      <div className="window commands commands-open">
+        <button className="command" onClick={() => setList('main')}>
+          ◀ Back
         </button>
-        {spells.length === 0 && <span className="small">No spell yet: reach 20% in a type.</span>}
-        {spells.map((type) => (
-          <button key={type.id} className="menu-item" disabled={player.mana < SPELL_MANA} onClick={() => cast(type.id)}>
-            <PixelIcon name={type.id} size={14} />
-            <span style={styles.spell}>
-              {type.short} {type.id === weakness ? '×2' : ''}
-            </span>
-            <span className="small" style={{ color: TAG_COLORS[tagOf(game, type.id)] }}>
-              {TAG_NAMES[tagOf(game, type.id)]}
-            </span>
-          </button>
-        ))}
+        {spells.length === 0 && <span className="small">No skill yet. The researchers teach them (Yuki, Luna, Selene...).</span>}
+        {spells.map((type) => {
+          const tag = TAGS[spellLevel(game, type.id) - 1];
+          return (
+            <button key={type.id} className="command" disabled={player.mana < SPELL_MANA} onClick={() => cast(type.id)}>
+              <PixelIcon name={type.id} size={14} />
+              <span style={styles.spell}>
+                {type.short} {type.id === weakness ? '×2' : ''}
+              </span>
+              <span className="small" style={{ color: TAG_COLORS[tag] }}>
+                {TAG_NAMES[tag]}
+              </span>
+            </button>
+          );
+        })}
       </div>
     );
   }
-  if (list === 'item') {
+  if (list === 'items') {
     return (
-      <div className="window commands">
-        <button className="menu-item" onClick={() => setList('main')}>
-          ◀
+      <div className="window commands commands-open">
+        <button className="command" onClick={() => setList('main')}>
+          ◀ Back
         </button>
-        {potions.length === 0 && <span className="small">No potion.</span>}
+        {potions.length === 0 && <span className="small">Nothing to use.</span>}
         {potions.map((id) => (
-          <button key={id} className="menu-item" disabled={!canUsePotion(game, id)} onClick={() => drink(id)}>
+          <button key={id} className="command" disabled={!canUsePotion(game, id)} onClick={() => drink(id)}>
             <PixelIcon name={id} size={14} />
             <span>×{countItem(player, id)}</span>
           </button>
@@ -135,23 +137,24 @@ function Commands({ game, fight, refresh, onFlee }) {
       </div>
     );
   }
-  const magicLabel = fight.mode === 'strike' ? 'Magic' : typeOf(fight.mode).short;
   return (
     <div className="window commands">
-      <button className={'menu-item' + (fight.mode === 'strike' ? ' selected' : '')} disabled={fight.spellCast} onClick={() => choose('strike')}>
-        Attack
+      <button className={'command command-fight' + (fight.mode === 'strike' ? ' selected' : '')} disabled={fight.spellCast} onClick={() => choose('strike')}>
+        <PixelIcon name={player.weapon} size={20} />
+        <span>Fight</span>
       </button>
-      <button className={'menu-item' + (fight.mode !== 'strike' ? ' selected' : '')} disabled={fight.spellCast} onClick={() => setList('magic')}>
-        {magicLabel}
+      <button className={'command command-skills' + (fight.mode !== 'strike' ? ' selected' : '')} disabled={fight.spellCast} onClick={() => setList('skills')}>
+        <PixelIcon name="powers" size={20} />
+        <span>{fight.mode === 'strike' ? 'Skills' : typeOf(fight.mode).short}</span>
       </button>
-      <button className="menu-item" onClick={() => setList('item')}>
-        Item
+      <button className="command command-items" onClick={() => setList('items')}>
+        <PixelIcon name="inventory" size={20} />
+        <span>Items</span>
       </button>
-      {!fight.opponent.boss && (
-        <button className="menu-item" onClick={onFlee}>
-          {fight.opponent.duel ? 'Give up' : 'Flee'}
-        </button>
-      )}
+      <button className="command command-flee" disabled={fight.opponent.boss} onClick={onFlee}>
+        <PixelIcon name="quit" size={20} />
+        <span>{fight.opponent.duel ? 'Give up' : 'Flee'}</span>
+      </button>
     </div>
   );
 }
@@ -207,8 +210,9 @@ function QuestionWindow({ fight, onAnswer, onNext }) {
   const timeLeft = isAsking ? 1 - (Date.now() - fight.startedAt) / fight.limit : 0;
   const story = fight.last && !isAsking ? storyOf(fight.last) : null;
   const isLong = question.answers.some((label) => label.length > 22); // long answers: one per line
+  const mood = !story ? 'question-ask' : fight.last.critical ? 'question-critical' : story.good ? 'question-good' : 'question-bad';
   return (
-    <div className="window grow">
+    <div key={question.id + '-' + fight.asked} className={'window grow question-window ' + mood}>
       <Bar value={timeLeft} color={timeLeft > 0.5 ? '#7cfc9a' : timeLeft > 0.25 ? '#ffd23f' : '#ff5a6e'} height={8} />
       <div className="row" style={styles.questionTop}>
         <TagBadge tag={question.difficulty} />

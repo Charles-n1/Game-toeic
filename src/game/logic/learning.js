@@ -4,7 +4,7 @@ import { today } from '../../logic/dates';
 import { pickRandom } from '../../logic/random';
 import { TIERS } from '../data/monsters';
 import { typeOf } from '../data/types';
-import { tagOf, countTagAnswer } from './skills';
+import { TAGS, tagOf, countTagAnswer, spellLevel } from './skills';
 import { notify } from './messages';
 
 // The game trains ONE grammar category at a time: the "focus" (the weakest one).
@@ -103,11 +103,12 @@ function firstNotEmpty(lists) {
 export function pickQuestion(game, opponent, usedIds, lastText) {
   const sections = TIERS[opponent.tier].sections;
   const tag = opponent.tag || tagOf(game, opponent.category);
-  const fresh = game.run.questions.filter((q) => !usedIds.includes(q.id));
+  const bank = opponent.questions || game.run.questions; // a negotiation has its own sentences
+  const fresh = bank.filter((q) => !usedIds.includes(q.id));
   const ofTier = fresh.filter((q) => sections.includes(q.section));
   const ofType = ofTier.filter((q) => q.category === opponent.category);
   const ofTag = (list) => list.filter((q) => q.difficulty === tag);
-  const pool = firstNotEmpty([ofTag(ofType), ofTag(ofTier), ofType, ofTier, fresh, game.run.questions]);
+  const pool = opponent.questions ? firstNotEmpty([fresh, bank]) : firstNotEmpty([ofTag(ofType), ofTag(ofTier), ofType, ofTier, fresh, bank]);
 
   const ofSameText = pool.filter((q) => q.text !== null && q.text === lastText);
   if (ofSameText.length > 0) return ofSameText[0];
@@ -116,11 +117,11 @@ export function pickQuestion(game, opponent, usedIds, lastText) {
   return pickRandom(pool);
 }
 
-// The question of a spell: of the school of the spell, at the tag the hero has reached in it.
-// (A Gerund spell of a hero who is Hard in gerunds asks a Hard gerund question: it hits 5 times harder.)
+// The question of a spell: of the school of the spell, at the level the hero learned it (1 Normal, 2 Hard...).
+// (A Gerund spell learned at Hard asks a Hard gerund sentence: it hits 5 times harder.)
 export function pickSpellQuestion(game, categoryId, usedIds) {
-  const fresh = game.run.questions.filter((q) => !usedIds.includes(q.id) && q.section !== 'text');
+  const fresh = game.run.questions.filter((q) => !usedIds.includes(q.id) && q.section === 'rc10');
   const ofType = fresh.filter((q) => q.category === categoryId);
-  const ofTag = ofType.filter((q) => q.difficulty === tagOf(game, categoryId));
+  const ofTag = ofType.filter((q) => q.difficulty === TAGS[Math.max(0, spellLevel(game, categoryId) - 1)]);
   return pickRandom(firstNotEmpty([ofTag, ofType, fresh, game.run.questions]));
 }

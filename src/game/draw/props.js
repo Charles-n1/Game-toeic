@@ -320,6 +320,10 @@ const SIGNS = {
   shield: ['.GGGGGG..', '.GUUUUG..', '.GUYYUG..', '.GUYYUG..', '..GUUG...', '...GG....', '.........', '.........', '.........'],
   fish: ['.........', '.........', '.U..UUU..', '.UUUUWUU.', '.UUUUUUU.', '.U..UUU..', '.........', '.........', '.........'],
   star: ['....Y....', '....Y....', '...YWY...', 'YYYWWWYYY', '.YYWWWYY.', '..YYWYY..', '..YY.YY..', '.YY...YY.', '.........'],
+  potion: ['...BB....', '...WW....', '..UUUU...', '.UUWUUU..', '.UUUUUU..', '.UUUUUU..', '..UUUU...', '.........', '.........'],
+  guild: ['.GGGGGG..', '.GRRRRG..', '.GRYYRG..', '.GRYYRG..', '..GRRG...', '...GG....', '.........', '.........', '.........'],
+  meat: ['......W..', '.....WW..', '..CCCW...', '.CCRCC...', 'CCCCCC...', '.CCCC....', '..CC.....', '.........', '.........'],
+  cloth: ['.........', 'UUUUUUUU.', 'UWUWUWUU.', 'UUUUUUUU.', 'UWUWUWUU.', 'UUUUUUUU.', '.........', '.........', '.........'],
 };
 
 // ---------- Village things ----------

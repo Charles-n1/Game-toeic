@@ -1,14 +1,22 @@
-import { zoneAt, zoneOf } from '../data/zones';
-import { MAP, MAP_SIZE, TILE, noise, TREASURES } from '../world/map';
+import { zoneAt, zoneOf, dungeonOf, HOME_DOOR } from '../data/zones';
+import { MAP, MAP_SIZE, TILE, noise, TREASURES, biomeAt } from '../world/map';
+import paintedMapUrl from '../assets/world/world-map.jpg';
 import { smoothNoise } from '../world/noise';
 import { BLOCK, BLOCKS, isBlockKnown, isKnown } from '../logic/explore';
 import { PLACES, SHOP_MARKS, mainQuestMark, sideQuestMarks, blockedMarks } from '../logic/places';
 import { iconCanvas } from './icons';
 import { makeGrid, fillEllipse, drawLine, addOutline, toCanvas, once } from './pixels';
 
-// The world map, painted like an old adventure map: forests of round trees, snowy peaks, lava, dunes, rivers...
-// The painting is made once (6 pixels per tile). Then each frame draws a part of it, the fog on the places
-// the player does not know yet, and the marks: places, quests, shops, the player.
+// The world map: the painting of the world itself (art/MAP.png, made smaller by tools/build_world.py).
+// Until it is loaded, a painting made from the tiles is shown (6 pixels per tile).
+// Each frame draws a part of it, the fog on the places the player does not know yet, and the marks:
+// places, quests, shops, the player.
+
+const paintedMap = new Image();
+paintedMap.src = paintedMapUrl;
+
+// The places whose names are already written on the painting (their boxes are only drawn when chosen).
+const PAINTED_NAMES = ['castle', 'mountain', 'tower', 'crypt', 'greendale', 'lexia', 'port', 'ruins', 'desert', 'woods', 'watchtower', 'skyreach', 'fort'];
 
 const P = 6; // pixels of the painting per tile
 const SEA = { deep: '#1d4b94', mid: '#2a66b8', shallow: '#3b86d8', foam: '#d6f0ff', wave: '#5a9de6' };
@@ -58,13 +66,15 @@ function paintWater(ctx, x, y) {
 }
 
 function grassColor(x, y) {
-  if (zoneAt(x, y).biome === 'forest') return smoothNoise(x, y, 4, 22) < 0.5 ? '#2f6e2e' : '#357a33'; // under the trees
+  if (biomeAt(x, y) === 'forest') return smoothNoise(x, y, 4, 22) < 0.5 ? '#2f6e2e' : '#357a33'; // under the trees
   return GRASSES[Math.floor(smoothNoise(x, y, 4, 22) * 2.99)];
 }
 
 // The color of the ground of a tile (under the trees and the rocks too).
 function groundColor(x, y, tile) {
-  const biome = zoneAt(x, y).biome;
+  const biome = biomeAt(x, y);
+  if (tile === TILE.CLIFF) return biome === 'mountain' ? '#9aa6c0' : biome === 'demon' ? '#2a2026' : biome === 'desert' ? '#a8683a' : '#6a6458';
+  if (tile === TILE.STAIRS) return '#1c1726';
   if (tile === TILE.PATH) return zoneAt(x, y).kind === 'village' ? '#b8afa2' : '#c9a26b';
   if (tile === TILE.BRIDGE) return '#8a5a30';
   if (tile === TILE.STONE || (biome === 'mountain' && tile !== TILE.FLOOR && tile !== TILE.WALL)) return noise(x, y, 23) < 0.2 ? '#cfdaea' : '#e6edf7';
@@ -158,12 +168,12 @@ function paintDeadTree(ctx, x, y) {
 
 // On the map, a forest is drawn thicker than it is: more canopies, on the free grass too.
 function isThickForest(x, y, tile) {
-  return zoneAt(x, y).biome === 'forest' && (tile === TILE.GRASS || tile === TILE.FLOWER) && noise(x, y, 26) < 0.55;
+  return biomeAt(x, y) === 'forest' && (tile === TILE.GRASS || tile === TILE.FLOWER) && noise(x, y, 26) < 0.55;
 }
 
 function paintStanding(ctx, x, y) {
   const tile = tileOf(x, y);
-  const biome = zoneAt(x, y).biome;
+  const biome = biomeAt(x, y);
   if (isThickForest(x, y, tile)) paintRoundTree(ctx, x, y, FOREST);
   if (tile === TILE.TREE && biome === 'mountain') paintPine(ctx, x, y);
   else if (tile === TILE.TREE && biome === 'desert') paintCactus(ctx, x, y);
@@ -197,8 +207,7 @@ function paintStronghold(ctx, zone, look) {
 const STRONGHOLDS = {
   castle: { stone: '#3a3346', dark: '#251f2e', flag: '#e8423f' },
   tower: { stone: '#9aa6c0', dark: '#6d7a94', flag: '#ffd23f' },
-  fort: { stone: '#8a7f74', dark: '#5f564d', flag: '#c8452f' },
-  crypt: { stone: '#5a5468', dark: '#3a3448', flag: '#8a3fd1' },
+  ruins: { stone: '#8a7f74', dark: '#5f564d', flag: '#c8452f' },
 };
 
 function paintWorld() {
@@ -216,8 +225,27 @@ function paintWorld() {
   return canvas;
 }
 
+function paintFromArt() {
+  const canvas = document.createElement('canvas');
+  canvas.width = MAP_SIZE * P;
+  canvas.height = MAP_SIZE * P;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(paintedMap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
 function worldPainting() {
+  if (paintedMap.complete && paintedMap.naturalWidth > 0) return once('worldArt', paintFromArt);
   return once('worldPainting', paintWorld);
+}
+
+// Where the hero is on the island: inside a dungeon, at its door (inside the home, at the home).
+function islandPosition(game) {
+  const zone = zoneAt(game.player.x, game.player.y);
+  if (zone.kind !== 'inside') return { x: game.player.x, y: game.player.y };
+  if (zone.dungeon) return { x: dungeonOf(zone.dungeon).door[0] + 0.5, y: dungeonOf(zone.dungeon).door[1] + 0.5 };
+  return { x: HOME_DOOR.x + 0.5, y: HOME_DOOR.y + 1 };
 }
 
 // ---------- The compass ----------
@@ -313,6 +341,12 @@ function drawLabel(ctx, frame, place, isSelected) {
   return box;
 }
 
+// The box of a name written on the painting (not drawn: only to know when it is tapped).
+function labelBox(frame, place) {
+  const at = toScreen(frame, place.x, place.y);
+  return { x: Math.round(at.x - 40), y: Math.round(at.y - 10), w: 80, h: 20, place: place };
+}
+
 // Is this tile on the map shown? (the names of the places outside it are not written: they would pile up on the edges)
 function isInFrame(frame, x, y) {
   return x >= frame.left && x <= frame.left + frame.visible && y >= frame.top && y <= frame.top + frame.visible;
@@ -322,7 +356,10 @@ function drawPlaces(ctx, game, frame, view, selectedId) {
   const boxes = [];
   for (const place of PLACES) {
     const showLand = place.kind !== 'land' || view.zoom >= 2;
-    if (showLand && isInFrame(frame, place.x, place.y) && isKnown(game, place.x, place.y)) boxes.push(drawLabel(ctx, frame, place, place.id === selectedId));
+    if (!showLand || !isInFrame(frame, place.x, place.y) || !isKnown(game, place.x, place.y)) continue;
+    const isSelected = place.id === selectedId;
+    if (PAINTED_NAMES.includes(place.id) && !isSelected) boxes.push(labelBox(frame, place));
+    else boxes.push(drawLabel(ctx, frame, place, isSelected));
   }
   return boxes;
 }
@@ -342,7 +379,8 @@ function drawMarks(ctx, game, frame, view, time) {
 
 function drawPlayer(ctx, game, frame, time, size) {
   if (Math.sin(time * 6) < -0.6) return; // it blinks
-  drawMark(ctx, frame, 'you', game.player.x, game.player.y, size);
+  const at = islandPosition(game);
+  drawMark(ctx, frame, 'you', at.x, at.y, size);
 }
 
 // The world map. Returns the boxes of the place names that were drawn (to find the one tapped).
@@ -369,13 +407,14 @@ export function drawWorldMap(ctx, game, view, size, time, selectedId) {
 
 // The corner map of the HUD: the land around the player (32 tiles), in a square of `size` pixels.
 export function drawMiniMap(ctx, game, size, time) {
-  const view = { cx: game.player.x, cy: game.player.y, zoom: MAP_SIZE / 32 };
+  const at = islandPosition(game);
+  const view = { cx: at.x, cy: at.y, zoom: MAP_SIZE / 40 };
   const frame = frameOf(view, size);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(worldPainting(), frame.left * P, frame.top * P, frame.visible * P, frame.visible * P, 0, 0, size, size);
   ctx.imageSmoothingEnabled = false;
   drawFog(ctx, game, frame);
-  for (const monster of game.run.monsters) {
+  for (const monster of game.run.monsters.filter((item) => item.y < MAP_SIZE)) {
     const at = toScreen(frame, monster.x, monster.y);
     rect(ctx, Math.round(at.x) - 2, Math.round(at.y) - 2, 4, 4, '#0e1430');
     rect(ctx, Math.round(at.x) - 1, Math.round(at.y) - 1, 2, 2, '#ff3040');
@@ -387,7 +426,8 @@ export function drawMiniMap(ctx, game, size, time) {
 
 // Where to look first: centered on the player, zoomed in.
 export function firstView(game) {
-  return { cx: game.player.x, cy: game.player.y, zoom: 2 };
+  const at = islandPosition(game);
+  return { cx: at.x, cy: at.y, zoom: 2 };
 }
 
 // The tile under a pixel of the map (to move the view by dragging).

@@ -51,8 +51,8 @@ function paintTint(ctx, width, height, color) {
   ctx.fillRect(0, 0, width, height);
 }
 
-export function drawLights(ctx, game, width, height, lights) {
-  const dark = darkness(game);
+// dark: how dark it is here (see darknessHere in draw/weather.js): the night, the inside of a dungeon...
+export function drawLights(ctx, game, width, height, lights, dark = darkness(game)) {
   const sunset = sunsetAmount(game.hour);
   if (sunset > 0) paintTint(ctx, width, height, 'rgba(255, 120, 50, ' + 0.16 * sunset + ')');
   if (game.raid.active) paintTint(ctx, width, height, 'rgba(255, 60, 20, 0.24)');

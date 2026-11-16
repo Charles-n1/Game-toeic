@@ -1,5 +1,9 @@
 import { NPCS } from '../data/npcs';
-import { SPAWN } from '../data/zones';
+import { PLAZAS, FIELDS, zoneAt, insideOf } from '../data/zones';
+import { allProps } from '../world/map';
+import { findPath, followPath } from '../world/paths';
+import { isEncountered } from './encounters';
+import { guildChoice } from './guild';
 import { LESSON_PRICE, LESSON_FRIENDSHIP, POWERS } from '../data/powers';
 import { ITEMS } from '../data/items';
 import { pickRandom } from '../../logic/random';
@@ -9,7 +13,7 @@ import { facingOf } from './input';
 import { passHours } from './days';
 import { addFriendship, addHappiness, shareFeelings } from './village';
 import { classChoice } from './classes';
-import { schoolChoice } from './school';
+import { schoolChoice, teacherChoice } from './school';
 import { marry, partnerOf, childrenOf } from './families';
 import { activeQuestOf, offeredQuest, isQuestReady, questProgress, startQuest, finishQuest } from './quests';
 import { workAsScribe, playWordSprint } from './duels';
@@ -28,9 +32,16 @@ const TALK_RANGE = 1.5; // tiles
 
 // ---------- Where they are ----------
 
-// Married to the player: they live in front of the player's home.
+const SLEEP_FROM = 22; // the people of the villages sleep (inside, not on the map) from 22:00...
+const SLEEP_UNTIL = 6; // ...to 6:00
+const ERRAND_EVERY = [30, 90]; // seconds between two walks of a person (to the square, the well, a neighbor...)
+
+// Where someone lives: their spot in data/npcs.js. Married to the hero: inside the home of the hero.
 function homeOf(game, npc) {
-  if (game.player.spouse === npc.id) return { x: SPAWN.x + 1.5, y: SPAWN.y + 0.3 };
+  if (game.player.spouse === npc.id) {
+    const home = insideOf('home');
+    return { x: home.x + 6.5, y: home.y + 5.5 };
+  }
   return { x: npc.x, y: npc.y };
 }
 
@@ -38,15 +49,26 @@ function homeOf(game, npc) {
 export function placePeople(game) {
   for (const npc of NPCS) {
     const home = homeOf(game, npc);
-    game.run.people[npc.id] = { x: home.x, y: home.y, walkX: 0, walkY: 0, walkTime: 0, step: 0, dir: 'down' };
+    game.run.people[npc.id] = { x: home.x, y: home.y, walkX: 0, walkY: 0, walkTime: 0, step: 0, dir: 'down', path: null, errandTime: 10 + Math.random() * 60, away: false };
   }
 }
 
-// On the map right now? (Alive, not following the player, and Nyx only comes out at night.)
+function isSleepTime(game) {
+  return game.hour >= SLEEP_FROM || game.hour < SLEEP_UNTIL;
+}
+
+// On the map right now? Alive, not following the hero, not carried, and:
+// a night person only at night, a wanderer only when met on the road, a guild member never (they are in the guild),
+// the others not at night (they sleep). A KO person lies where they fell.
 export function isOutside(game, npc) {
-  const isFollowing = game.player.party.includes(npc.id);
-  const isHidden = npc.nightOnly && !isNight(game) && game.player.spouse !== npc.id;
-  return game.npcs[npc.id].alive && !isFollowing && !isHidden;
+  const state = game.npcs[npc.id];
+  if (!state.alive || game.player.party.includes(npc.id) || game.player.carrying?.id === npc.id) return false;
+  if (state.ko) return true;
+  if (game.player.spouse === npc.id) return true;
+  if (npc.wanderer) return isEncountered(game, npc.id);
+  if (npc.guild) return false;
+  if (npc.nightOnly) return isNight(game);
+  return !isSleepTime(game);
 }
 
 function pickWalk(place) {
@@ -57,16 +79,16 @@ function pickWalk(place) {
   place.walkTime = 1 + Math.random() * 3;
 }
 
-// A slow walk around home. At night, or too far, they come back.
+// A slow walk around home. Too far, they come back.
 function strollPerson(game, npc, dt) {
   const place = game.run.people[npc.id];
   const home = homeOf(game, npc);
   const fromHome = Math.hypot(place.x - home.x, place.y - home.y);
   place.walkTime -= dt;
   if (place.walkTime <= 0) pickWalk(place);
-  if (fromHome > 1.5 || isNight(game)) {
-    place.walkX = fromHome > 0.1 ? (home.x - place.x) / fromHome : 0;
-    place.walkY = fromHome > 0.1 ? (home.y - place.y) / fromHome : 0;
+  if (fromHome > 2) {
+    place.walkX = (home.x - place.x) / fromHome;
+    place.walkY = (home.y - place.y) / fromHome;
   }
   const x = place.x + place.walkX * 0.7 * dt;
   const y = place.y + place.walkY * 0.7 * dt;
@@ -81,15 +103,54 @@ function strollPerson(game, npc, dt) {
   }
 }
 
+// The places a person of a village walks to: the squares, the wells, the fields of their village.
+function errandSpots(npc) {
+  const zone = zoneAt(npc.x, npc.y);
+  if (zone.kind !== 'village') return [];
+  const spots = [...PLAZAS, ...FIELDS].filter((item) => zoneAt(item.x, item.y).id === zone.id).map((item) => ({ x: item.x + Math.floor(item.w / 2), y: item.y + item.h }));
+  const wells = allProps().filter((prop) => prop.kind === 'well' && zoneAt(prop.x, prop.y).id === zone.id).map((prop) => ({ x: prop.x, y: prop.y + 1 }));
+  return [...spots, ...wells];
+}
+
+// From time to time, a person walks somewhere in their village (by the streets), stays a moment, comes back.
+function runErrands(game, npc, dt) {
+  const place = game.run.people[npc.id];
+  if (place.path) {
+    if (followPath(place, 1.3, dt)) {
+      place.path = null;
+      place.errandTime = place.away ? 8 + Math.random() * 12 : ERRAND_EVERY[0] + Math.random() * (ERRAND_EVERY[1] - ERRAND_EVERY[0]);
+    }
+    return true;
+  }
+  place.errandTime -= dt;
+  if (place.errandTime > 0) return false;
+  const home = homeOf(game, npc);
+  const spots = errandSpots(npc);
+  if (place.away || spots.length === 0) {
+    place.path = findPath(place.x, place.y, home.x, home.y, 1500);
+    place.away = false;
+  } else {
+    const spot = pickRandom(spots);
+    place.path = findPath(place.x, place.y, spot.x, spot.y, 1500);
+    place.away = place.path !== null;
+  }
+  if (!place.path) place.errandTime = 20;
+  return place.path !== null;
+}
+
 export function updatePeople(game, dt) {
   const player = game.player;
   for (const npc of NPCS) {
     const place = game.run.people[npc.id];
+    const isVisible = isOutside(game, npc);
+    game.run.visible[npc.id] = isVisible;
+    if (!isVisible || game.npcs[npc.id].ko) continue;
     const isListening = Math.hypot(place.x - player.x, place.y - player.y) < TALK_RANGE; // the player is near: stay
-    if (isOutside(game, npc) && !isListening) strollPerson(game, npc, dt);
     if (isListening) {
       place.walking = false;
       place.dir = facingOf(player.x - place.x, player.y - place.y); // they turn to the player
+    } else if (!runErrands(game, npc, dt)) {
+      strollPerson(game, npc, dt);
     }
   }
 }
@@ -98,7 +159,7 @@ export function updatePeople(game, dt) {
 export function personNear(game) {
   let closest;
   let best = TALK_RANGE;
-  for (const npc of NPCS.filter((item) => isOutside(game, item))) {
+  for (const npc of NPCS.filter((item) => isOutside(game, item) && !game.npcs[item.id].ko)) {
     const place = game.run.people[npc.id];
     const far = Math.hypot(place.x - game.player.x, place.y - game.player.y);
     if (far < best) {
@@ -264,7 +325,7 @@ function proposeChoice(game, npc) {
     if (state.friendship < PROPOSE_FRIENDSHIP) {
       say(game, npc.id, ['...Not yet. Ask me again when you are sure. When I am sure.']);
     } else if (countItem(game.player, 'ring') === 0) {
-      say(game, npc.id, ['You are asking without a ring? Rin sells one, in Port Syntax. Go. I will wait.']);
+      say(game, npc.id, ['You are asking without a ring? Rin sells one, in Seabridge. Go. I will wait.']);
     } else {
       removeItem(game.player, 'ring');
       game.player.spouse = npc.id;
@@ -281,6 +342,8 @@ const CHOICE_MAKERS = [
   activeQuestChoice,
   newQuestChoice,
   shopChoice,
+  guildChoice,
+  teacherChoice,
   schoolChoice,
   classChoice,
   workChoice,

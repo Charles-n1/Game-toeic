@@ -1,5 +1,5 @@
-import { zoneAt, HOME_DOOR } from '../data/zones';
-import { isSolid } from '../world/map';
+import { zoneAt, HOME_DOOR, BOATS } from '../data/zones';
+import { isSolid, tileAt, linkAt, TILE } from '../world/map';
 import { directionOf, facingOf } from './input';
 import { advanceClock, sleepUntilMorning } from './days';
 import { updateMonsters } from './monsters';
@@ -16,6 +16,15 @@ import { cue } from './cues';
 import { closedSealAt, explainSeal } from './seals';
 import { canGather, gather, canLightTorch, lightAtFire, hasLight } from './torch';
 import { isNight } from './clock';
+import { updateVillagers, updateAnimals, villagerNear, villageNews } from './villages';
+import { updateWeather, knockedOutNear, carry, checkRescue, checkKnockedOut, putDown } from './weather';
+import { updateEncounters } from './encounters';
+import { pushBoulder, wordDoorAt, openWordDoor, obeliskNear, readObelisk, boulderPuzzleAt, offerBoulderReset } from './puzzles';
+import { canRefill, refill, fireToCookNear, offerCooking } from './survival';
+import { isAtHome, furnitureAt, pickUpFurniture, openStorage, nextWallColor, nextBedColor } from './home';
+import { practiceAtDummy } from './school';
+import { refreshWorld } from './worldState';
+import { allProps } from '../world/map';
 import { say, notify, removeOldToasts } from './messages';
 
 // One step of the world. Called at every frame while the player is on the map.
@@ -23,6 +32,7 @@ import { say, notify, removeOldToasts } from './messages';
 const WALK_SPEED = 4.2; // tiles per second
 const BODY = 0.28; // half the width of the hero, in tiles (to not walk into the walls)
 const SAVE_EVERY = 10; // seconds
+const FADE = 350; // milliseconds: the screen goes black when the hero takes stairs
 const FRONT = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 // ---------- Walking ----------
@@ -40,15 +50,27 @@ function canStand(game, x, y) {
   return !seal && corners.every(([cx, cy]) => !isSolid(cx, cy));
 }
 
+// The hero walks into a boulder: it rolls one tile (the boulder puzzles of the dungeons).
+function tryPush(game, dx, dy) {
+  const player = game.player;
+  const x = Math.floor(player.x + dx * 0.6);
+  const y = Math.floor(player.y + dy * 0.6);
+  if (Date.now() < game.run.pushUntil || !pushBoulder(game, x, y, Math.sign(dx), Math.sign(dy))) return;
+  game.run.pushUntil = Date.now() + 250;
+  refreshWorld(game);
+}
+
 function walk(game, input, dt) {
   const player = game.player;
   const direction = directionOf(input);
   game.run.walking = direction.x !== 0 || direction.y !== 0;
-  if (!game.run.walking) return;
+  if (!game.run.walking || Date.now() < game.run.fadeUntil) return;
 
   const speed = WALK_SPEED * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
   if (canStand(game, player.x + direction.x * speed, player.y)) player.x += direction.x * speed;
+  else if (direction.y === 0) tryPush(game, direction.x, 0);
   if (canStand(game, player.x, player.y + direction.y * speed)) player.y += direction.y * speed;
+  else if (direction.x === 0) tryPush(game, 0, direction.y);
   player.dir = facingOf(direction.x, direction.y);
 
   const stepBefore = Math.floor(player.step);
@@ -59,6 +81,33 @@ function walk(game, input, dt) {
   }
 }
 
+// ---------- Stairs, doors, boats: going somewhere else ----------
+
+// The hero arrives somewhere else: the screen fades, the companions follow, the monsters around are forgotten.
+export function travelTo(game, x, y) {
+  game.player.x = x;
+  game.player.y = y;
+  game.run.fadeUntil = Date.now() + FADE;
+  game.run.followers = [];
+  game.run.safeUntil = Date.now() + 1500;
+  game.run.monsters = game.run.monsters.filter((monster) => monster.key || monster.raid);
+}
+
+// Stepping on stairs takes the hero to the other side (once: they must step off before taking them again).
+function takeStairs(game) {
+  const player = game.player;
+  const key = Math.floor(player.x) + ',' + Math.floor(player.y);
+  const link = tileAt(player.x, player.y) === TILE.STAIRS ? linkAt(player.x, player.y) : null;
+  if (!link) {
+    game.run.lastLink = null;
+    return;
+  }
+  if (game.run.lastLink === key) return;
+  travelTo(game, link.x, link.y);
+  game.run.lastLink = Math.floor(link.x) + ',' + Math.floor(link.y);
+  cue(game, 'step');
+}
+
 // Entering a new zone: it is remembered (for the map and the quests). Entering a village saves the game.
 function noticeZone(game) {
   const zone = zoneAt(game.player.x, game.player.y);
@@ -66,7 +115,9 @@ function noticeZone(game) {
   const isArriving = game.run.zoneId !== null; // not the first frame after loading
   game.run.zoneId = zone.id;
   game.visited[zone.id] = true;
+  if (zone.dungeon) game.visited[zone.dungeon] = true;
   if (isArriving && zone.kind === 'village') saveGame(game);
+  if (isArriving && zone.kind === 'inside' && zone.name) notify(game, zone.name, '#c9d1e0');
 }
 
 // ---------- The action button ----------
@@ -82,6 +133,12 @@ function isAtHomeDoor(player) {
   return front.x === HOME_DOOR.x && front.y === HOME_DOOR.y;
 }
 
+function enterHome(game) {
+  const link = linkAt(HOME_DOOR.x, HOME_DOOR.y);
+  travelTo(game, link.x, link.y);
+  game.run.lastLink = Math.floor(link.x) + ',' + Math.floor(link.y);
+}
+
 function goToBed(game) {
   if (game.raid.active) {
     notify(game, 'You can not sleep: the village is under attack!', '#ff6060');
@@ -89,46 +146,100 @@ function goToBed(game) {
   }
   sleepUntilMorning(game);
   saveGame(game);
-  notify(game, '💤 You slept well. HP and mana are full.', '#9fd8ff');
+  notify(game, '💤 You slept well. HP and mana are full. (You wake up hungry.)', '#9fd8ff');
 }
 
-function offerSleep(game) {
-  say(game, null, ['Your home. The bed looks soft.'], [
+// The prop of a kind near the hero (within `range` tiles of its middle), or null.
+function propNear(game, kinds, range) {
+  return allProps().find((prop) => kinds.includes(prop.kind) && Math.hypot(prop.x + prop.w / 2 - game.player.x, prop.y + prop.h / 2 - game.player.y) < range) || null;
+}
+
+function offerBed(game) {
+  say(game, null, ['Your bed. The sheets smell of sun.'], [
     { label: 'Sleep until morning', icon: 'sleep', run: () => goToBed(game) },
+    { label: 'Change the color of the walls', icon: 'options', run: () => nextWallColor(game) },
+    { label: 'Change the color of the bed', icon: 'options', run: () => nextBedColor(game) },
     { label: 'Not now', run: () => {} },
   ]);
 }
 
-// The action button does the most useful thing where the hero stands:
-// talk to someone, sleep at home, light a torch at a fire, open a chest, work the field,
-// take a branch from a tree (or a stone from a rock), or dig.
-export function act(game) {
-  const player = game.player;
-  const person = personNear(game);
-  const chest = chestNear(game);
-  const front = frontTile(player);
+function boatNear(game) {
+  return BOATS.find((boat) => Math.hypot(boat.x + 0.5 - game.player.x, boat.y + 0.5 - game.player.y) < 4) || null;
+}
 
-  if (person) talkTo(game, person);
-  else if (isAtHomeDoor(player)) offerSleep(game);
-  else if (canLightTorch(game, false)) lightAtFire(game);
-  else if (chest) openChest(game, chest);
-  else if (isSoil(player.x, player.y)) workField(game, player.x, player.y);
-  else if (isSoil(front.x, front.y)) workField(game, front.x, front.y);
-  else if (canGather(game, front.x, front.y)) gather(game, front.x, front.y);
-  else dig(game, front.x, front.y);
+function offerSail(game, boat) {
+  const to = BOATS.find((item) => item.id === boat.to);
+  say(game, null, ['The boat creaks on the waves. The sailor waves at you: "To ' + to.name + '? 10 Lexis."'], [
+    {
+      label: 'Sail to ' + to.name + ' (10 Lexis)',
+      icon: 'map',
+      run: () => {
+        if (game.player.lexis < 10) {
+          notify(game, 'You need 10 Lexis for the boat.');
+          return;
+        }
+        game.player.lexis -= 10;
+        travelTo(game, to.landing.x + 0.5, to.landing.y + 0.5);
+        notify(game, '⛵ After a few hours at sea: ' + to.name + '.', '#9fd8ff');
+      },
+    },
+    { label: 'Not now', run: () => {} },
+  ]);
+}
+
+// A piece of furniture of the home goes back to the bag (and the floor is free again).
+function pickUpAndRefresh(game, piece) {
+  pickUpFurniture(game, piece);
+  refreshWorld(game);
+}
+
+function talkToVillager(game, villager) {
+  const words = villager.working ? 'Hard work today. ' : 'Hello, traveler. ';
+  say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + '"']);
+}
+
+// What the action button does here: the first thing that applies, from the most important.
+// Each one is { when: () => boolean, icon, run }.
+function actionsOf(game) {
+  const player = game.player;
+  const front = frontTile(player);
+  const atHome = isAtHome(game);
+  return [
+    { when: () => player.carrying !== null, icon: 'people', run: () => putDown(game) },
+    { when: () => personNear(game), icon: 'talk', run: () => talkTo(game, personNear(game)) },
+    { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
+    { when: () => villagerNear(game), icon: 'talk', run: () => talkToVillager(game, villagerNear(game)) },
+    { when: () => isAtHomeDoor(player), icon: 'quit', run: () => enterHome(game) },
+    { when: () => atHome && furnitureAt(game, front.x, front.y), icon: 'inventory', run: () => pickUpAndRefresh(game, furnitureAt(game, front.x, front.y)) },
+    { when: () => atHome && propNear(game, ['bed'], 2.2), icon: 'sleep', run: () => offerBed(game) },
+    { when: () => atHome && propNear(game, ['storage'], 1.5), icon: 'chest', run: () => openStorage(game) },
+    { when: () => boatNear(game), icon: 'map', run: () => offerSail(game, boatNear(game)) },
+    { when: () => canLightTorch(game, false), icon: 'fire', run: () => lightAtFire(game) },
+    { when: () => fireToCookNear(game), icon: 'roastMeat', run: () => offerCooking(game) },
+    { when: () => wordDoorAt(game, front.x, front.y), icon: 'book', run: () => openWordDoor(game, wordDoorAt(game, front.x, front.y), () => refreshWorld(game)) },
+    { when: () => obeliskNear(game), icon: 'book', run: () => readObelisk(game, obeliskNear(game)) },
+    { when: () => boulderPuzzleAt(game, front.x, front.y), icon: 'dots', run: () => offerBoulderReset(game, boulderPuzzleAt(game, front.x, front.y), () => refreshWorld(game)) },
+    { when: () => propNear(game, ['dummy'], 1.6), icon: 'woodSword', run: () => practiceAtDummy(game) },
+    { when: () => chestNear(game), icon: 'chest', run: () => openChest(game, chestNear(game)) },
+    { when: () => isSoil(player.x, player.y), icon: 'carrot', run: () => workField(game, player.x, player.y) },
+    { when: () => isSoil(front.x, front.y), icon: 'carrot', run: () => workField(game, front.x, front.y) },
+    { when: () => canRefill(game, front), icon: 'water', run: () => refill(game) },
+    { when: () => canGather(game, front.x, front.y), icon: canGather(game, front.x, front.y), run: () => gather(game, front.x, front.y) },
+    { when: () => zoneAt(front.x, front.y).kind !== 'inside', icon: 'dig', run: () => dig(game, front.x, front.y) },
+    { when: () => true, icon: 'dots', run: () => {} },
+  ];
+}
+
+// The action button does the most useful thing where the hero stands.
+export function act(game) {
+  actionsOf(game)
+    .find((action) => action.when())
+    .run();
 }
 
 // What the action button would do right now: the name of its icon (see draw/icons.js).
 export function actionIcon(game) {
-  const player = game.player;
-  const front = frontTile(player);
-  if (personNear(game)) return 'talk';
-  if (isAtHomeDoor(player)) return 'sleep';
-  if (canLightTorch(game, false)) return 'fire';
-  if (chestNear(game)) return 'chest';
-  if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return 'carrot';
-  if (canGather(game, front.x, front.y)) return canGather(game, front.x, front.y);
-  return 'dig';
+  return actionsOf(game).find((action) => action.when()).icon;
 }
 
 // ---------- The frame ----------
@@ -153,6 +264,8 @@ function slowUpdates(game, dt) {
     explainTheDark(game);
     removeOldToasts(game);
     exploreAround(game);
+    checkRescue(game);
+    checkKnockedOut(game);
   }
   game.run.saveTime += dt;
   if (game.run.saveTime >= SAVE_EVERY) {
@@ -165,12 +278,17 @@ function slowUpdates(game, dt) {
 export function updateGame(game, input, dt) {
   advanceClock(game, dt);
   walk(game, input, dt);
+  takeStairs(game);
   noticeZone(game);
   updatePeople(game, dt);
+  updateVillagers(game, dt);
+  updateAnimals(game, dt);
   updateFollowers(game, dt);
   updateMonsters(game, dt);
   updatePowers(game, dt);
   updateRaid(game, dt);
+  updateWeather(game, dt);
+  updateEncounters(game, dt);
   slowUpdates(game, dt);
 }
 

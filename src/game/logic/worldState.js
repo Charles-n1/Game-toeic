@@ -1,0 +1,12 @@
+import { setOverrides, setDynamic } from '../world/map';
+import { villageWalls, villageBridges } from './villages';
+import { puzzleProps } from './puzzles';
+import { furnitureProps } from './home';
+
+// The map is built once (world/map.js), but a game changes it: the walls and the bridges of the villages,
+// the gates and the boulders of the puzzles, the furniture of the home.
+// Called when a game opens, and each time one of these things changes.
+export function refreshWorld(game) {
+  setOverrides(villageBridges(game));
+  setDynamic([...villageWalls(game), ...puzzleProps(game), ...furnitureProps(game)], []);
+}

@@ -36,9 +36,9 @@ export const GOAL_BLESSING = {
 // reward: Lexis given at the end of the chapter.
 const MEET_ARIA = { id: 'meet', place: { npc: 'aria' }, title: 'A new world', text: 'Talk to Aria, the girl who found you.', reward: 10, done: (game) => game.npcs.aria.talkedDay > 0 };
 const FIRST_WORDS = { id: 'firstWords', place: { zone: 'meadow' }, title: 'First words', text: 'Defeat 5 monsters in Whisper Meadow.', reward: 30, done: (game) => game.counts.kills >= 5 };
-const NIGHT_OF_SILENCE = { id: 'night', place: { zone: 'lexia' }, title: 'The Night of Silence', text: 'Survive the first attack on Lexia (night 7).', reward: 100, done: (game) => game.raid.count >= 1 };
-const CRYPT = { id: 'crypt', place: { zone: 'crypt' }, title: 'The Crypt of Gerunds', text: 'West, in Verbwood: defeat the Gerund Lich.', reward: 150, done: (game) => game.bosses.lich === true };
-const GENERAL = { id: 'general', place: { zone: 'fort' }, title: 'The teacher of war', text: 'East of the mountain road: defeat General Barbarism in Fort Mutter.', reward: 500, done: (game) => game.bosses.general === true };
+const NIGHT_OF_SILENCE = { id: 'night', place: { zone: 'lexia' }, title: 'The Night of Silence', text: 'Survive the first attack on Eldermoor (night 7).', reward: 100, done: (game) => game.raid.count >= 1 };
+const CRYPT = { id: 'crypt', place: { zone: 'crypt' }, title: 'The Crystal Cave', text: 'North-east, past the rivers: defeat the Gerund Lich at the bottom of the Crystal Cave.', reward: 150, done: (game) => game.bosses.lich === true };
+const GENERAL = { id: 'general', place: { zone: 'fort' }, title: 'The teacher of war', text: 'In the desert of the south-west: defeat General Barbarism in the Sandbandit Camp.', reward: 500, done: (game) => game.bosses.general === true };
 
 export const CHAPTERS = {
   hero: [
@@ -47,9 +47,9 @@ export const CHAPTERS = {
     { id: 'blade', place: { npc: 'mira' }, title: 'A real blade', text: 'Earn Lexis and buy the Iron Sword from Mira.', reward: 40, done: (game) => game.player.weapon !== 'woodSword' },
     CRYPT,
     NIGHT_OF_SILENCE,
-    { id: 'tower', place: { zone: 'tower' }, title: 'The Tower of Tenses', text: 'In Frostpeak Pass: defeat the Chrono Warden.', reward: 300, done: (game) => game.bosses.warden === true },
+    { id: 'tower', place: { zone: 'tower' }, title: 'The Frozen Castle', text: 'In Frostpeak Pass: defeat the Chrono Warden in his castle.', reward: 300, done: (game) => game.bosses.warden === true },
     GENERAL,
-    { id: 'king', place: { zone: 'castle' }, title: 'The Hero of Words', text: 'Far north, the Castle of Silence. Solecis is waiting.', reward: 0, done: (game) => game.bosses.king === true },
+    { id: 'king', place: { zone: 'castle' }, title: 'The Hero of Words', text: 'On the Silent Isle, the titanic Castle of Silence. Solecis is waiting.', reward: 0, done: (game) => game.bosses.king === true },
   ],
   guardian: [
     MEET_ARIA,
@@ -57,23 +57,23 @@ export const CHAPTERS = {
     { id: 'ally', place: { npc: 'garrick' }, title: 'Not alone', text: 'Become friends with a fighter and recruit them.', reward: 60, done: (game) => game.player.party.length > 0 },
     NIGHT_OF_SILENCE,
     CRYPT,
-    { id: 'wall', place: { zone: 'lexia' }, title: 'The wall of Lexia', text: 'Win 2 raids without losing anyone that night.', reward: 300, done: (game) => game.raid.perfect >= 2 },
+    { id: 'wall', place: { zone: 'lexia' }, title: 'The wall of Eldermoor', text: 'Win 2 raids without losing anyone that night.', reward: 300, done: (game) => game.raid.perfect >= 2 },
     GENERAL,
   ],
   peaceful: [
     MEET_ARIA,
-    { id: 'harvest', place: { npc: 'hana' }, title: 'The first harvest', text: 'Plant carrots in the field south of Lexia and harvest 5.', reward: 30, done: (game) => game.counts.harvested >= 5 },
+    { id: 'harvest', place: { npc: 'hana' }, title: 'The first harvest', text: 'Plant carrots in the field of Eldermoor and harvest 5.', reward: 30, done: (game) => game.counts.harvested >= 5 },
     { id: 'friends', place: { zone: 'lexia' }, title: 'Neighbors', text: 'Become friends with 3 people.', reward: 60, done: (game) => friendCount(game) >= 3 },
     NIGHT_OF_SILENCE,
-    { id: 'happy', place: { zone: 'lexia' }, title: 'A happy village', text: 'Help people until the happiness of Lexia reaches 70.', reward: 150, done: (game) => game.happiness >= 70 },
-    { id: 'wedding', place: { npc: 'rin' }, title: 'A promise', text: 'Buy a ring in Port Syntax and marry someone you love.', reward: 200, done: (game) => game.player.spouse !== null },
+    { id: 'happy', place: { zone: 'lexia' }, title: 'A happy village', text: 'Help people until the happiness of Eldermoor reaches 70.', reward: 150, done: (game) => game.happiness >= 70 },
+    { id: 'wedding', place: { npc: 'rin' }, title: 'A promise', text: 'Buy a ring in Seabridge and marry someone you love.', reward: 200, done: (game) => game.player.spouse !== null },
     { id: 'family', place: { zone: 'lexia' }, title: 'A full table', text: 'Live together until a child is born.', reward: 0, done: (game) => game.player.children.length > 0 },
   ],
   wanderer: [
     MEET_ARIA,
-    { id: 'lake', place: { zone: 'lake' }, title: 'Still water', text: 'Walk east and see Lake Clause.', reward: 20, done: (game) => game.visited.lake === true },
-    { id: 'port', place: { zone: 'port' }, title: 'The smell of salt', text: 'Follow the road to Port Syntax.', reward: 40, done: (game) => game.visited.port === true },
-    { id: 'forest', place: { zone: 'forest' }, title: 'Under the leaves', text: 'Walk west into Verbwood. At night, someone waits there.', reward: 40, done: (game) => game.visited.forest === true },
+    { id: 'lake', place: { zone: 'lake' }, title: 'Still water', text: 'Walk east to the Riverlands.', reward: 20, done: (game) => game.visited.lake === true },
+    { id: 'port', place: { zone: 'port' }, title: 'The smell of salt', text: 'Follow the roads east to Seabridge, the harbor.', reward: 40, done: (game) => game.visited.port === true },
+    { id: 'forest', place: { zone: 'forest' }, title: 'Under the leaves', text: 'Walk west into Verbwood, to the young village of Greendale.', reward: 40, done: (game) => game.visited.forest === true },
     { id: 'days', place: { zone: 'lexia' }, title: 'Ten sunrises', text: 'Simply live here for 10 days.', reward: 100, done: (game) => game.day >= 10 },
   ],
 };
@@ -95,7 +95,7 @@ export const ENDINGS = {
   guardian: [
     'General Barbarism drops his sword. He smiles like a teacher.',
     '"Good guard. Tell Lyra... her stance was always better than mine."',
-    'Without him, the raids of the north lose their shape. Lexia will stand.',
+    'Without him, the raids of the north lose their shape. Eldermoor will stand.',
     'The Demon King is still up there. But tonight, the village sleeps.',
   ],
   peaceful: [
@@ -118,7 +118,7 @@ export const SCENES = {
     lines: [
       'Oh! You are awake! I am Aria. I found you in the meadow, under a falling star.',
       'Your name is... {name}? A strange name. I like it.',
-      'This is Lexia. The house behind you is empty: it is yours now.',
+      'This is Eldermoor. The house behind you is empty: it is yours now.',
       'Outside the village, the monsters fight with words. Answer right, and fast, to strike first.',
       'Their color is their type. Pink loves gerunds, yellow loves tenses... You will learn.',
       'If you fall, I will carry you home. But I can only do it three times. After that... please do not fall.',

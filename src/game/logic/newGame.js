@@ -5,12 +5,18 @@ import { SPAWN } from '../data/zones';
 import { INTRO, GOAL_BLESSING, SCENES, CHAPTERS } from '../data/story';
 import { chooseFocus } from './learning';
 import { emptySkills } from './skills';
+import { firstVillages, placeVillagers, placeAnimals } from './villages';
+import { firstPuzzles } from './puzzles';
+import { firstWeather } from './weather';
+import { firstHome } from './home';
+import { refreshWorld } from './worldState';
 import { emptyExplored, exploreAround } from './explore';
 import { placeDungeonMonsters } from './monsters';
 import { placePeople } from './people';
 import { say } from './messages';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
+export const WORLD_VERSION = 2; // 2: the world of art/MAP.png (a save of the first world is moved into it)
 
 // Everything that is NOT saved: what is on screen right now. It is rebuilt each time the game opens.
 export function makeRun() {
@@ -31,6 +37,16 @@ export function makeRun() {
     balls: [], // lightning balls and fireballs flying
     storm: null, // the storm field: { x, y, radius, until }
     cooldowns: {}, // { powerId: the time it is ready again }
+    villagers: [], // the people working in the villages (see villages.js)
+    animals: [], // the animals of the pens
+    bolts: [], // the lightning strikes of the moment (see weather.js)
+    strikeTime: 8,
+    encounter: null, // someone met on the road (see encounters.js)
+    encounterTime: 30,
+    visible: {}, // the people on the map right now: { aria: true }
+    lastLink: null, // the stairs the hero just used (they must step off before using them again)
+    pushUntil: 0, // a boulder is rolling: no other push before this time
+    fadeUntil: 0, // the screen goes black for a moment when the hero takes stairs
     spawnTime: 0,
     manaTime: 0,
     storyTime: 0,
@@ -89,7 +105,7 @@ function firstPlayer(hero) {
     armor: 'clothes',
     boots: 'sandals',
     mapLevel: 0, // 0 = no map bought
-    bag: { healthPotion: 2, carrotSeed: 3 },
+    bag: { healthPotion: 2, carrotSeed: 3, bread: 2 },
     powers: [], // 'obsidian', 'lightning', 'water', 'fire', 'wind', 'earth'
     party: [], // the ids of the friends who fight with the player
     soldiers: 0, // obsidian soldiers
@@ -102,6 +118,11 @@ function firstPlayer(hero) {
     children: [],
     classId: null, // the class of the hero (see data/classes.js)
     torchHours: 0, // the hours of light left (see logic/torch.js)
+    spells: {}, // the skills learned from the researchers: { gerunds: 1 } (see logic/skills.js). None at the start.
+    hunger: 80, // 100 = full (see logic/survival.js)
+    thirst: 80,
+    bottle: 3, // the drinks left in the water bottle
+    carrying: null, // a KO person on the back of the hero (see logic/weather.js)
   };
 }
 
@@ -136,6 +157,12 @@ export function newGame(goalId, score, stats, hero, slot) {
     crops: {},
     dug: {}, // the treasures already dug
     gathered: {}, // the trees and rocks already used today (see logic/torch.js)
+    world: WORLD_VERSION,
+    villages: firstVillages(), // the resources and the level of each village (see logic/villages.js)
+    puzzles: firstPuzzles(), // the boulders and the doors of the dungeons (see logic/puzzles.js)
+    riddles: {}, // the obelisks solved
+    weather: firstWeather(),
+    home: firstHome(), // the furniture and the colors of the home (see logic/home.js)
     chests: {},
     bosses: {}, // the bosses already dead
     cleared: {}, // the dungeon guards dead today
@@ -150,12 +177,35 @@ export function newGame(goalId, score, stats, hero, slot) {
   return game;
 }
 
-// A save from before the classes, the tags and the torches: what is missing is added.
+// A save of the first world (before art/MAP.png): the hero keeps everything, but wakes up at home,
+// and what was placed on the old map (crops, chests, treasures, the explored map) is forgotten.
+function moveToNewWorld(game) {
+  if (game.world === WORLD_VERSION) return;
+  game.world = WORLD_VERSION;
+  game.player.x = SPAWN.x;
+  game.player.y = SPAWN.y;
+  game.explored = emptyExplored();
+  game.crops = {};
+  game.cleared = {};
+  game.dug = {};
+  game.chests = {};
+  game.player.party = game.player.party.filter((id) => !['selene'].includes(id));
+}
+
+// A save from before the classes, the tags, the torches, the villages...: what is missing is added.
 function addMissing(game) {
   if (!game.skills) game.skills = emptySkills();
   if (!game.gathered) game.gathered = {};
   if (game.player.classId === undefined) game.player.classId = null;
   if (game.player.torchHours === undefined) game.player.torchHours = 0;
+  if (!game.player.spells) game.player.spells = {};
+  if (game.player.hunger === undefined) Object.assign(game.player, { hunger: 80, thirst: 80, bottle: 3, carrying: null });
+  if (!game.villages) game.villages = firstVillages();
+  if (!game.puzzles) game.puzzles = firstPuzzles();
+  if (!game.riddles) game.riddles = {};
+  if (!game.weather) game.weather = firstWeather();
+  if (!game.home) game.home = firstHome();
+  if (typeof game.explored !== 'string' || game.explored.length !== emptyExplored().length) game.explored = emptyExplored();
   for (const npc of NPCS) {
     if (!game.npcs[npc.id]) game.npcs[npc.id] = firstPerson(); // the new people of the world
   }
@@ -167,8 +217,12 @@ export function wakeUp(game) {
   if (typeof game.player.name !== 'string') game.player.name = 'Hero'; // a save from before the avatars
   if (!game.player.look) game.player.look = { ...HERO_LOOK };
   addMissing(game);
+  moveToNewWorld(game);
   game.run = makeRun();
+  refreshWorld(game);
   placePeople(game);
+  placeVillagers(game);
+  placeAnimals(game);
   placeDungeonMonsters(game);
 }
 

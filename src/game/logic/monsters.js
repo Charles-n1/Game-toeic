@@ -1,5 +1,5 @@
 import { SPECIES } from '../data/monsters';
-import { ZONES, zoneAt } from '../data/zones';
+import { zoneAt } from '../data/zones';
 import { pickRandom } from '../../logic/random';
 import { isSolid, dungeonMonsters } from '../world/map';
 import { monsterCategory } from './learning';
@@ -67,14 +67,10 @@ function isGone(game, place) {
   return species.boss ? game.bosses[place.species] === true : game.cleared[place.key] === game.day;
 }
 
-// Puts the guards and bosses in their rooms (when the game opens, and every morning).
+// Puts the guards and bosses in the floors of the dungeons (when the game opens, and every morning).
 export function placeDungeonMonsters(game) {
-  for (const zone of ZONES.filter((item) => item.guard)) {
-    for (const place of dungeonMonsters(zone)) {
-      if (!isGone(game, place)) {
-        game.run.monsters.push(makeMonster(game, place.species, place.x, place.y, { key: place.key, zoneId: zone.id }));
-      }
-    }
+  for (const place of dungeonMonsters()) {
+    if (!isGone(game, place)) game.run.monsters.push(makeMonster(game, place.species, place.x, place.y, { key: place.key, zoneId: place.zoneId }));
   }
 }
 
@@ -84,10 +80,13 @@ function isWild(monster) {
   return !monster.key && !monster.raid;
 }
 
+// The monsters of a land; at night the ghosts come out too (and bats in the gentle lands).
+const NIGHT_GUESTS = { meadow: ['bat'], lake: ['bat', 'drowner'], coast: ['drowner'], woods: ['bat', 'banshee'], forest: ['banshee'], heartwood: ['wraith'], oldwood: ['wraith', 'banshee'], watch: ['banshee'] };
+
 function speciesFor(game, zone) {
   const night = isNight(game);
   const list = zone.species.filter((id) => night || !SPECIES[id].night);
-  if (night) list.push('bat');
+  if (night) list.push(...(NIGHT_GUESTS[zone.id] || []));
   return list;
 }
 

@@ -2,6 +2,7 @@ import { makeGrid, dot, fillRect, fillEllipse, fillBall, toneOf, drawLine, paint
 import { OUTLINE, WOOD_RAMP, LEAF_RAMP, LIGHT_LEAF_RAMP, STONE_RAMP, darker, lighter, rampOf } from './palette';
 import { paintCrown } from './props';
 import { typeOf } from '../data/types';
+import { hasMonsterArt, monsterArtSprite } from './monsterArt';
 
 // The monsters, in pixel art, painted with shaded shapes (lit on the top-left, like the people).
 // They look LEFT (toward the hero in a fight); on the map they turn around.
@@ -460,10 +461,13 @@ const PAINTERS = { slime, bat, wolf, wisp, imp, treant, golem, knight, lich, war
 
 // monster: { shape, category }. dir: 'left' (default) or 'right'. frame: 0 or 1.
 // Returns { canvas, white, ax, ay }: `white` is the same picture all white (when it is hit).
-export function monsterSprite(monster, dir, frame) {
+// pose: 'walk' (on the map), 'idle', 'attack', 'death' (in a fight). The monsters of the sheets have real pictures
+// for each of them; the ones drawn with code only have 2 frames.
+export function monsterSprite(monster, dir, frame, pose = 'walk') {
+  if (monster.art && hasMonsterArt(monster.art)) return monsterArtSprite(monster.art, dir, pose, frame);
   const color = typeOf(monster.category).color;
-  return once('monster' + monster.shape + color + dir + frame, () => {
-    const grid = padded(PAINTERS[monster.shape](color, frame));
+  return once('monster' + monster.shape + color + dir + (frame % 2), () => {
+    const grid = padded(PAINTERS[monster.shape](color, frame % 2));
     const outlined = addOutline(dir === 'right' ? mirrored(grid) : grid, OUTLINE);
     const canvas = toCanvas(outlined);
     return { canvas: canvas, white: silhouette(canvas, '#ffffff'), ax: Math.floor(grid.width / 2), ay: grid.height - 1 };

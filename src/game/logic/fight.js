@@ -2,7 +2,7 @@ import { secondsPerQuestion } from '../../data/sections';
 import { weaknessOf } from '../data/types';
 import { pickQuestion, pickSpellQuestion, recordAnswer, monsterCategory } from './learning';
 import { speedOf, strikePower, armorOf, criticalChance, gainXp, heal, restoreMana, earnLexis } from './player';
-import { TAG_POWER } from './skills';
+import { TAG_POWER, spellLevel } from './skills';
 import { classBonus } from './classes';
 import { lootMonster } from './loot';
 import { knockOut } from './death';
@@ -133,7 +133,7 @@ function playerHit(game, fight) {
   let power = attackPower(game) + (fight.inStorm ? 10 : 0);
   let blocked = opponent.resistance;
   if (isSpell) {
-    power = SPELL_POWER * (1 + classBonus(game, 'spell') / 100);
+    power = SPELL_POWER * (1 + (spellLevel(game, fight.mode) - 1) * 0.5) * (1 + classBonus(game, 'spell') / 100);
     if (weaknessOf(opponent.category) === fight.mode) power *= 2;
     blocked = opponent.magicResistance;
   }
@@ -166,7 +166,7 @@ function classAfterHit(game, damage) {
 
 function phaseAfter(game, fight) {
   if (fight.opponent.health <= 0) return 'won';
-  if (fight.opponent.duel) return fight.asked - fight.correct >= DUEL_MISTAKES ? 'lost' : 'result';
+  if (fight.opponent.duel) return fight.asked - fight.correct >= (fight.opponent.mistakesAllowed || DUEL_MISTAKES) ? 'lost' : 'result';
   return game.player.health <= 0 ? 'lost' : 'result';
 }
 

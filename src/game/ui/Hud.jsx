@@ -14,6 +14,8 @@ import { currentChapter } from '../logic/chapters';
 import { actionIcon } from '../logic/update';
 import { hasLight } from '../logic/torch';
 
+const WEATHER_SIGNS = { cloudy: '☁', rain: '🌧', storm: '⛈' };
+
 // At night: the hours of light left, or a reminder that the hero is in the dark.
 function lightText(game) {
   if (hasLight(game)) return '🔥 Torch: ' + Math.ceil(game.player.torchHours) + 'h';
@@ -45,7 +47,7 @@ function Objective({ game }) {
   return (
     <div className="window" style={styles.objective}>
       <span style={styles.goal}>
-        <span className="gold">◆</span> {chapter ? chapter.text : 'Live your life in Lexia.'}
+        <span className="gold">◆</span> {chapter ? chapter.text : 'Live your life in Eldermoor.'}
       </span>
       <div className="row" style={styles.training}>
         <PixelIcon name={focus.id} size={14} />
@@ -63,7 +65,7 @@ function Objective({ game }) {
 // Everything drawn on top of the world: the hero, the goal, the map, the clock, the buttons.
 // onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
 // What the action key does now, in a word (for the keyboard help).
-const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take' };
+const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', dots: '...' };
 
 // The help of the keyboard, on a computer (instead of the joystick and the big buttons).
 function KeyHelp({ game }) {
@@ -71,7 +73,7 @@ function KeyHelp({ game }) {
     <div className="window keys" style={styles.keys}>
       <span>
         <span className="key">E</span>
-        {ACTION_WORDS[actionIcon(game)]}
+        {ACTION_WORDS[actionIcon(game)] || 'Act'}
       </span>
       <span>
         <span className="key">M</span>Map
@@ -126,7 +128,7 @@ export default function Hud({ game, input, onAction, onMenu }) {
         </div>
         <div className="window" style={styles.clock}>
           <span style={styles.clockText}>
-            {isNight(game) ? '☾' : '☀'} {clockText(game)}
+            {WEATHER_SIGNS[game.weather.kind] || (isNight(game) ? '☾' : '☀')} {clockText(game)}
           </span>
           {raid && <span style={styles.raid}>{raid}</span>}
           {lightText(game) && <span style={styles.light}>{lightText(game)}</span>}

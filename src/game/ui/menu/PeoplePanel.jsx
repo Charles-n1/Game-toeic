@@ -60,7 +60,7 @@ export default function PeoplePanel({ game }) {
         Met {met.length} / {NPCS.length} people. Talk every day, help them, give them what they like. A gift also pleases
         their friends and family... and makes their rivals a bit jealous.
       </span>
-      {met.length === 0 && <span className="small">Nobody yet: go and talk to the people of Lexia!</span>}
+      {met.length === 0 && <span className="small">Nobody yet: go and talk to the people of Eldermoor!</span>}
       {met.map((npc) => (
         <PersonLine key={npc.id} game={game} npc={npc} />
       ))}

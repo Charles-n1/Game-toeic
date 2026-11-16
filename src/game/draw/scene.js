@@ -1,13 +1,18 @@
 import { NPCS, npcOf } from '../data/npcs';
-import { HOUSES, PROPS, SEALS, zoneAt, houseSize } from '../data/zones';
+import { HOUSES, SEALS, BOATS, WORLD_SIZE, MAP_HEIGHT, zoneAt, houseSize } from '../data/zones';
 import { typeOf } from '../data/types';
-import { MAP_SIZE, TILE, tileAt, noise, CHESTS } from '../world/map';
-import { isOutside } from '../logic/people';
+import { MAP_WIDTH, TILE, tileAt, biomeAt, noise, CHESTS, allProps } from '../world/map';
 import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
 import { cropAt, isCropReady, closestTreasure } from '../logic/farm';
 import { isSealOpen } from '../logic/seals';
 import { hasLight } from '../logic/torch';
-import { TILE_PX, groundTile, flowersDecal } from './tiles';
+import { visibleVillagers } from '../logic/villages';
+import { isRiddleSolved } from '../logic/puzzles';
+import { BED_COLORS, WALL_COLORS } from '../logic/home';
+import { drawWeather, darknessHere } from './weather';
+import { animalSprite } from './animals';
+import * as buildings from './buildings';
+import { TILE_PX, groundTile, flowersDecal, setHomeWallColor } from './tiles';
 import { personSprite, walkPose, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
 import { drawBattle, battleGap, writeBattleWords } from './battle';
@@ -42,14 +47,27 @@ function put(ctx, sprite, x, y, view) {
 
 // ---------- The camera ----------
 
+// The part of the world the camera may show (pixels): the island, or the room of an inside (a floor, the home).
+function boundsOf(game) {
+  const zone = zoneAt(game.player.x, game.player.y);
+  if (zone.kind === 'inside' && zone.w) return { left: (zone.x - 1) * T, top: (zone.y - 2) * T, right: (zone.x + zone.w + 1) * T, bottom: (zone.y + zone.h + 1) * T };
+  return { left: 0, top: 0, right: WORLD_SIZE * T, bottom: WORLD_SIZE * T };
+}
+
+// One axis of the camera: inside the bounds, or centered when the bounds are smaller than the screen.
+function cameraAxis(center, size, low, high) {
+  if (high - low <= size) return (low + high) / 2 - size / 2;
+  return clamp(center - size / 2, low, high - size);
+}
+
 // The player stays in the middle. In a fight, the two fighters stand in the top third (the questions are below).
 function viewOf(game, width, height) {
   const fight = game.run.fight;
   const centerX = (game.player.x + (fight ? battleGap(game) / 2 : 0)) * T;
   const centerY = (game.player.y - 0.6) * T;
-  const worldSize = MAP_SIZE * T;
-  let x = clamp(centerX - width / 2, 0, worldSize - width);
-  let y = clamp(centerY - height * (fight ? 0.36 : 0.5), 0, worldSize - height);
+  const bounds = boundsOf(game);
+  let x = cameraAxis(centerX, width, bounds.left, bounds.right);
+  let y = cameraAxis(centerY + height * (fight ? 0.14 : 0), height, bounds.top, bounds.bottom);
   if (Date.now() < game.run.shakeUntil) {
     x += Math.round((Math.random() - 0.5) * 6);
     y += Math.round((Math.random() - 0.5) * 6);
@@ -70,6 +88,7 @@ function tilesOf(view, margin) {
 // ---------- The ground ----------
 
 function drawGround(ctx, game, view, time) {
+  if (game) setHomeWallColor(WALL_COLORS[game.home.wall]);
   const area = tilesOf(view, 0);
   for (let y = area.top; y < area.bottom; y++) {
     for (let x = area.left; x < area.right; x++) {
@@ -88,13 +107,14 @@ function drawGround(ctx, game, view, time) {
 // The tree or the rock of a tile, following the land it grows in (null = nothing stands there).
 function standingSprite(x, y) {
   const tile = tileAt(x, y);
-  const biome = zoneAt(x, y).biome;
-  if (tile === TILE.TREE && biome === 'forest') return props.oakTree(Math.floor(noise(x, y, 3) * 3));
+  const biome = biomeAt(x, y);
+  if (tile === TILE.TREE && biome === 'forest') return noise(x, y, 4) < 0.25 ? props.pineTree() : props.oakTree(Math.floor(noise(x, y, 3) * 3));
   if (tile === TILE.TREE && biome === 'mountain') return props.pineTree();
   if (tile === TILE.TREE && biome === 'desert') return props.cactus();
   if (tile === TILE.TREE) return props.roundTree(Math.floor(noise(x, y, 3) * 3));
   if (tile === TILE.DEAD_TREE) return props.deadTree();
   if (tile === TILE.ROCK && biome === 'mountain') return noise(x, y, 5) < 0.45 ? props.iceCrystal() : props.rock('snow');
+  if (tile === TILE.ROCK && zoneAt(x, y).theme === 'crystal') return props.iceCrystal();
   if (tile === TILE.ROCK) return props.rock(biome === 'coast' || biome === 'desert' ? null : 'moss');
   if (isBushy(x, y, tile, biome)) return props.bush(Math.floor(noise(x, y, 45) * 4));
   return null;
@@ -145,7 +165,9 @@ function isBurning(game, house) {
 }
 
 function houseSpriteOf(house) {
-  return house.kind === 'school' ? props.schoolSprite() : props.houseSprite(house);
+  if (house.kind === 'school') return props.schoolSprite();
+  if (house.kind === 'guild') return buildings.guildSprite();
+  return props.houseSprite(house);
 }
 
 function houses(view, game, time) {
@@ -161,14 +183,45 @@ function houses(view, game, time) {
   });
 }
 
-function propSprite(prop, time) {
+// The picture of a prop. game: the game (null on the title screen).
+function propSprite(prop, time, game) {
+  const flame = Math.floor(time * 8) % 3;
+  const blink = Math.floor(time * 2) % 2;
+  const pictures = {
+    tent: () => buildings.tent(false),
+    bigTent: () => buildings.tent(true),
+    banner: () => buildings.banner(prop.color),
+    demonSpire: () => buildings.demonSpire(blink),
+    watchtower: () => buildings.watchtower(),
+    mineFrame: () => buildings.mineFrame(),
+    minecart: () => buildings.minecart(),
+    ruinPillar: () => buildings.ruinPillar(),
+    obelisk: () => buildings.obelisk(game !== null && isRiddleSolved(game, prop), blink),
+    hut: () => buildings.hut(),
+    well: () => buildings.well(),
+    dummy: () => buildings.dummy(),
+    logs: () => buildings.logs(),
+    wallTorch: () => buildings.wallTorch(flame),
+    bed: () => buildings.bed(game ? BED_COLORS[game.home.bed] : BED_COLORS[0]),
+    stove: () => buildings.stove(blink),
+    storage: () => buildings.storage(),
+    window: () => buildings.windowOnWall(),
+    boulder: () => buildings.boulder(),
+    plate: () => buildings.plate(prop.pressed),
+    bars: () => buildings.bars(),
+    wordDoor: () => buildings.wordDoor(blink),
+    furniture: () => buildings.furniture(prop.look, prop.color),
+    keepFacade: () => buildings.keepFacade(prop.look, prop.w, blink),
+    turret: () => buildings.turret(prop.look),
+  };
+  if (pictures[prop.kind]) return pictures[prop.kind]();
   if (prop.kind === 'fountain') return props.fountain(Math.floor(time * 4) % 2);
   if (prop.kind === 'lamp') return props.lampPost();
   if (prop.kind === 'torch') return props.torch(Math.floor(time * 8) % 3);
   if (prop.kind === 'campfire') return props.campfire(Math.floor(time * 8) % 3);
   if (prop.kind === 'crystal') return props.arcaneCrystal(Math.floor(time * 2) % 2);
-  if (prop.kind === 'wall') return props.stoneWall(prop.h > 1 ? 'column' : 'row');
-  if (prop.kind === 'palisade') return props.palisade(prop.h > 1 ? 'column' : 'row');
+  if (prop.kind === 'wall') return props.stoneWall(prop.side || (prop.h > 1 ? 'column' : 'row'));
+  if (prop.kind === 'palisade') return props.palisade(prop.side || (prop.h > 1 ? 'column' : 'row'));
   if (prop.kind === 'stall') return props.marketStall();
   if (prop.kind === 'barrels') return props.barrels();
   if (prop.kind === 'crates') return props.crates();
@@ -176,15 +229,20 @@ function propSprite(prop, time) {
   return props.fence();
 }
 
-function villageProps(view, time) {
-  return PROPS.filter((prop) => isNear(view, prop.x, prop.y, prop.w, prop.h)).map((prop) => ({
-    y: prop.y + prop.h,
+// The props on the floor (plates, rugs) are drawn under everything; the others stand.
+const FLAT = ['plate', 'window'];
+
+function villageProps(view, time, game) {
+  return allProps().filter((prop) => isNear(view, prop.x, prop.y, prop.w, prop.h + 6)).map((prop) => ({
+    y: FLAT.includes(prop.kind) || prop.look === 'rug' ? prop.y - 9 : prop.y + prop.h,
     draw: (ctx) => {
-      const sprite = propSprite(prop, time);
+      const sprite = propSprite(prop, time, game);
       if (IN_PIECES.includes(prop.kind)) {
         for (let dy = 0; dy < prop.h; dy++) {
           for (let dx = 0; dx < prop.w; dx++) put(ctx, sprite, (prop.x + dx + 0.5) * T, (prop.y + dy + 1) * T - 1, view);
         }
+      } else if (sprite.ax === 0) {
+        put(ctx, sprite, prop.x * T, (prop.y + prop.h) * T, view); // a big building: from its left side
       } else {
         put(ctx, sprite, (prop.x + prop.w / 2) * T, (prop.y + prop.h) * T - 1, view);
       }
@@ -260,18 +318,67 @@ function personDrawing(look, place, view, time, salt, extra) {
   };
 }
 
+// Someone knocked out: lying on the ground (the picture turned), with stars over the head.
+function lyingDrawing(look, place, view, time) {
+  return {
+    y: place.y,
+    draw: (ctx) => {
+      const sprite = personSprite(look, 'down', 'stand');
+      ctx.save();
+      ctx.translate(Math.round(place.x * T - view.x), Math.round(place.y * T - view.y - 3));
+      ctx.rotate(-Math.PI / 2);
+      ctx.drawImage(sprite.canvas, -sprite.canvas.height + 4, -sprite.canvas.width / 2);
+      ctx.restore();
+      for (let i = 0; i < 3; i++) {
+        const angle = time * 3 + (i * Math.PI * 2) / 3;
+        ctx.fillStyle = '#ffe066';
+        ctx.fillRect(Math.round(place.x * T - view.x - 10 + Math.cos(angle) * 5), Math.round(place.y * T - view.y - 10 + Math.sin(angle) * 2), 2, 2);
+      }
+    },
+  };
+}
+
 function npcDrawings(game, view, time) {
   const fight = game.run.fight;
   const dueling = fight && fight.opponent.duel ? fight.opponent.npcId : null;
   const isVisible = (npc) => isNear(view, game.run.people[npc.id].x - 1, game.run.people[npc.id].y - 2, 2, 2);
-  return NPCS.filter((npc) => isOutside(game, npc) && npc.id !== dueling && isVisible(npc)).map((npc) => {
+  return NPCS.filter((npc) => game.run.visible[npc.id] && npc.id !== dueling && isVisible(npc)).map((npc) => {
     const place = game.run.people[npc.id];
+    if (game.npcs[npc.id].ko) return lyingDrawing(npc.look, place, view, time);
     const mark = questMark(game, npc);
     const bob = Math.round(Math.sin(time * 4) * 1.5);
     return personDrawing(npc.look, place, view, time, npc.x, (ctx) => {
       if (mark) put(ctx, props.bubble(mark), place.x * T, place.y * T - headHeight(npc.look) + bob, view);
     });
   });
+}
+
+// The people at work in the villages, and the ones lying after a lightning strike.
+function villagerDrawings(game, view, time) {
+  return visibleVillagers(game)
+    .concat(game.run.villagers.filter((villager) => villager.ko && !villager.dead && game.player.carrying?.id !== villager.id))
+    .filter((villager) => isNear(view, villager.x - 1, villager.y - 2, 2, 2))
+    .map((villager, i) => (villager.ko ? lyingDrawing(villager.look, villager, view, time) : personDrawing(villager.look, villager, view, time, i)));
+}
+
+function animalDrawings(game, view, time) {
+  return game.run.animals
+    .filter((animal) => isNear(view, animal.x - 1, animal.y - 1, 2, 2))
+    .map((animal) => ({
+      y: animal.y,
+      draw: (ctx) => {
+        put(ctx, shadow(), animal.x * T, animal.y * T, view);
+        put(ctx, animalSprite(animal.kind, animal.dir, Math.floor(animal.step) % 2), animal.x * T, animal.y * T, view);
+      },
+    }));
+}
+
+// The boats of the harbors, rocking on the water.
+function boatDrawings(view, time) {
+  return BOATS.filter((boat) => isNear(view, boat.x - 2, boat.y - 3, 4, 4)).map((boat) => ({
+    y: boat.y + 1,
+    draw: (ctx) => put(ctx, buildings.boat(Math.floor(time * 1.5) % 2), (boat.x + 0.5) * T, (boat.y + 1) * T, view),
+  }));
 }
 
 function followerDrawings(game, view, time) {
@@ -333,9 +440,15 @@ function drawEmotes(ctx, game, view) {
   }
 }
 
+// The hero (with the person they carry on their back, if any).
 function heroDrawing(game, view, time) {
   const player = game.player;
-  return personDrawing(player.look, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view, time, 0);
+  const carried = player.carrying;
+  return personDrawing(player.look, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view, time, 0, (ctx) => {
+    if (!carried) return;
+    const look = carried.kind === 'npc' ? npcOf(carried.id).look : (game.run.villagers.find((item) => item.id === carried.id) || {}).look;
+    if (look) lyingDrawing(look, { x: player.x, y: player.y - 1.2 }, view, time).draw(ctx);
+  });
 }
 
 // ---------- Effects ----------
@@ -415,8 +528,8 @@ function drawSmoke(ctx, game, view, time) {
 // ---------- Lights ----------
 
 // The things that burn or glow: a torch of the hero can be lit at the first three.
-const LIGHT_KINDS = { lamp: 44, torch: 44, campfire: 56, crystal: 36 }; // their radius, in pixels
-const COLD_LIGHTS = ['crystal']; // a magic light: no warm halo
+const LIGHT_KINDS = { lamp: 44, torch: 44, campfire: 56, crystal: 36, wallTorch: 52, stove: 40, homeLamp: 40, obelisk: 20 }; // their radius, in pixels
+const COLD_LIGHTS = ['crystal', 'obelisk']; // a magic light: no warm halo
 
 // No light by default at night: only the torch of the hero, the lamps, the fires and the magic.
 function lightsOf(game, view) {
@@ -427,13 +540,21 @@ function lightsOf(game, view) {
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
-  for (const prop of PROPS.filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, 1, 1))) {
-    lights.push({ x: (prop.x + 0.5) * T - view.x, y: (prop.y + 1) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind], warm: !COLD_LIGHTS.includes(prop.kind) });
+  for (const prop of allProps().filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, item.w, item.h))) {
+    lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind], warm: !COLD_LIGHTS.includes(prop.kind) });
   }
   for (const house of HOUSES.filter((item) => isBurning(game, item) && isNear(view, item.x, item.y, 4, 3))) {
     lights.push({ x: (house.x + 2) * T - view.x, y: house.y * T - view.y, radius: 70, warm: true });
   }
   return lights;
+}
+
+// The screen goes black for a moment when the hero takes stairs or a boat.
+function drawFade(ctx, game) {
+  const left = game.run.fadeUntil - Date.now();
+  if (left <= 0) return;
+  ctx.fillStyle = 'rgba(0, 0, 0, ' + Math.min(1, left / 250) + ')';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
 // ---------- The texts, written on the big screen (sharper than in the buffer) ----------
@@ -452,7 +573,7 @@ function writeText(ctx, text, x, y, size, color) {
 
 function writeNames(ctx, game, view, scale) {
   if (game.run.fight) return;
-  for (const npc of NPCS.filter((item) => isOutside(game, item))) {
+  for (const npc of NPCS.filter((item) => game.run.visible[item.id])) {
     const place = game.run.people[npc.id];
     if (Math.hypot(place.x - game.player.x, place.y - game.player.y) > NAME_RANGE) continue;
     writeText(ctx, npc.name, (place.x * T - view.x) * scale, (place.y * T - headHeight(npc.look) - view.y) * scale, 13, '#ffe9a8');
@@ -522,16 +643,18 @@ export function drawScene(ctx, game, width, height, time) {
   drawStorm(art, game, view, time);
   drawTreasureHint(art, game, view, time);
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
-  const living = [...npcDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
+  const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
-  drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...living]);
+  drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) drawEmotes(art, game, view);
   if (fight) drawBattle(art, game, view, time);
   drawBalls(art, game, view);
   drawParticleSquares(art, game.run.particles, view);
   drawEmbers(art, game, view, time);
   drawSmoke(art, game, view, time);
-  drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view));
+  drawWeather(art, game, view, time);
+  drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view), darknessHere(game));
+  drawFade(art, game);
 
   showBuffer(ctx, width, height, scale);
   writeNames(ctx, game, view, scale);
@@ -546,10 +669,10 @@ export function drawScene(ctx, game, width, height, time) {
 export function drawLandscape(ctx, width, height, time, center = null, scale = null) {
   scale = scale || pixelScale(width, height);
   const art = prepareBuffer(width, height, scale);
-  const centerX = center ? center.x * T : (64 + Math.sin(time * 0.04) * 8) * T;
-  const centerY = center ? center.y * T : 70 * T;
+  const centerX = center ? center.x * T : (107 + Math.sin(time * 0.04) * 8) * T; // Eldermoor, slowly passing by
+  const centerY = center ? center.y * T : 121 * T;
   const view = { x: Math.round(centerX - buffer.width / 2), y: Math.round(centerY - buffer.height / 2), width: buffer.width, height: buffer.height };
   drawGround(art, null, view, time);
-  drawSorted(art, [...treesAndRocks(view), ...houses(view, null, time), ...villageProps(view, time), ...chestsAndBarriers(view, null)]);
+  drawSorted(art, [...treesAndRocks(view), ...houses(view, null, time), ...villageProps(view, time, null), ...chestsAndBarriers(view, null), ...boatDrawings(view, time)]);
   showBuffer(ctx, width, height, scale);
 }

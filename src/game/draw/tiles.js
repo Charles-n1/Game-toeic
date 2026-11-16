@@ -1,4 +1,4 @@
-import { TILE, tileAt } from '../world/map';
+import { TILE, tileAt, biomeAt } from '../world/map';
 import { periodicNoise } from '../world/noise';
 import { zoneAt } from '../data/zones';
 import { makeGrid, dot, fillRect, fillBall, toneOf, randomOf, toCanvas, once } from './pixels';
@@ -23,6 +23,12 @@ const SIDES = [
 
 const GROUND_OF_BIOME = { mountain: 'snow', demon: 'ash', coast: 'sand', desert: 'sand', dungeon: 'floor' };
 const SIMPLE_GROUND = {
+  [TILE.CLIFF]: 'cliff',
+  [TILE.VOID]: 'void',
+  [TILE.STAIRS]: 'stairs',
+  [TILE.ORE]: 'ore',
+  [TILE.WOOD_FLOOR]: 'wood',
+  [TILE.RUG]: 'wood',
   [TILE.GRASS]: 'grass',
   [TILE.FLOWER]: 'grass',
   [TILE.SAND]: 'sand',
@@ -37,12 +43,22 @@ const SIMPLE_GROUND = {
 };
 
 // The ground of a tile, as a word: 'grass' | 'path' | 'cobble' | 'sand' | 'water' | 'snow' | 'ash' | 'lava' |
-// 'floor' | 'wall' | 'soil' | 'bridge'. Under a tree, a rock or a house: the ground of the land around.
+// 'floor' | 'wall' | 'soil' | 'bridge' | 'cliff' | 'void' | 'stairs' | 'ore' | 'wood'.
+// Under a tree, a rock or a house: the ground of the land around.
 export function groundKind(x, y) {
   const tile = tileAt(x, y);
+  if (tile === TILE.PATH) return zoneAt(x, y).kind === 'village' ? 'cobble' : 'path';
+  return SIMPLE_GROUND[tile] || GROUND_OF_BIOME[biomeAt(x, y)] || 'grass';
+}
+
+// The look of the walls, the floors, the cliffs and the stairs of a place: its theme.
+// 'stone' (houses, ruins...), 'ice', 'demon', 'crystal', 'bandit', 'ruins', 'tower', 'mine', 'home';
+// for the cliffs of the island: the land ('mountain', 'demon', 'desert', or 'rock').
+export function themeOf(x, y) {
   const zone = zoneAt(x, y);
-  if (tile === TILE.PATH) return zone.kind === 'village' ? 'cobble' : 'path';
-  return SIMPLE_GROUND[tile] || GROUND_OF_BIOME[zone.biome] || 'grass';
+  if (zone.theme) return zone.theme;
+  const biome = biomeAt(x, y);
+  return ['mountain', 'demon', 'desert'].includes(biome) ? biome : 'stone';
 }
 
 // ---------- The edges ----------
@@ -54,8 +70,9 @@ const OVERHANG = { grass: 'g', snow: 's', ash: 'a' };
 function edgeOf(kind, neighbor) {
   if (SOFT_GROUNDS.includes(kind) && OVERHANG[neighbor]) return OVERHANG[neighbor];
   if (kind === 'water' && neighbor !== 'water') return 'f'; // the shore
-  if (kind === 'floor' && neighbor === 'wall') return 'w'; // the shadow of the wall
-  if (kind === 'wall' && neighbor !== 'wall') return 'r'; // the rim of the wall
+  if ((kind === 'floor' || kind === 'wood') && (neighbor === 'wall' || neighbor === 'void')) return 'w'; // the shadow of the wall
+  if (kind === 'wall' && neighbor !== 'wall' && neighbor !== 'void') return 'r'; // the rim of the wall
+  if (kind === 'cliff' && (neighbor === 'cliff' || neighbor === 'ore')) return 'c'; // the cliff goes on
   if (kind === 'bridge' && neighbor === 'water') return 'b'; // the rail of the bridge
   return '.';
 }
@@ -248,8 +265,30 @@ function paintLava(grid, bx, by, frame) {
   }
 }
 
-function paintFloor(grid, bx, by) {
-  paintTexture(grid, bx, by, ['#3d3850', '#4b4562', '#5a5373', '#6a6385', '#7a7396'], 21, (big, small) => 0.35 + big * 0.3 + small * 0.2);
+// The colors of each theme: [floor ramp, wall top ramp, wall face ramp, mortar, rim].
+const THEMES = {
+  stone: [['#3d3850', '#4b4562', '#5a5373', '#6a6385', '#7a7396'], ['#3a3452', '#463f62', '#524a72'], ['#3b3452', '#4a4266', '#5a5178'], '#241f35', '#8c86ad'],
+  ruins: [['#3f4a3a', '#4f5a47', '#5f6a55', '#707b64', '#828c73'], ['#4a5244', '#566050', '#636d5b'], ['#535b4c', '#646d5c', '#76806c'], '#2a3024', '#9aa88a'],
+  ice: [['#7a94b8', '#8ea8c9', '#a3bcd9', '#b8cfe6', '#d0e2f3'], ['#5a7aa8', '#6c8cba', '#7f9fcb'], ['#6f8fbd', '#86a5d0', '#9dbbe0'], '#3f5a85', '#e6f3ff'],
+  demon: [['#2a1a20', '#38222a', '#472b34', '#56343e', '#663e48'], ['#2a1418', '#3a1a20', '#4a2228'], ['#3a1a20', '#4f2229', '#652b33'], '#14080a', '#c23a2a'],
+  crystal: [['#25304a', '#2f3c5a', '#3a496b', '#46577c', '#53658e'], ['#28304e', '#323c60', '#3d4872'], ['#2e3858', '#3a466c', '#475480'], '#181d30', '#8fd6ff'],
+  bandit: [['#7a5a3a', '#8a6a44', '#9a7a4e', '#ab8a5a', '#bc9a66'], ['#5a3a22', '#6a4428', '#7a4e2e'], ['#6a4428', '#7e5232', '#92603c'], '#3a2414', '#c48c52'],
+  tower: [['#4a4650', '#58545e', '#66626c', '#75717b', '#85818b'], ['#45414d', '#524e5a', '#605c68'], ['#4c4856', '#5c5866', '#6c6878'], '#2a2730', '#a8a4b0'],
+  mine: [['#4a3a2c', '#584634', '#66523e', '#745e48', '#836b53'], ['#3a2e24', '#46382c', '#524234'], ['#423428', '#504032', '#5e4c3c'], '#221a12', '#8a7058'],
+  home: [['#6b4a2c', '#7a5634', '#8a623c', '#9a6e44', '#aa7a4e'], ['#5a4636', '#6a5444', '#7a6252'], ['#e6d3ad', '#efdfbf', '#f7ebd2'], '#8a6a4a', '#c8b08a'],
+};
+THEMES.mountain = THEMES.stone;
+
+// The color of the walls of the home: the player chooses it (see logic/home.js). Set by scene.js before drawing.
+let homeWallColor = '#e6d3ad';
+
+export function setHomeWallColor(color) {
+  homeWallColor = color;
+}
+THEMES.desert = THEMES.bandit;
+
+function paintFloor(grid, bx, by, theme) {
+  paintTexture(grid, bx, by, (THEMES[theme] || THEMES.stone)[0], 21, (big, small) => 0.35 + big * 0.3 + small * 0.2);
   fillRect(grid, 0, 0, S, 1, '#2d283d');
   fillRect(grid, 0, 8, S, 1, '#2d283d');
   fillRect(grid, (bx % 2) * 8, 0, 1, 8, '#2d283d');
@@ -257,18 +296,90 @@ function paintFloor(grid, bx, by) {
 }
 
 // A wall seen from above: the top. When the floor is below it, its face of bricks shows.
-function paintWall(grid, edges) {
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) dot(grid, x, y, toneOf(['#3a3452', '#463f62', '#524a72'], 0.5 + randomOf(x, y, 22) * 0.2, x, y));
+function paintWall(grid, edges, theme, bx, by) {
+  const [, top, themeFace, mortar, rim] = THEMES[theme] || THEMES.stone;
+  const face = theme === 'home' ? [mix(homeWallColor, '#14101e', 0.25), homeWallColor, mix(homeWallColor, '#ffffff', 0.25)] : themeFace;
+  // the top: big flat stones, offset row after row (it continues from a tile to the next)
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const px = bx * S + x;
+      const py = by * S + y;
+      const row = Math.floor(py / 8);
+      const isSeam = py % 8 === 0 || (px + (row % 2) * 6) % 12 === 0;
+      const stone = randomOf(Math.floor((px + (row % 2) * 6) / 12), row, 23);
+      dot(grid, x, y, isSeam ? mortar : toneOf(top, 0.35 + stone * 0.4 + randomOf(x, y, 22) * 0.1, px, py));
+    }
+  }
   if (edges[2] !== 'r') return;
   for (let y = 6; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const row = Math.floor((y - 6) / 4);
       const brickX = (x + (row % 2) * 4) % 8;
       const isMortar = (y - 6) % 4 === 3 || brickX === 7;
-      dot(grid, x, y, isMortar ? '#241f35' : toneOf(['#3b3452', '#4a4266', '#5a5178'], 0.7 - ((y - 6) % 4) * 0.2, x, y));
+      dot(grid, x, y, isMortar ? mortar : toneOf(face, 0.7 - ((y - 6) % 4) * 0.2, x, y));
     }
   }
-  fillRect(grid, 0, 5, S, 1, '#8c86ad');
+  fillRect(grid, 0, 5, S, 1, rim);
+}
+
+// The colors of the cliffs of each land: [dark, mid, light, top].
+const CLIFFS = {
+  mountain: ['#4a5068', '#6a7290', '#8e96b0', '#eef3fa'], // gray rock, snow on the top
+  demon: ['#1c1418', '#2c2026', '#3e2e34', '#4e3a40'], // black basalt
+  desert: ['#7a4a2a', '#9a6238', '#b87a48', '#d49a62'], // red sandstone of the mesas
+  stone: ['#4a463e', '#625d52', '#7c7668', '#5f9a3e'], // gray rock, grass on the top
+};
+CLIFFS.crystal = CLIFFS.stone;
+CLIFFS.mine = CLIFFS.desert;
+
+// A cliff: a top (snow, grass, ash...) and a face of rock in layers, lit on the left.
+function paintCliff(grid, edges, theme, bx, by) {
+  const [dark, mid, light, top] = CLIFFS[theme] || CLIFFS.stone;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const crack = randomOf(bx * S + x, by * S + y, 40) < 0.08;
+      const layer = Math.floor((y + (bx * 3) % 5) / 5) % 2;
+      dot(grid, x, y, crack ? dark : toneOf([dark, mid, light], 0.55 - x * 0.012 + layer * 0.15 + randomOf(x, y, 41) * 0.1, bx * S + x, by * S + y));
+    }
+  }
+  if (edges[0] !== 'c') fillRect(grid, 0, 0, S, 3, top); // the top of the cliff (nothing above)
+  if (edges[2] !== 'c') fillRect(grid, 0, S - 2, S, 2, dark); // its foot, in shadow
+}
+
+// Stairs going down (a dark hole with steps), or a cave mouth in a cliff.
+function paintStairs(grid, theme) {
+  const [floor, , , mortar, rim] = THEMES[theme] || THEMES.stone;
+  fillRect(grid, 0, 0, S, S, '#0d0b14');
+  for (let step = 0; step < 4; step++) {
+    fillRect(grid, 2 + step, 2 + step * 3, S - 4 - step * 2, 2, floor[3 - step]);
+    fillRect(grid, 2 + step, 4 + step * 3, S - 4 - step * 2, 1, mortar);
+  }
+  fillRect(grid, 0, 0, 2, S, rim);
+  fillRect(grid, S - 2, 0, 2, S, rim);
+}
+
+// A rock with ore in it: shining spots (iron or blue crystal).
+function paintOre(grid, bx, by) {
+  paintCliff(grid, 'cccc', 'mine', bx, by);
+  const salt = by * BLOCK + bx;
+  const color = randomOf(salt, 2, 50) < 0.5 ? ['#9aa6b8', '#e8eef7'] : ['#3a7bff', '#bfe6ff'];
+  for (let i = 0; i < 4; i++) {
+    const x = 2 + Math.floor(randomOf(i, salt, 51) * 11);
+    const y = 3 + Math.floor(randomOf(salt, i, 52) * 10);
+    fillRect(grid, x, y, 2, 2, color[0]);
+    dot(grid, x, y, color[1]);
+  }
+}
+
+// The planks of a wooden floor (the home).
+function paintWood(grid, bx, by) {
+  for (let y = 0; y < S; y++) {
+    const plank = Math.floor((y + by * S) / 4);
+    for (let x = 0; x < S; x++) {
+      const seam = (y % 4 === 3) || ((x + bx * S + plank * 7) % 24 === 0);
+      dot(grid, x, y, seam ? '#4a3220' : toneOf(THEMES.home[0], 0.45 + randomOf(plank, (x + bx * S) >> 3, 53) * 0.3, x, y));
+    }
+  }
 }
 
 function paintSoil(grid) {
@@ -291,16 +402,21 @@ function paintBridge(grid, edges) {
   }
 }
 
-function paintGround(grid, kind, bx, by, frame, edges) {
-  if (kind === 'path') paintPath(grid, bx, by);
+function paintGround(grid, kind, bx, by, frame, edges, theme) {
+  if (kind === 'void') fillRect(grid, 0, 0, S, S, '#07060c');
+  else if (kind === 'cliff') paintCliff(grid, edges, theme, bx, by);
+  else if (kind === 'stairs') paintStairs(grid, theme);
+  else if (kind === 'ore') paintOre(grid, bx, by);
+  else if (kind === 'wood') paintWood(grid, bx, by);
+  else if (kind === 'path') paintPath(grid, bx, by);
   else if (kind === 'cobble') paintCobbles(grid, bx, by);
   else if (kind === 'sand') paintSand(grid, bx, by);
   else if (kind === 'water') paintWater(grid, bx, by, frame);
   else if (kind === 'snow') paintSnow(grid, bx, by);
   else if (kind === 'ash') paintAsh(grid, bx, by);
   else if (kind === 'lava') paintLava(grid, bx, by, frame);
-  else if (kind === 'floor') paintFloor(grid, bx, by);
-  else if (kind === 'wall') paintWall(grid, edges);
+  else if (kind === 'floor') paintFloor(grid, bx, by, theme);
+  else if (kind === 'wall') paintWall(grid, edges, theme, bx, by);
   else if (kind === 'soil') paintSoil(grid);
   else if (kind === 'bridge') paintBridge(grid, edges);
   else paintGrass(grid, bx, by);
@@ -309,15 +425,19 @@ function paintGround(grid, kind, bx, by, frame, edges) {
 const ANIMATED = ['water', 'lava'];
 
 // The picture of the ground of the tile (x, y). time: seconds (the water and the lava move).
+const THEMED = ['floor', 'wall', 'cliff', 'stairs'];
+
 export function groundTile(x, y, time) {
   const kind = groundKind(x, y);
   const bx = ((x % BLOCK) + BLOCK) % BLOCK;
   const by = ((y % BLOCK) + BLOCK) % BLOCK;
   const frame = ANIMATED.includes(kind) ? Math.floor(time * 2) % 4 : 0;
   const edges = edgesOf(x, y);
-  return once('ground|' + kind + bx + ',' + by + '|' + frame + edges, () => {
+  const theme = THEMED.includes(kind) ? themeOf(x, y) : '';
+  const homeColor = theme === 'home' ? homeWallColor : '';
+  return once('ground|' + kind + theme + homeColor + bx + ',' + by + '|' + frame + edges, () => {
     const grid = makeGrid(S, S);
-    paintGround(grid, kind, bx, by, frame, edges);
+    paintGround(grid, kind, bx, by, frame, edges, theme);
     paintEdges(grid, edges, frame);
     return toCanvas(grid);
   });

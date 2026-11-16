@@ -7,29 +7,52 @@
 // speed: a fast monster leaves less time to answer.
 // shape: how it is drawn. night: true = only comes out at night.
 export const SPECIES = {
-  slime: { name: 'Slime', shape: 'slime', tier: 'small', health: 20, attack: 10, magicAttack: 0, resistance: 0, magicResistance: 0, speed: 6, xp: 10, lexis: 2 },
-  bat: { name: 'Night Bat', shape: 'bat', tier: 'small', health: 20, attack: 10, magicAttack: 0, resistance: 0, magicResistance: 0.2, speed: 14, xp: 14, lexis: 3, night: true },
-  wolf: { name: 'Verb Wolf', shape: 'wolf', tier: 'small', health: 40, attack: 20, magicAttack: 0, resistance: 0.1, magicResistance: 0, speed: 12, xp: 22, lexis: 5 },
-  wisp: { name: 'Frost Wisp', shape: 'wisp', tier: 'small', health: 30, attack: 0, magicAttack: 20, resistance: 0.3, magicResistance: 0.5, speed: 13, xp: 24, lexis: 6 },
-  treant: { name: 'Old Treant', shape: 'treant', tier: 'big', tag: 'hard', health: 80, attack: 15, magicAttack: 0, resistance: 0.3, magicResistance: 0, speed: 5, xp: 12, lexis: 3 },
-  golem: { name: 'Stone Golem', shape: 'golem', tier: 'big', tag: 'hard', health: 100, attack: 20, magicAttack: 0, resistance: 0.5, magicResistance: 0, speed: 4, xp: 16, lexis: 4 },
-  imp: { name: 'Silence Imp', shape: 'imp', tier: 'big', tag: 'hard', health: 60, attack: 10, magicAttack: 15, resistance: 0, magicResistance: 0.3, speed: 15, xp: 14, lexis: 4 },
-  demonKnight: { name: 'Demon Knight', shape: 'knight', tier: 'demon', tag: 'hard', health: 100, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9 },
+  // ---------- The monsters of the sprite sheets (art: their pictures, see draw/monsterArt.js) ----------
+  // drops: what they leave for sure (meat to cook, bones), more than the common DROPS below.
+  slime: { name: 'Slime', art: 'slime', shape: 'slime', tier: 'small', health: 20, attack: 10, magicAttack: 0, resistance: 0, magicResistance: 0, speed: 6, xp: 10, lexis: 2, drops: [] },
+  rat: { name: 'Giant Rat', art: 'rat', shape: 'slime', tier: 'small', health: 18, attack: 10, magicAttack: 0, resistance: 0, magicResistance: 0, speed: 12, xp: 9, lexis: 2, drops: ['rawMeat'] },
+  mushroom: { name: 'Mushroom Fiend', art: 'mushroom', shape: 'slime', tier: 'small', health: 24, attack: 8, magicAttack: 8, resistance: 0, magicResistance: 0.2, speed: 5, xp: 11, lexis: 3, drops: ['herb'] },
+  spider: { name: 'Cave Spider', art: 'spider', shape: 'slime', tier: 'small', health: 28, attack: 14, magicAttack: 0, resistance: 0.1, magicResistance: 0, speed: 13, xp: 15, lexis: 3, drops: ['cloth'] },
+  goblin: { name: 'Goblin', art: 'goblin', shape: 'imp', tier: 'small', health: 30, attack: 14, magicAttack: 0, resistance: 0.1, magicResistance: 0, speed: 11, xp: 16, lexis: 5, drops: [] },
+  wolf: { name: 'Verb Wolf', art: 'wolf', shape: 'wolf', tier: 'small', health: 40, attack: 20, magicAttack: 0, resistance: 0.1, magicResistance: 0, speed: 12, xp: 22, lexis: 5, drops: ['rawMeat', 'bone'] },
+  lizardman: { name: 'Lizardman', art: 'lizardman', shape: 'wolf', tier: 'small', health: 45, attack: 20, magicAttack: 0, resistance: 0.2, magicResistance: 0, speed: 10, xp: 26, lexis: 6, drops: ['rawMeat'] },
+  skeleton: { name: 'Skeleton', art: 'skeleton', shape: 'imp', tier: 'small', health: 40, attack: 18, magicAttack: 0, resistance: 0.2, magicResistance: 0, speed: 9, xp: 24, lexis: 5, drops: ['bone'] },
+  banshee: { name: 'Banshee', art: 'banshee', shape: 'wisp', tier: 'small', health: 32, attack: 0, magicAttack: 22, resistance: 0.3, magicResistance: 0.4, speed: 14, xp: 28, lexis: 6, night: true, drops: [] },
+  wraith: { name: 'Wraith', art: 'wraith', shape: 'wisp', tier: 'small', health: 36, attack: 0, magicAttack: 22, resistance: 0.3, magicResistance: 0.5, speed: 12, xp: 30, lexis: 7, night: true, drops: ['bone'] },
+  drowner: { name: 'Drowner', art: 'drowner', shape: 'wisp', tier: 'small', health: 42, attack: 18, magicAttack: 0, resistance: 0.2, magicResistance: 0.2, speed: 10, xp: 28, lexis: 6, drops: ['bone'] },
+  harpy: { name: 'Harpy', art: 'harpy', shape: 'bat', tier: 'small', health: 34, attack: 18, magicAttack: 0, resistance: 0, magicResistance: 0.2, speed: 16, xp: 26, lexis: 6, drops: ['rawMeat'] },
+  cultist: { name: 'Cultist', art: 'cultist', shape: 'imp', tier: 'small', health: 36, attack: 8, magicAttack: 20, resistance: 0, magicResistance: 0.3, speed: 10, xp: 30, lexis: 8, drops: ['cloth'] },
+  mimic: { name: 'Mimic', art: 'mimic', shape: 'golem', tier: 'small', health: 50, attack: 24, magicAttack: 0, resistance: 0.3, magicResistance: 0.1, speed: 6, xp: 40, lexis: 30, drops: ['oldCoin'] },
+  orc: { name: 'Orc Brute', art: 'orc', shape: 'golem', tier: 'small', health: 60, attack: 28, magicAttack: 0, resistance: 0.2, magicResistance: 0, speed: 8, xp: 36, lexis: 8, drops: ['rawMeat', 'bone'] },
+  // the big ones: they ask long texts to read
+  stoneGolem: { name: 'Stone Golem', art: 'stoneGolem', shape: 'golem', tier: 'big', tag: 'hard', health: 100, attack: 20, magicAttack: 0, resistance: 0.5, magicResistance: 0, speed: 4, xp: 16, lexis: 4, drops: ['flint', 'flint'] },
+  iceGolem: { name: 'Ice Golem', art: 'iceGolem', shape: 'golem', tier: 'big', tag: 'hard', health: 100, attack: 18, magicAttack: 10, resistance: 0.4, magicResistance: 0.3, speed: 5, xp: 16, lexis: 4, drops: ['gem'] },
+  boneGolem: { name: 'Bone Golem', art: 'boneGolem', shape: 'golem', tier: 'big', tag: 'hard', health: 110, attack: 20, magicAttack: 0, resistance: 0.3, magicResistance: 0.2, speed: 6, xp: 18, lexis: 5, drops: ['bone', 'bone'] },
+  drake: { name: 'Fire Drake', art: 'drake', shape: 'imp', tier: 'big', tag: 'hard', health: 90, attack: 14, magicAttack: 16, resistance: 0.3, magicResistance: 0.3, speed: 12, xp: 18, lexis: 6, drops: ['rawMeat', 'rawMeat'] },
+  shadowMage: { name: 'Shadow Mage', art: 'shadowMage', shape: 'imp', tier: 'big', tag: 'hard', health: 70, attack: 6, magicAttack: 22, resistance: 0.1, magicResistance: 0.5, speed: 11, xp: 18, lexis: 6, drops: ['cloth'] },
+  darkKnight: { name: 'Dark Knight', art: 'darkKnight', shape: 'knight', tier: 'demon', tag: 'hard', health: 100, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
+
+  // ---------- The old monsters, drawn with code ----------
+  bat: { name: 'Night Bat', shape: 'bat', tier: 'small', health: 20, attack: 10, magicAttack: 0, resistance: 0, magicResistance: 0.2, speed: 14, xp: 14, lexis: 3, night: true, drops: [] },
+  wisp: { name: 'Frost Wisp', shape: 'wisp', tier: 'small', health: 30, attack: 0, magicAttack: 20, resistance: 0.3, magicResistance: 0.5, speed: 13, xp: 24, lexis: 6, drops: [] },
+  treant: { name: 'Old Treant', shape: 'treant', tier: 'big', tag: 'hard', health: 80, attack: 15, magicAttack: 0, resistance: 0.3, magicResistance: 0, speed: 5, xp: 12, lexis: 3, drops: ['branch', 'branch'] },
+  imp: { name: 'Silence Imp', shape: 'imp', tier: 'big', tag: 'hard', health: 60, attack: 10, magicAttack: 15, resistance: 0, magicResistance: 0.3, speed: 15, xp: 14, lexis: 4, drops: [] },
+  demonKnight: { name: 'Demon Knight', shape: 'knight', tier: 'demon', tag: 'hard', health: 100, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
 
   // ---------- Bosses: one of each, they never come back ----------
-  lich: { name: 'The Gerund Lich', shape: 'lich', tier: 'boss', tag: 'hard', boss: true, category: 'gerunds', health: 140, attack: 15, magicAttack: 20, resistance: 0.2, magicResistance: 0.4, speed: 9, xp: 60, lexis: 30 },
-  warden: { name: 'The Chrono Warden', shape: 'warden', tier: 'boss', tag: 'hard', boss: true, category: 'verbTenses', health: 180, attack: 20, magicAttack: 20, resistance: 0.3, magicResistance: 0.3, speed: 13, xp: 100, lexis: 60 },
-  general: { name: 'General Barbarism', shape: 'general', tier: 'boss', tag: 'hard', boss: true, health: 220, attack: 30, magicAttack: 15, resistance: 0.4, magicResistance: 0.2, speed: 12, xp: 160, lexis: 100 },
-  king: { name: 'Solecis, the Demon King', shape: 'king', tier: 'demon', tag: 'extreme', boss: true, anyCategory: true, health: 300, attack: 18, magicAttack: 18, resistance: 0.4, magicResistance: 0.4, speed: 14, xp: 120, lexis: 80 },
+  lich: { name: 'The Gerund Lich', shape: 'lich', tier: 'boss', tag: 'hard', boss: true, category: 'gerunds', health: 140, attack: 15, magicAttack: 20, resistance: 0.2, magicResistance: 0.4, speed: 9, xp: 60, lexis: 30, drops: ['gem'] },
+  warden: { name: 'The Chrono Warden', shape: 'warden', tier: 'boss', tag: 'hard', boss: true, category: 'verbTenses', health: 180, attack: 20, magicAttack: 20, resistance: 0.3, magicResistance: 0.3, speed: 13, xp: 100, lexis: 60, drops: ['gem'] },
+  general: { name: 'General Barbarism', shape: 'general', tier: 'boss', tag: 'hard', boss: true, health: 220, attack: 30, magicAttack: 15, resistance: 0.4, magicResistance: 0.2, speed: 12, xp: 160, lexis: 100, drops: ['gem'] },
+  king: { name: 'Solecis, the Demon King', shape: 'king', tier: 'demon', tag: 'extreme', boss: true, anyCategory: true, health: 300, attack: 18, magicAttack: 18, resistance: 0.4, magicResistance: 0.4, speed: 14, xp: 120, lexis: 80, drops: [] },
 };
 
-// The questions of each tier: sections (see data/sections.js; 'text' = the long reading part, RC 55 min).
-// Their difficulty is the tag of the monster. (The long texts of the app are all in one category: a demon asks
-// any of them, whatever its type.)
+// The questions of each tier: sections (see data/sections.js). The small monsters only ask short sentences
+// (rc10): no text to read in the middle of a fight. The texts (rc8, and the long ones) are for the big ones.
+// Their difficulty is the tag of the monster.
 export const TIERS = {
-  small: { sections: ['rc10', 'rc8'] },
-  big: { sections: ['rc10', 'rc8'] },
-  boss: { sections: ['rc10', 'rc8'] },
+  small: { sections: ['rc10'] },
+  big: { sections: ['rc8', 'text'] },
+  boss: { sections: ['rc8', 'text'] },
   demon: { sections: ['text'] },
 };
 

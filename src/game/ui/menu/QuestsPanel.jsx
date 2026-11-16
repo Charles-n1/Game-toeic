@@ -1,4 +1,5 @@
 import Bar from '../Bar';
+import { VILLAGES, VILLAGE_LEVELS } from '../../data/zones';
 import { NPCS, npcOf } from '../../data/npcs';
 import { goalOf, CHAPTERS } from '../../data/story';
 import { typeOf } from '../../data/types';
@@ -82,7 +83,15 @@ export default function QuestsPanel({ game }) {
         );
       })}
 
-      <span className="section">Lexia</span>
+      <span className="section">The villages</span>
+      {VILLAGES.map((village) => (
+        <span key={village.id} className="small">
+          <span className="gold">{village.name}</span> · {VILLAGE_LEVELS[game.villages[village.id].level].name} · wood {game.villages[village.id].wood} · stone{' '}
+          {game.villages[village.id].stone} · food {game.villages[village.id].food}
+          {game.villages[village.id].bridge ? ' · a bridge' : ''}
+        </span>
+      ))}
+      <span className="section">Eldermoor</span>
       <span>Happiness {game.happiness} / 100</span>
       <Bar value={game.happiness / 100} color="#ffd23f" height={8} />
       <span className="small">Helping people makes the village happier: better prices, faster friendships. Deaths make it sadder.</span>

@@ -9,7 +9,7 @@ import { isSealOpen } from './seals';
 
 const ICON_OF_KIND = { village: 'town', dungeon: 'dungeon', castle: 'dungeon', land: null };
 
-export const PLACES = ZONES.map((zone) => ({
+export const PLACES = ZONES.filter((zone) => zone.kind !== 'inside').map((zone) => ({
   id: zone.id,
   name: zone.name,
   kind: zone.kind,
@@ -23,14 +23,18 @@ export function placeOf(id) {
 }
 
 // The place where the player stands (to show it first on the map).
+// Inside a dungeon: the dungeon. Inside the home: Eldermoor.
 export function placeHere(game) {
-  return placeOf(zoneAt(game.player.x, game.player.y).id);
+  const zone = zoneAt(game.player.x, game.player.y);
+  if (zone.kind === 'inside') return placeOf(zone.dungeon || 'lexia');
+  return placeOf(zone.id);
 }
 
 // Where a person is right now: { x, y }.
 function personPosition(game, npcId) {
   const place = game.run.people[npcId];
-  return place ? { x: place.x, y: place.y } : { x: npcOf(npcId).x, y: npcOf(npcId).y };
+  const isOnIsland = place && place.y < 256 && place.x > 0;
+  return isOnIsland ? { x: place.x, y: place.y } : { x: npcOf(npcId).x || 105, y: npcOf(npcId).y || 120 };
 }
 
 // target: { zone: 'crypt' } or { npc: 'aria' } -> { x, y }
@@ -52,7 +56,7 @@ export function sideQuestMarks(game) {
 }
 
 // The shops and the inn, at their doors: [{ icon: 'shop' | 'inn', x, y }]
-const SIGN_TO_ICON = { healthPotion: 'shop', ironSword: 'shop', bread: 'shop', map1: 'shop', mug: 'inn' };
+const SIGN_TO_ICON = { healthPotion: 'shop', ironSword: 'shop', bread: 'shop', map1: 'shop', mug: 'inn', potion: 'shop', guild: 'shop', cloth: 'shop' };
 
 export const SHOP_MARKS = HOUSES.filter((house) => SIGN_TO_ICON[house.sign]).map((house) => ({
   icon: SIGN_TO_ICON[house.sign],

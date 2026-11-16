@@ -8,7 +8,14 @@ import { burst, floatText } from './particles';
 
 // What happens when a monster dies: it leaves the map, and leaves things behind.
 
+// What the monster leaves: its own things (meat, bones... most of the time), then sometimes a common drop.
 function dropItems(game, monster) {
+  for (const itemId of monster.drops || []) {
+    if (Math.random() < 0.75) {
+      addItem(game.player, itemId);
+      notify(game, ITEMS[itemId].icon + ' ' + ITEMS[itemId].name);
+    }
+  }
   for (const [itemId, chance] of DROPS) {
     if (Math.random() < chance) {
       addItem(game.player, itemId);

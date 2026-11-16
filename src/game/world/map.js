@@ -1,10 +1,16 @@
-import { ZONES, HOUSES, FIELD, ROADS, PLAZAS, CLEARINGS, PROPS, RIVERS, WORLD_SIZE, zoneAt, houseSize } from '../data/zones';
+import { GROUND_TEXT, BIOME_TEXT, TERRAIN_SIZE } from './terrain';
+import { WORLD_SIZE, MAP_HEIGHT, VILLAGES, HOUSES, FIELDS, PLAZAS, VILLAGE_ROADS, PROPS, zoneAt, houseSize, doorOf } from '../data/zones';
 import { noise, smoothNoise } from './noise';
+import { buildStructures, STRUCTURE_PROPS } from './structures';
+import { buildInsides, INSIDE_PROPS, LINKS, PUZZLES, INSIDE_CHESTS, INSIDE_MONSTERS } from './insides';
 
-export { noise };
+export { noise, LINKS, PUZZLES };
 
-// The map is a grid of tiles. It is always built the same way (no real random), so it is never saved.
-export const MAP_SIZE = WORLD_SIZE;
+// The map is a grid of tiles: the island (256 x 256, from art/MAP.png), and under it the insides (dungeons...).
+// It is always built the same way, so it is never saved. What changes during a game (a bridge built by a village,
+// a gate opened by a puzzle, a boulder pushed) is an "override" or a "blocker", set by the rules of the game.
+export const MAP_WIDTH = WORLD_SIZE;
+export const MAP_SIZE = WORLD_SIZE; // the island (the world map shows only this square)
 
 export const TILE = {
   GRASS: 0,
@@ -14,159 +20,176 @@ export const TILE = {
   WATER: 4,
   TREE: 5,
   ROCK: 6,
-  STONE: 7, // the ground of the mountains (snow)
-  ASH: 8, // the ground of the demon land
+  STONE: 7, // the snow
+  ASH: 8, // the ground of the demon island
   LAVA: 9,
   DEAD_TREE: 10,
-  WALL: 11,
-  FLOOR: 12, // the ground of the dungeons
+  WALL: 11, // the walls of the buildings and of the dungeons
+  FLOOR: 12, // the ground inside
   ROOF: 13,
   HOUSE: 14, // the front wall of a house
   DOOR: 15,
-  SOIL: 16, // the field: carrots grow here
-  BRIDGE: 17, // where a road crosses the water
+  SOIL: 16, // where food grows
+  BRIDGE: 17,
+  CLIFF: 18, // a mountain, a mesa: rock nobody climbs
+  VOID: 19, // nothing (between the insides)
+  STAIRS: 20, // stairs, a cave mouth, a door to the inside: walking on it takes you somewhere else
+  ORE: 21, // a rock with metal or crystal in it (a mine): the hero can break it
+  WOOD_FLOOR: 22, // the floor of a home
+  RUG: 23, // a carpet on the floor of a home
 };
 
 // The tiles nobody can walk on.
-const SOLID = [TILE.WATER, TILE.TREE, TILE.ROCK, TILE.LAVA, TILE.DEAD_TREE, TILE.WALL, TILE.ROOF, TILE.HOUSE, TILE.DOOR];
+const SOLID = [TILE.WATER, TILE.TREE, TILE.ROCK, TILE.LAVA, TILE.DEAD_TREE, TILE.WALL, TILE.ROOF, TILE.HOUSE, TILE.DOOR, TILE.CLIFF, TILE.VOID, TILE.ORE];
 
-// The sea: 2 to 11 tiles from the edge of the world, never the same distance (a wavy coast with bays).
-// It never comes into a village or a dungeon.
-function isSea(x, y) {
-  const fromEdge = Math.min(x, y, MAP_SIZE - 1 - x, MAP_SIZE - 1 - y);
-  const depth = 2 + smoothNoise(x, y, 12, 3) * 7 + smoothNoise(x, y, 5, 4) * 2;
-  return zoneAt(x, y).kind === 'land' && fromEdge < depth;
+// ---------- Reading the painted terrain ----------
+
+const GROUND_LETTERS = { w: TILE.WATER, g: TILE.GRASS, F: TILE.FLOWER, p: TILE.PATH, b: TILE.BRIDGE, s: TILE.SAND, t: TILE.TREE, r: TILE.ROCK, n: TILE.STONE, a: TILE.ASH, l: TILE.LAVA, d: TILE.DEAD_TREE, c: TILE.CLIFF };
+const BIOME_LETTERS = { m: 'meadow', f: 'forest', n: 'mountain', v: 'demon', d: 'desert', c: 'coast' };
+
+// 'g3w2|...' -> the letters, row after row.
+function unpack(text) {
+  const letters = [];
+  for (const row of text.split('|')) {
+    for (const [, letter, count] of row.matchAll(/([A-Za-z])(\d+)/g)) {
+      for (let i = 0; i < Number(count); i++) letters.push(letter);
+    }
+  }
+  return letters;
 }
 
-function isInLake(x, y) {
-  const dx = (x - 101) / 12;
-  const dy = (y - 60) / 9;
-  return dx * dx + dy * dy < 1;
+const BIOMES = unpack(BIOME_TEXT).map((letter) => BIOME_LETTERS[letter]);
+
+// The land of a tile: 'village', 'dungeon' (the insides and the dungeons), or the land of the painting.
+export function biomeAt(x, y) {
+  const zone = zoneAt(x, y);
+  if (zone.kind === 'village') return 'village';
+  if (zone.kind === 'inside') return 'dungeon';
+  if (x < 0 || y < 0 || x >= TERRAIN_SIZE || y >= TERRAIN_SIZE) return 'coast';
+  return BIOMES[Math.floor(y) * TERRAIN_SIZE + Math.floor(x)];
 }
 
-// The tile of the wild land at (x, y), before the villages, dungeons and roads are added.
-function landTile(x, y) {
-  if (isSea(x, y) || isInLake(x, y)) return TILE.WATER;
-  const biome = zoneAt(x, y).biome;
-  const r = noise(x, y);
+// ---------- Building ----------
 
-  if (biome === 'village') return r < 0.08 ? TILE.FLOWER : TILE.GRASS;
-  if (biome === 'dungeon') return TILE.FLOOR;
-  if (biome === 'forest') return r < 0.26 ? TILE.TREE : r < 0.32 ? TILE.FLOWER : TILE.GRASS;
-  if (biome === 'mountain') return r < 0.07 ? TILE.TREE : r < 0.16 ? TILE.ROCK : TILE.STONE; // pines, rocks, snow
-  if (biome === 'demon') return r < 0.05 ? TILE.LAVA : r < 0.14 ? TILE.DEAD_TREE : TILE.ASH;
-  if (biome === 'coast') return r < 0.04 ? TILE.ROCK : TILE.SAND;
-  if (biome === 'desert') return r < 0.04 ? TILE.TREE : r < 0.08 ? TILE.ROCK : TILE.SAND; // cacti, rocks, sand
-  if (biome === 'plains') return r < 0.03 ? TILE.TREE : r < 0.2 ? TILE.FLOWER : TILE.GRASS;
-  return r < 0.05 ? TILE.TREE : r < 0.12 ? TILE.FLOWER : TILE.GRASS; // meadow, and the shore of the lake
+export function setTile(tiles, x, y, tile) {
+  if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) tiles[y * MAP_WIDTH + x] = tile;
 }
 
-function setTile(tiles, x, y, tile) {
-  tiles[y * MAP_SIZE + x] = tile;
+export function getTile(tiles, x, y) {
+  if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return TILE.VOID;
+  return tiles[y * MAP_WIDTH + x];
 }
 
-function fillRect(tiles, x, y, w, h, tile) {
+export function fillRect(tiles, x, y, w, h, tile) {
   for (let row = y; row < y + h; row++) {
     for (let column = x; column < x + w; column++) setTile(tiles, column, row, tile);
   }
 }
 
-// A snake dungeon: walls around, and inner walls with a hole at the top, then at the bottom, then at the top...
-// The door is at the bottom-left, the boss is in the last room on the right.
-function buildDungeon(tiles, zone) {
-  fillRect(tiles, zone.x, zone.y, zone.w, zone.h, TILE.WALL);
-  fillRect(tiles, zone.x + 1, zone.y + 1, zone.w - 2, zone.h - 2, TILE.FLOOR);
-  let holeAtTop = true;
-  for (let x = zone.x + 4; x < zone.x + zone.w - 1; x += 4) {
-    const wallY = holeAtTop ? zone.y + 3 : zone.y + 1;
-    fillRect(tiles, x, wallY, 1, zone.h - 4, TILE.WALL);
-    holeAtTop = !holeAtTop;
-  }
-  fillRect(tiles, zone.x + 2, zone.y + zone.h - 1, 2, 1, TILE.FLOOR); // the door
-}
-
-// The castle of the Demon King: one big hall with pillars. The door is in the middle of the bottom wall.
-function buildCastle(tiles, zone) {
-  fillRect(tiles, zone.x, zone.y, zone.w, zone.h, TILE.WALL);
-  fillRect(tiles, zone.x + 1, zone.y + 1, zone.w - 2, zone.h - 2, TILE.FLOOR);
-  for (let y = zone.y + 4; y < zone.y + zone.h - 2; y += 3) {
-    setTile(tiles, zone.x + 6, y, TILE.WALL);
-    setTile(tiles, zone.x + zone.w - 7, y, TILE.WALL);
-  }
-  fillRect(tiles, zone.x + 10, zone.y + zone.h - 1, 2, 1, TILE.FLOOR); // the door
-}
-
-// A house: the roof, then its front wall (the last row) with the door. The school has a double door.
+// A house: the roof, then its front wall (the last row) with the door. The school and the guild have 2 doors.
 function buildHouse(tiles, house) {
   const { w, h } = houseSize(house);
   fillRect(tiles, house.x, house.y, w, h - 1, TILE.ROOF);
   fillRect(tiles, house.x, house.y + h - 1, w, 1, TILE.HOUSE);
-  const doors = house.kind === 'school' ? [2, 3] : [1];
-  doors.forEach((dx) => setTile(tiles, house.x + dx, house.y + h - 1, TILE.DOOR));
+  const door = doorOf(house);
+  setTile(tiles, door.x, door.y, TILE.DOOR);
+  if (house.kind === 'school' || house.kind === 'guild') setTile(tiles, door.x + 1, door.y, TILE.DOOR);
 }
 
-// A river: a line 2 tiles wide that follows its points, with small bends. It never goes through a village.
-function buildRiver(tiles, points) {
-  for (let i = 0; i < points.length - 1; i++) {
-    const [x0, y0] = points[i];
-    const [x1, y1] = points[i + 1];
-    const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 4);
-    for (let step = 0; step <= steps; step++) {
-      const y = y0 + ((y1 - y0) * step) / steps;
-      const x = x0 + ((x1 - x0) * step) / steps + (smoothNoise(x0, y, 5, 7) - 0.5) * 3;
-      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-        const tx = Math.floor(x) + dx;
-        const ty = Math.floor(y) + dy;
-        if (tx >= 0 && ty >= 0 && tx < MAP_SIZE && ty < MAP_SIZE && zoneAt(tx, ty).kind === 'land') setTile(tiles, tx, ty, TILE.WATER);
-      }
+// A village: its ground is cleared (no tree inside), then the roads, the squares, the fields and the houses.
+function buildVillage(tiles, village) {
+  for (let y = village.y; y < village.y + village.h; y++) {
+    for (let x = village.x; x < village.x + village.w; x++) setTile(tiles, x, y, noise(x, y, 8) < 0.06 ? TILE.FLOWER : TILE.GRASS);
+  }
+  VILLAGE_ROADS.filter((road) => road.village === village.id).forEach((road) => fillRect(tiles, road.x, road.y, road.w, road.h, TILE.PATH));
+}
+
+// The gates of a village: where its roads meet its border. [{ x, y, dx, dy }] (dx, dy: the way out).
+export function gatesOf(village) {
+  const gates = [];
+  for (const road of VILLAGE_ROADS.filter((item) => item.village === village.id)) {
+    if (road.h === 2) {
+      gates.push({ x: village.x, y: road.y, dx: -1, dy: 0 }, { x: village.x + village.w - 1, y: road.y, dx: 1, dy: 0 });
+    } else {
+      gates.push({ x: road.x, y: village.y, dx: 0, dy: -1 }, { x: road.x, y: village.y + village.h - 1, dx: 0, dy: 1 });
     }
   }
+  return gates;
 }
 
-// A road never destroys a building or a dungeon wall: it only replaces the nature. Over water: a bridge.
-function canBeRoad(tile) {
-  return ![TILE.WALL, TILE.FLOOR, TILE.ROOF, TILE.HOUSE, TILE.DOOR, TILE.SOIL].includes(tile);
-}
-
-function buildRoad(tiles, road) {
-  const isVertical = road.x1 === road.x2;
-  const w = isVertical ? 2 : road.x2 - road.x1 + 2;
-  const h = isVertical ? road.y2 - road.y1 + 2 : 2;
-  for (let y = road.y1; y < road.y1 + h; y++) {
-    for (let x = road.x1; x < road.x1 + w; x++) {
-      const tile = tiles[y * MAP_SIZE + x];
-      if (canBeRoad(tile)) setTile(tiles, x, y, tile === TILE.WATER ? TILE.BRIDGE : TILE.PATH);
+// From a gate, a road (2 tiles wide) goes straight out until it meets a road of the painting (or 24 tiles).
+// It crosses the water on a bridge, and the trees and rocks on its way are cut.
+function roadOutOf(tiles, gate) {
+  const side = gate.dx === 0 ? [1, 0] : [0, 1];
+  for (let step = 1; step <= 24; step++) {
+    const x = gate.x + gate.dx * step;
+    const y = gate.y + gate.dy * step;
+    const cells = [[x, y], [x + side[0], y + side[1]]];
+    const arrived = step > 2 && cells.some(([cx, cy]) => getTile(tiles, cx, cy) === TILE.PATH);
+    for (const [cx, cy] of cells) {
+      const tile = getTile(tiles, cx, cy);
+      if (tile === TILE.WATER) setTile(tiles, cx, cy, TILE.BRIDGE);
+      else if (tile !== TILE.BRIDGE) setTile(tiles, cx, cy, TILE.PATH);
     }
+    if (arrived) return;
   }
 }
 
 function buildMap() {
-  const tiles = new Uint8Array(MAP_SIZE * MAP_SIZE);
-  for (let y = 0; y < MAP_SIZE; y++) {
-    for (let x = 0; x < MAP_SIZE; x++) setTile(tiles, x, y, landTile(x, y));
+  const tiles = new Uint8Array(MAP_WIDTH * MAP_HEIGHT).fill(TILE.VOID);
+  unpack(GROUND_TEXT).forEach((letter, i) => (tiles[i] = GROUND_LETTERS[letter]));
+  for (const village of VILLAGES) {
+    buildVillage(tiles, village);
+    gatesOf(village).forEach((gate) => roadOutOf(tiles, gate));
   }
-  RIVERS.forEach((river) => buildRiver(tiles, river));
-  CLEARINGS.forEach((clearing) => fillRect(tiles, clearing.x, clearing.y, clearing.w, clearing.h, TILE.GRASS));
-  for (const zone of ZONES) {
-    if (zone.kind === 'dungeon') buildDungeon(tiles, zone);
-    if (zone.kind === 'castle') buildCastle(tiles, zone);
-  }
-  HOUSES.forEach((house) => buildHouse(tiles, house));
-  fillRect(tiles, FIELD.x, FIELD.y, FIELD.w, FIELD.h, TILE.SOIL);
   PLAZAS.forEach((plaza) => fillRect(tiles, plaza.x, plaza.y, plaza.w, plaza.h, TILE.PATH));
-  ROADS.forEach((road) => buildRoad(tiles, road));
+  FIELDS.forEach((field) => fillRect(tiles, field.x, field.y, field.w, field.h, TILE.SOIL));
+  HOUSES.forEach((house) => buildHouse(tiles, house));
+  buildStructures(tiles);
+  buildInsides(tiles);
   return tiles;
 }
 
 export const MAP = buildMap();
 
-// The tiles covered by a prop (a fountain, a lamp...). The ground under them does not change: a lamp on a
-// cobblestone square still stands on cobblestones. 1 = blocked.
+// ---------- What changes during a game ----------
+
+// Tiles that a game changed (a bridge built by a village): index -> tile. Set by the rules (logic/villages.js).
+const overrides = new Map();
+// Tiles blocked by things that move or change (a boulder, a closed gate, the walls of a village): index -> true.
+let dynamicBlocked = new Set();
+// The props that change with the game (the walls of the villages, the gates of the puzzles...).
+let dynamicProps = [];
+
+export function setOverrides(list) {
+  overrides.clear();
+  for (const item of list) overrides.set(item.y * MAP_WIDTH + item.x, item.tile);
+}
+
+// props: [{ kind, x, y, w, h }] that block, blockers: [{ x, y }] more tiles that block (boulders, gates).
+export function setDynamic(props, blockers) {
+  dynamicProps = props;
+  dynamicBlocked = new Set();
+  for (const prop of props.filter((item) => !item.walkable)) {
+    for (let y = prop.y; y < prop.y + prop.h; y++) for (let x = prop.x; x < prop.x + prop.w; x++) dynamicBlocked.add(y * MAP_WIDTH + x);
+  }
+  for (const item of blockers) dynamicBlocked.add(item.y * MAP_WIDTH + item.x);
+}
+
+// Every prop of the world right now: the fixed ones and the ones of the game.
+const FIXED_PROPS = [...PROPS, ...STRUCTURE_PROPS, ...INSIDE_PROPS];
+
+export function allProps() {
+  return dynamicProps.length > 0 ? [...FIXED_PROPS, ...dynamicProps] : FIXED_PROPS;
+}
+
+// The tiles covered by a fixed prop: 1 = blocked.
 function buildBlocked() {
-  const blocked = new Uint8Array(MAP_SIZE * MAP_SIZE);
-  for (const prop of PROPS) {
+  const blocked = new Uint8Array(MAP_WIDTH * MAP_HEIGHT);
+  for (const prop of FIXED_PROPS) {
+    if (prop.walkable) continue;
     for (let y = prop.y; y < prop.y + prop.h; y++) {
-      for (let x = prop.x; x < prop.x + prop.w; x++) blocked[y * MAP_SIZE + x] = 1;
+      for (let x = prop.x; x < prop.x + prop.w; x++) blocked[y * MAP_WIDTH + x] = 1;
     }
   }
   return blocked;
@@ -174,58 +197,54 @@ function buildBlocked() {
 
 const BLOCKED = buildBlocked();
 
-// The tile at (x, y). Outside the map: water.
+// ---------- Reading the map ----------
+
+// The tile at (x, y). Outside the island: water. Outside the insides: nothing.
 export function tileAt(x, y) {
-  if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE) return TILE.WATER;
-  return MAP[Math.floor(y) * MAP_SIZE + Math.floor(x)];
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  if (tx < 0 || ty < 0 || tx >= MAP_WIDTH || ty >= MAP_HEIGHT) return ty < WORLD_SIZE ? TILE.WATER : TILE.VOID;
+  const index = ty * MAP_WIDTH + tx;
+  return overrides.has(index) ? overrides.get(index) : MAP[index];
 }
 
 export function isSolid(x, y) {
   if (SOLID.includes(tileAt(x, y))) return true;
-  return BLOCKED[Math.floor(y) * MAP_SIZE + Math.floor(x)] === 1;
+  const index = Math.floor(y) * MAP_WIDTH + Math.floor(x);
+  return BLOCKED[index] === 1 || dynamicBlocked.has(index);
+}
+
+export function isWater(x, y) {
+  return tileAt(x, y) === TILE.WATER;
+}
+
+// The other side of a stairs tile: where the walker arrives ({ x, y }), or null.
+export function linkAt(x, y) {
+  return LINKS.get(Math.floor(x) + ',' + Math.floor(y)) || null;
 }
 
 // ---------- Fixed things placed on the map ----------
 
-// The guards and the boss of a dungeon: [{ species, x, y, key }]. key: a name to remember who is dead.
-export function dungeonMonsters(zone) {
-  if (zone.kind === 'castle') {
-    const middle = zone.x + zone.w / 2;
-    return [
-      { species: zone.guard, x: zone.x + 3.5, y: zone.y + 9.5, key: zone.id + ':1' },
-      { species: zone.guard, x: zone.x + zone.w - 3.5, y: zone.y + 9.5, key: zone.id + ':2' },
-      { species: zone.guard, x: middle - 3, y: zone.y + 6.5, key: zone.id + ':3' },
-      { species: zone.guard, x: middle + 3, y: zone.y + 6.5, key: zone.id + ':4' },
-      { species: zone.boss, x: middle, y: zone.y + 3, key: zone.id + ':boss' },
-    ];
-  }
-  return [
-    { species: zone.guard, x: zone.x + 6.5, y: zone.y + 5.5, key: zone.id + ':1' },
-    { species: zone.guard, x: zone.x + 10.5, y: zone.y + 5.5, key: zone.id + ':2' },
-    { species: zone.boss, x: zone.x + zone.w - 2.5, y: zone.y + zone.h - 3.5, key: zone.id + ':boss' },
-  ];
+// The guards and the bosses of the dungeons: [{ species, x, y, key, zoneId }]. key: to remember who is dead.
+export function dungeonMonsters() {
+  return INSIDE_MONSTERS;
 }
 
-// The chest at the end of each dungeon: [{ x, y, key, zone }]
-export const CHESTS = ZONES.filter((zone) => zone.kind === 'dungeon').map((zone) => ({
-  x: zone.x + zone.w - 2,
-  y: zone.y + zone.h - 2,
-  key: zone.id,
-  zone: zone,
-}));
+// The chests: in the dungeons and the mines. [{ x, y, key, zone }]
+export const CHESTS = INSIDE_CHESTS;
 
 // The treasures buried in the wild: the player must dig to find them. [{ x, y, key, danger }]
 function findTreasures() {
   const treasures = [];
-  for (let y = 4; y < MAP_SIZE - 4; y++) {
-    for (let x = 4; x < MAP_SIZE - 4; x++) {
+  for (let y = 4; y < WORLD_SIZE - 4; y++) {
+    for (let x = 4; x < WORLD_SIZE - 4; x++) {
       const zone = zoneAt(x, y);
-      if (zone.kind === 'land' && !isSolid(x, y) && noise(x, y, 1) < 0.004) {
-        treasures.push({ x: x, y: y, key: x + ',' + y, danger: zone.danger });
-      }
+      if (zone.kind === 'land' && !isSolid(x, y) && noise(x, y, 1) < 0.0025) treasures.push({ x: x, y: y, key: x + ',' + y, danger: zone.danger });
     }
   }
   return treasures;
 }
 
 export const TREASURES = findTreasures();
+
+export { smoothNoise };

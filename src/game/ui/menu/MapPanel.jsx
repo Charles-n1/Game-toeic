@@ -13,7 +13,7 @@ import { zoneAt } from '../../data/zones';
 const ZOOMS = [1, 2, 4];
 const MAP_NAMES = ['No map: you only know where you went', 'Village Map', 'Region Map', 'Treasure Map'];
 const NEXT_HINT = [
-  'Luna sells maps in Port Syntax: the Village Map shows the villages and the roads.',
+  'Rin sells maps in Seabridge: the Village Map shows the villages and the roads.',
   'The Region Map shows the whole land.',
   'The Treasure Map shows every buried treasure.',
   'You own the best map: every treasure is marked.',

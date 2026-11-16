@@ -1,4 +1,5 @@
 import { startFight } from './fight';
+import { NEGOTIATION } from '../data/negotiation';
 import { skillPercent } from './learning';
 import { addFriendship, addHappiness } from './village';
 import { earnLexis } from './player';
@@ -8,11 +9,13 @@ import { say } from './messages';
 // A duel = a fight of words against a person. Nobody is hurt: the player wins by giving `health` good answers,
 // and loses after 3 mistakes. It is used to negotiate a price, to work, and to play.
 
+// npc: { id, name, look } (no look: a spirit of words is drawn, of the shape npc.shape).
 export function makeDuel(npc, options) {
   return {
     duel: true,
     name: npc.name,
     look: npc.look,
+    shape: npc.shape || 'wisp',
     npcId: npc.id,
     tier: 'small',
     maxHealth: options.health,
@@ -36,8 +39,9 @@ export function negotiate(game, npc) {
     game.deal = { day: game.day, factor: 1.1 };
     say(game, npc.id, ['Ha! With that grammar? Prices just went up. Come back tomorrow.']);
   }
-  const tier = game.happiness < 40 ? 'big' : 'small';
-  startFight(game, makeDuel(npc, { title: 'Negotiation', category: 'vocabulary', tier: tier, health: 4, speed: 12, onWin: win, onLose: lose }));
+  // the sentences of business, hard; a sad village makes the seller tougher (one more good answer)
+  const health = game.happiness < 40 ? 5 : 4;
+  startFight(game, makeDuel(npc, { title: 'Negotiation', category: 'vocabulary', tag: 'hard', questions: NEGOTIATION, health: health, speed: 12, onWin: win, onLose: lose }));
 }
 
 // Copying books at the library: paid for each good answer, won or lost. The texts are of the player's weakest skill.

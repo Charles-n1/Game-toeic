@@ -34,6 +34,11 @@ const EFFECTS = {
     tone(to, { wave: 'triangle', frequency: frequencyOf('C5'), start: t + 0.4, duration: 0.5, volume: 0.2 });
   },
   defeat: (to, t) => arpeggio(to, t, ['E5', 'C5', 'A4', 'E4'], 0.22, 'triangle', 0.2),
+  // A lightning strike: a crack, then a long low rumble.
+  thunder: (to, t) => {
+    noise(to, { start: t, duration: 0.12, volume: 0.45, lowpass: 6000 });
+    noise(to, { start: t + 0.08, duration: 1.6, volume: 0.3, lowpass: 300 });
+  },
 };
 
 // Plays an effect of EFFECTS. Nothing happens while the sound is asleep (before the first tap).

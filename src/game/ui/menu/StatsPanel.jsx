@@ -2,11 +2,19 @@ import PixelIcon from '../PixelIcon';
 import Bar from '../Bar';
 import { TYPES } from '../../data/types';
 import { ITEMS } from '../../data/items';
-import { spellRank } from '../../logic/learning';
-import { TAG_NAMES, TAG_COLORS, tagOf, tagPercent, tagAnswers, skillPower, canEvolve, evolveSkill, nextTag } from '../../logic/skills';
+import { NPCS } from '../../data/npcs';
+import { TAGS, TAG_NAMES, TAG_COLORS, tagOf, tagPercent, tagAnswers, skillPower, canEvolve, evolveSkill, nextTag, spellLevel } from '../../logic/skills';
 import { speedOf, criticalChance, xpForLevel } from '../../logic/player';
 import { attackPower, armorPower } from '../../logic/fight';
 import { heroClass, classBonus } from '../../logic/classes';
+
+// The skill (spell) of a type: learned at which level, or who teaches it.
+function skillText(game, type) {
+  const level = spellLevel(game, type.id);
+  if (level > 0) return 'Skill: ' + type.spell + ' (' + TAG_NAMES[TAGS[level - 1]] + ')';
+  const teacher = NPCS.find((npc) => npc.teachesSkills && npc.teachesSkills.includes(type.id));
+  return 'Skill not learned' + (teacher ? ': ' + teacher.name + ' teaches it' : '');
+}
 
 // One grammar type: its tag (Normal, Hard, Extreme), the % in this tag, its power, and the button to evolve it.
 function SkillLine({ game, type, refresh }) {
@@ -29,7 +37,7 @@ function SkillLine({ game, type, refresh }) {
         <span className="small">
           {TAG_NAMES[tag]}: {tagPercent(game, type.id, tag)}% ({tagAnswers(game, type.id, tag)} answers) · Power {skillPower(game, type.id)}
         </span>
-        <span className="small">{spellRank(game, type.id) > 0 ? 'Spell: ' + type.spell : 'Spell locked (20%)'}</span>
+        <span className="small">{skillText(game, type)}</span>
       </div>
       {ready ? (
         <button className="px-button px-gold" onClick={evolve}>

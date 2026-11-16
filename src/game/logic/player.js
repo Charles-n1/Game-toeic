@@ -120,6 +120,8 @@ export function usePotion(game, itemId) {
   if (!canUsePotion(game, itemId)) return false;
   removeItem(player, itemId);
   if (item.heal) heal(player, item.heal);
+  if (item.food) player.hunger = Math.min(100, player.hunger + item.food); // bread, eaten in a fight
+  if (item.water) player.thirst = Math.min(100, player.thirst + item.water);
   if (item.mana) restoreMana(player, item.mana);
   if (item.haste) player.haste = true; // used by the next fight (or the current one)
   if (item.extraTime) game.run.fight.limit += item.extraTime * 1000;

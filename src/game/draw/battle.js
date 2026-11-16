@@ -27,9 +27,18 @@ const FLASH_TIME = 240; // blinking after a hit
 const DRINK_TIME = 800;
 const FADE_TIME = 500; // a beaten opponent disappears
 
-function foeSprite(opponent, frame) {
-  if (opponent.duel) return personSprite(opponent.look, 'left', frame ? 'breath' : 'stand');
-  return monsterSprite(opponent, 'left', frame);
+// The picture of the opponent. pose: 'idle', 'attack', 'death' (the monsters of the sheets have them all).
+// A duel with a person: the person; a duel with a spirit of words (a door, an obelisk, a dummy): a monster shape.
+function foeSprite(opponent, frame, pose = 'idle') {
+  if (opponent.duel && opponent.look) return personSprite(opponent.look, 'left', frame ? 'breath' : 'stand');
+  return monsterSprite(opponent, 'left', frame, pose);
+}
+
+// What the opponent is doing now: jumping to strike, falling (beaten), or waiting.
+function foePose(fight, last, ages) {
+  if (fight.phase === 'won' && ages.foeHit > 0) return { pose: 'death', frame: Math.min(2, Math.floor(ages.foeHit / 220)) };
+  if (last && last.taken > 0 && ages.foe >= 0 && ages.foe <= FOE_JUMP) return { pose: 'attack', frame: 0 };
+  return { pose: 'idle', frame: Math.floor(Date.now() / 450) % 2 };
 }
 
 // Tiles between the two fighters: enough room for the opponent, however big it is.
@@ -143,9 +152,11 @@ function isBlinking(hitAge) {
 }
 
 // A beaten opponent fades away: 1 = fully there, 0 = gone.
+// A beaten opponent fades away (slower for the monsters of the sheets: they play their fall first).
 function foeOpacity(fight, ages) {
   if (fight.phase !== 'won') return 1;
-  return Math.max(0, Math.min(1, 1 - (ages.foeHit - FLASH_TIME) / FADE_TIME));
+  const wait = fight.opponent.art ? FLASH_TIME + 500 : FLASH_TIME;
+  return Math.max(0, Math.min(1, 1 - (ages.foeHit - wait) / FADE_TIME));
 }
 
 // ---------- Small pictures of the effects ----------
@@ -329,7 +340,8 @@ function stageOf(game, camera, time) {
   const ages = agesOf(last);
   const places = battlePlaces(game);
   const frame = Math.floor(time * 3) % 2;
-  const foeLook = foeSprite(fight.opponent, frame);
+  const foeNow = foePose(fight, last, ages);
+  const foeLook = foeSprite(fight.opponent, foeNow.pose === 'idle' ? frame : foeNow.frame, foeNow.pose);
   const home = { x: places.hero.x * TILE_PX - camera.x, y: places.hero.y * TILE_PX - camera.y };
   const foeHome = { x: places.foe.x * TILE_PX - camera.x, y: places.foe.y * TILE_PX - camera.y };
   const reach = Math.max(12, foeHome.x - home.x - foeLook.ax - 14);

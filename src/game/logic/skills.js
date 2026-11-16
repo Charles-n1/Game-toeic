@@ -86,3 +86,52 @@ export function countTagAnswer(game, question, isCorrect) {
     notify(game, '✨ ' + typeOf(question.category).short + ' can evolve to ' + TAG_NAMES[nextTag(skill.tag)] + '! (Menu → Stats)', '#ffd23f');
   }
 }
+
+// ---------- The skills the hero learns (the spells) ----------
+// Nobody starts with a skill: the researchers of the world teach them (see `teachesSkills` in data/npcs.js).
+// game.player.spells: { gerunds: 2 } -> the level of each skill learned (1 Normal, 2 Hard, 3 Extreme).
+// A spell of level 2 asks Hard questions: it hits 5 times harder (see logic/fight.js).
+
+const TEACHER_MIN_ANSWERS = 8; // answers of the asked tag before a teacher believes the %
+
+export function spellLevel(game, categoryId) {
+  return game.player.spells[categoryId] || 0;
+}
+
+// The % a teacher asks: 10 more than the level of the hero at the start (their TOEIC test), between 55 and 90.
+// It pushes the hero above what they already were.
+export function requiredPercent(game) {
+  return Math.min(90, Math.max(55, Math.round((game.score / 495) * 100) + 10));
+}
+
+// What a teacher asks to learn the next level of a skill: { tag, percent, level } (null = nothing more to learn).
+// The tag asked starts at the next level; if the hero already has 90% in it, the teacher asks the tag above
+// ("you already master Normal? Show me Hard."). The hero then learns that higher level directly.
+export function nextLesson(game, categoryId) {
+  let index = spellLevel(game, categoryId);
+  if (index >= TAGS.length) return null;
+  index = Math.max(index, TAGS.indexOf(tagOf(game, categoryId)));
+  while (index < TAGS.length - 1 && tagAnswers(game, categoryId, TAGS[index]) >= TEACHER_MIN_ANSWERS && tagPercent(game, categoryId, TAGS[index]) >= 90) index += 1;
+  if (index + 1 <= spellLevel(game, categoryId)) return null;
+  return { tag: TAGS[index], percent: requiredPercent(game), level: index + 1 };
+}
+
+export function canLearnSkill(game, categoryId) {
+  const lesson = nextLesson(game, categoryId);
+  return lesson !== null && tagAnswers(game, categoryId, lesson.tag) >= TEACHER_MIN_ANSWERS && tagPercent(game, categoryId, lesson.tag) >= lesson.percent;
+}
+
+export function learnSkill(game, categoryId) {
+  const lesson = nextLesson(game, categoryId);
+  if (!lesson || !canLearnSkill(game, categoryId)) return false;
+  game.player.spells[categoryId] = lesson.level;
+  notify(game, '📖 You learned ' + typeOf(categoryId).spell + ' (' + TAG_NAMES[lesson.tag] + ')!', '#ffd23f');
+  return true;
+}
+
+// "Gerunds (Hard): 72% / 80% in Hard, 8 answers" -> what the hero still needs, in words.
+export function lessonText(game, categoryId) {
+  const lesson = nextLesson(game, categoryId);
+  if (!lesson) return typeOf(categoryId).short + ': you know everything I can teach.';
+  return typeOf(categoryId).short + ' (' + TAG_NAMES[lesson.tag] + '): ' + tagPercent(game, categoryId, lesson.tag) + '% / ' + lesson.percent + '% needed, on ' + tagAnswers(game, categoryId, lesson.tag) + '/' + TEACHER_MIN_ANSWERS + ' answers';
+}

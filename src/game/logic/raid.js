@@ -1,6 +1,7 @@
 import { NPCS } from '../data/npcs';
 import { SCENES } from '../data/story';
-import { zoneAt } from '../data/zones';
+import { zoneAt, villageOf } from '../data/zones';
+import { gatesOf } from '../world/map';
 import { pickRandom } from '../../logic/random';
 import { makeMonster } from './monsters';
 import { isNight, NIGHTFALL, SUNRISE } from './clock';
@@ -8,20 +9,16 @@ import { killNpc, addHappiness } from './village';
 import { earnLexis, awaken } from './player';
 import { say, notify } from './messages';
 
-// Every 7 nights, the north attacks Lexia. The monsters walk to the villagers and kill them,
+// Every 7 nights, the north attacks Eldermoor. The monsters walk to the villagers and kill them,
 // unless the player fights them first. Each raid is bigger than the one before.
 // game.raid: { nextDay, count (raids survived), perfect (raids without a death), active, deaths }
 
 const DAYS_BETWEEN_RAIDS = 7;
 const BITE_SECONDS = 6; // how long a monster must stay on a villager to kill them
-const GATES = [
-  { x: 65, y: 55.5 }, // the north gate
-  { x: 48.5, y: 70 }, // the west gate
-  { x: 77.5, y: 70 }, // the east gate
-  { x: 65, y: 85.5 }, // the south gate
-];
+// The raiders come in by the gates of Eldermoor (in the middle of each gate, 2 tiles outside).
+const GATES = gatesOf(villageOf('lexia')).map((gate) => ({ x: gate.x + (gate.dx === 0 ? 1 : 0.5) + gate.dx * 2, y: gate.y + (gate.dy === 0 ? 1 : 0.5) + gate.dy * 2 }));
 // The monsters of the 1st raid, of the 2nd... (the last list is used for all the next ones).
-const WAVES = [['wolf'], ['wolf', 'treant'], ['treant', 'imp'], ['imp', 'golem'], ['imp', 'demonKnight']];
+const WAVES = [['wolf', 'goblin'], ['wolf', 'orc'], ['orc', 'skeleton'], ['orc', 'drake'], ['darkKnight', 'shadowMage']];
 
 function raiders(game) {
   return game.run.monsters.filter((monster) => monster.raid);
@@ -62,7 +59,7 @@ function shouldStart(game) {
   return !game.bosses.king && game.day >= game.raid.nextDay && game.hour >= NIGHTFALL;
 }
 
-// The people a raider can kill: the adults who are in Lexia. (The children hide.)
+// The people a raider can kill: the adults who are in Eldermoor. (The children hide.)
 function villagers(game) {
   return NPCS.filter((npc) => {
     const place = game.run.people[npc.id];

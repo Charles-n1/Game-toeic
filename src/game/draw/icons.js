@@ -67,6 +67,13 @@ const STONES = ['............', '....GGG.....', '...GLGGG....', '...GGGGg.GG.', 
 const TORCH = ['....R.......', '...ROR......', '...RYOR.....', '...ROYR.....', '....RR......', '...CCCC.....', '....NN......', '....NN......', '....NN......', '....NN......'];
 const HAT = ['.....M......', '....MMY.....', '....MMM.....', '...MMMMM....', '...MMMMM....', '..MMMMMMM...', 'YYYYYYYYYYY.', '.MMMMMMMMM..'];
 const HEART = ['.RR...RR....', 'RWRR.RRRR...', 'RWRRRRRRR...', 'RRRRRRRRR...', '.RRRRRRR....', '..RRRRR.....', '...RRR......', '....R.......'];
+const MEAT = ['......WW....', '.....WWW....', '..RRRRW.....', '.RRLRRR.....', 'RRRRRRR.....', 'RRRRRR......', '.RRRR.......', '..RR........'];
+const BONE = ['.WW.......W.', 'WWWW.....WWW', '.WWWWWWWWWW.', '..WWWWWWWW..', '.WWWWWWWWWW.', 'WWW.....WWWW', '.W.......WW.'];
+const BOWL = ['...S..S.....', '....S..S....', '..CCCCCCCC..', '.BCCCCCCCCB.', '.BBBBBBBBBB.', '..BBBBBBBB..', '...BBBBBB...'];
+const BOTTLE = ['....KK......', '....GG......', '...GBBG.....', '..GBWBBG....', '..GBBBBG....', '..GBBBBG....', '..GBBBBG....', '...GGGG.....'];
+const ORE_PIC = ['....GGG.....', '..GGLGGG....', '.GGGGGLGG...', '.GLGGGGGGG..', '..GGGGLGGG..', '...GGGGGG...'];
+const DOTS = ['............', '............', '............', '.WW..WW..WW.', '.WW..WW..WW.', '............'];
+const CHAIR = ['..NNNNNN....', '..NNNNNN....', '..N.........', '..N.........', '..NNNNNNNN..', '..NNNNNNNN..', '..N......N..', '..N......N..'];
 const BRIDGE = ['..NNNNNNNN..', '.NnNnNnNnNN.', 'NN........NN', 'N..........N', 'UUU......UUU', 'UUUU....UUUU'];
 
 // The colors shared by every picture. Each icon can change some of them.
@@ -117,6 +124,29 @@ const ICONS = {
   cloth: [CLOTH, { C: '#d8b4f8', L: '#8a5fd0', c: '#8a5fd0' }],
   flint: [STONES, { G: '#9aa6b8', L: '#e8eef7', g: '#6d7686' }],
   torch: [TORCH, { C: '#d8b4f8' }],
+  rawMeat: [MEAT, { R: '#e8605a', L: '#ffb0a8' }],
+  roastMeat: [MEAT, { R: '#a0582a', L: '#e8a050' }],
+  meat: [MEAT, { R: '#a0582a', L: '#e8a050' }],
+  bone: [BONE, { W: '#f2ece0' }],
+  broth: [BOWL, { C: '#e8c890', B: '#a0683a', S: '#e8eef7' }],
+  herbStew: [BOWL, { C: '#7cc45a', B: '#a0683a', S: '#e8eef7' }],
+  herb: [LEAF, { N: '#4caf50', L: '#c8ffd8' }],
+  herbSeed: [SEED, { N: '#4caf50', B: '#7a8a3a' }],
+  flowerSeed: [SEED, { N: '#ff6fa8', B: '#a0683a' }],
+  ore: [ORE_PIC, { G: '#7a7286', L: '#e8eef7' }],
+  crystal: [GEM, { C: '#3a7bff', L: '#bfe6ff' }],
+  water: [BOTTLE, { B: '#3a7bff', W: '#bfe6ff' }],
+  potion: [POTION, { P: '#b48cff' }],
+  guild: [SHIELD, { U: '#e8423f' }],
+  dots: [DOTS, {}],
+  table: [CHAIR, { N: '#a0683a' }],
+  chair: [CHAIR, { N: '#8a5a30' }],
+  plant: [LEAF, { N: '#4caf50', L: '#c8ffd8' }],
+  shelf: [BOOK, { B: '#7a4a24', b: '#4f2e17' }],
+  homeLamp: [ORB, { B: '#ffd23f' }],
+  painting: [MAP, { P: '#4cc35a' }],
+  rugRed: [CLOTH, { C: '#b8303a', L: '#ff8a8a', c: '#8a1a1a' }],
+  rugBlue: [CLOTH, { C: '#2f50a0', L: '#8cc5ee', c: '#1a2c5e' }],
 
   // ---------- The grammar types ----------
   gerunds: [FLOWER, { P: '#ff6fb5', N: '#4caf50' }],

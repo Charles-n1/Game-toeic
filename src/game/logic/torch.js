@@ -1,5 +1,6 @@
-import { PROPS, zoneAt } from '../data/zones';
-import { TILE, tileAt } from '../world/map';
+import { allProps } from '../world/map';
+import { TILE, tileAt, biomeAt } from '../world/map';
+import { ITEMS } from '../data/items';
 import { countItem, addItem, removeItem } from './player';
 import { notify } from './messages';
 import { burst, floatText } from './particles';
@@ -14,7 +15,7 @@ import { cue } from './cues';
 export const TORCH_RECIPE = ['branch', 'oil', 'cloth'];
 export const TORCH_HOURS = 6;
 const FLINT_FOR_FIRE = 2;
-const FIRE_KINDS = ['lamp', 'torch', 'campfire'];
+const FIRE_KINDS = ['lamp', 'torch', 'campfire', 'wallTorch', 'stove'];
 const FIRE_RANGE = 1.8; // tiles: close enough to pass the flame
 
 // ---------- Light ----------
@@ -47,7 +48,7 @@ export function craftTorch(game) {
 // The burning thing close to the hero (null = none). Its middle is where the flame is.
 export function fireNear(game) {
   const player = game.player;
-  return PROPS.find((prop) => FIRE_KINDS.includes(prop.kind) && Math.hypot(prop.x + 0.5 - player.x, prop.y + 0.5 - player.y) < FIRE_RANGE) || null;
+  return allProps().find((prop) => FIRE_KINDS.includes(prop.kind) && Math.hypot(prop.x + 0.5 - player.x, prop.y + 0.5 - player.y) < FIRE_RANGE) || null;
 }
 
 // Can the hero light a torch here? (A torch in the bag, not already lit, and a fire near or 2 flint stones.)
@@ -86,12 +87,13 @@ function keyOf(x, y) {
   return Math.floor(x) + ',' + Math.floor(y);
 }
 
-// What the tile gives: 'branch', 'flint', or null (nothing, or a cactus of the desert).
+// What the tile gives: 'branch', 'flint', 'ore' or 'crystal' (a mine), or null (nothing, or a cactus).
 function gatherableAt(x, y) {
   const tile = tileAt(x, y);
-  if (tile === TILE.TREE && zoneAt(x, y).biome !== 'desert') return 'branch';
+  if (tile === TILE.TREE && biomeAt(x, y) !== 'desert') return 'branch';
   if (tile === TILE.DEAD_TREE) return 'branch';
   if (tile === TILE.ROCK) return 'flint';
+  if (tile === TILE.ORE) return (Math.floor(x) * 7 + Math.floor(y) * 13) % 3 === 0 ? 'crystal' : 'ore';
   return null;
 }
 
@@ -108,5 +110,5 @@ export function gather(game, x, y) {
   game.gathered[keyOf(x, y)] = game.day;
   addItem(game.player, itemId);
   burst(game, x + 0.5, y + 0.5, itemId === 'branch' ? '#a0683a' : '#9aa6b8', 8);
-  floatText(game, x + 0.5, y, itemId === 'branch' ? '+1 Branch' : '+1 Flint', '#ffe9a8');
+  floatText(game, x + 0.5, y, '+1 ' + ITEMS[itemId].name, '#ffe9a8');
 }
