@@ -3,6 +3,7 @@ import { returnDueFocus } from './learning';
 import { growFamilies } from './families';
 import { placeDungeonMonsters } from './monsters';
 import { healFully } from './player';
+import { burnTorch } from './torch';
 import { notify } from './messages';
 
 // Time passing: the clock moves, and a new day changes the world.
@@ -16,6 +17,7 @@ function newDay(game) {
 }
 
 function addHours(game, hours) {
+  burnTorch(game, hours);
   game.hour += hours;
   if (game.hour >= 24) {
     game.hour -= 24;
@@ -37,5 +39,6 @@ export function passHours(game, hours) {
 export function sleepUntilMorning(game) {
   if (game.hour >= SUNRISE) newDay(game); // before midnight: the morning is tomorrow
   game.hour = SUNRISE;
+  game.player.torchHours = 0; // nobody sleeps with a burning torch
   healFully(game.player);
 }

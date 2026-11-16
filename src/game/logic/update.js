@@ -14,6 +14,8 @@ import { saveGame } from './save';
 import { exploreAround } from './explore';
 import { cue } from './cues';
 import { closedSealAt, explainSeal } from './seals';
+import { canGather, gather, canLightTorch, lightAtFire, hasLight } from './torch';
+import { isNight } from './clock';
 import { say, notify, removeOldToasts } from './messages';
 
 // One step of the world. Called at every frame while the player is on the map.
@@ -98,7 +100,8 @@ function offerSleep(game) {
 }
 
 // The action button does the most useful thing where the hero stands:
-// talk to someone, sleep at home, open a chest, work the field, or dig.
+// talk to someone, sleep at home, light a torch at a fire, open a chest, work the field,
+// take a branch from a tree (or a stone from a rock), or dig.
 export function act(game) {
   const player = game.player;
   const person = personNear(game);
@@ -107,9 +110,11 @@ export function act(game) {
 
   if (person) talkTo(game, person);
   else if (isAtHomeDoor(player)) offerSleep(game);
+  else if (canLightTorch(game, false)) lightAtFire(game);
   else if (chest) openChest(game, chest);
   else if (isSoil(player.x, player.y)) workField(game, player.x, player.y);
   else if (isSoil(front.x, front.y)) workField(game, front.x, front.y);
+  else if (canGather(game, front.x, front.y)) gather(game, front.x, front.y);
   else dig(game, front.x, front.y);
 }
 
@@ -119,12 +124,25 @@ export function actionIcon(game) {
   const front = frontTile(player);
   if (personNear(game)) return 'talk';
   if (isAtHomeDoor(player)) return 'sleep';
+  if (canLightTorch(game, false)) return 'fire';
   if (chestNear(game)) return 'chest';
   if (isSoil(player.x, player.y) || isSoil(front.x, front.y)) return 'carrot';
+  if (canGather(game, front.x, front.y)) return canGather(game, front.x, front.y);
   return 'dig';
 }
 
 // ---------- The frame ----------
+
+// The first night in the dark: how to make light.
+function explainTheDark(game) {
+  if (game.flags.dark || !isNight(game) || hasLight(game)) return;
+  game.flags.dark = true;
+  say(game, null, [
+    'The night falls on you like a blanket. You can barely see your hands.',
+    'Nobody carries light by default here. Make a torch: a branch (from a tree), lamp oil (Old Bea or Rin) and cloth (Lila, the weaver).',
+    'Then light it at a fire that already burns (a lamp, a torch, a campfire), or strike 2 flint stones (from a rock).',
+  ]);
+}
 
 // Things that do not need to run at every frame.
 function slowUpdates(game, dt) {
@@ -132,6 +150,7 @@ function slowUpdates(game, dt) {
   if (game.run.storyTime >= 1) {
     game.run.storyTime = 0;
     updateStory(game);
+    explainTheDark(game);
     removeOldToasts(game);
     exploreAround(game);
   }

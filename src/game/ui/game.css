@@ -410,6 +410,8 @@
   align-self: flex-start;
   min-width: 60%;
   max-width: 92%;
+  max-height: 58vh;
+  overflow-y: auto;
   margin-bottom: 12px;
   padding: 6px;
   animation: slide-up 0.15s ease-out;

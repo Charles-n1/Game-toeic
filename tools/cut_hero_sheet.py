@@ -118,6 +118,21 @@ def feet_of(picture):
     return int(round(columns.mean())), int(bottom) + 1
 
 
+def head_of(picture):
+    """The middle of the head (the top 40% of the picture), with the ground under the lowest row.
+    Standing and walking pictures are placed by their head: it stays still while the legs and the cape move."""
+    rows = np.where(picture[:, :, 3].any(axis=1))[0]
+    top, bottom = rows.min(), rows.max()
+    head = picture[top : top + round((bottom - top) * 0.4), :, 3] > 0
+    columns = np.where(head)[1]
+    return int(round(columns.mean())), int(bottom) + 1
+
+
+def anchor_of(name, picture):
+    is_on_map = name.startswith('idle') or name.startswith('walk')
+    return head_of(picture) if is_on_map else feet_of(picture)
+
+
 def pack(pictures):
     """Puts the pictures side by side in rows. Returns the atlas and where each picture is."""
     width = 512
@@ -153,7 +168,7 @@ def write_frames(places, feet):
 def main():
     sheet = np.array(Image.open(SHEET).convert('RGBA'))
     pictures = {name: add_outline(shrink(cut_out(sheet, box), SHRINK)) for name, box in FRAMES.items()}
-    feet = {name: feet_of(picture) for name, picture in pictures.items()}
+    feet = {name: anchor_of(name, picture) for name, picture in pictures.items()}
     atlas, places = pack(pictures)
     OUT.mkdir(parents=True, exist_ok=True)
     Image.fromarray(atlas, 'RGBA').save(OUT / 'hero-atlas.png')

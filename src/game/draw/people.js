@@ -2,10 +2,12 @@ import { makeGrid, dot, fillRect, fillBall, toneOf, drawLine, drawPicture, addOu
 import { OUTLINE, mix, darker, lighter, rampOf } from './palette';
 import { usesHeroArt } from '../data/hero';
 import { isHeroArtReady, heroArtSprite } from './heroArt';
+import { isCharacterArtReady, hasCharacterArt, characterSprite } from './characterArt';
 
 // The people of the world, in pixel art, drawn with shapes: a shaded head, big anime eyes, a hair style,
 // a tunic, arms, legs and boots. The light comes from the top-left.
-// A "look": { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, skirt?, scarf?, sword? }
+// A "look": { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, skirt?, scarf?, sword?,
+//   sheet? } (sheet: the person has real pictures, cut from a sprite sheet: see characterArt.js)
 // style: 'short' | 'long' | 'twin' | 'pony' | 'bun' | 'bald' | 'spiky'
 // The hero also has a cape (scarf: true) of the color of the trim.
 
@@ -489,6 +491,7 @@ function lyingSprite(look) {
 // with the angle `sword` (see swordSprite).
 export function personSprite(look, dir, pose = 'stand') {
   if (usesHeroArt(look) && isHeroArtReady()) return heroArtSprite(dir, pose);
+  if (look.sheet && hasCharacterArt(look.sheet) && isCharacterArtReady()) return characterSprite(look.sheet, dir, pose);
   return once('person' + lookId(look) + dir + pose, () => {
     if (pose === 'ko') return lyingSprite(look);
     const view = dir === 'left' || dir === 'right' ? 'side' : dir;

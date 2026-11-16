@@ -1,11 +1,12 @@
 import { NPCS, npcOf } from '../data/npcs';
-import { HOUSES, PROPS, SEALS, zoneAt } from '../data/zones';
+import { HOUSES, PROPS, SEALS, zoneAt, houseSize } from '../data/zones';
 import { typeOf } from '../data/types';
 import { MAP_SIZE, TILE, tileAt, noise, CHESTS } from '../world/map';
 import { isOutside } from '../logic/people';
 import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
 import { cropAt, isCropReady, closestTreasure } from '../logic/farm';
 import { isSealOpen } from '../logic/seals';
+import { hasLight } from '../logic/torch';
 import { TILE_PX, groundTile, flowersDecal } from './tiles';
 import { personSprite, walkPose, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
@@ -106,6 +107,9 @@ function isBushy(x, y, tile, biome) {
   return (tile === TILE.GRASS || tile === TILE.FLOWER) && noise(x, y, 44) < (BUSHES[biome] || 0);
 }
 
+// The things made of pieces, one per tile (a fence, a wall, a palisade).
+const IN_PIECES = ['fence', 'wall', 'palisade'];
+
 // Each drawing: { y (the line of its feet, in tiles: who is lower is drawn later, in front), draw }.
 function treesAndRocks(view) {
   const area = tilesOf(view, 2);
@@ -140,20 +144,31 @@ function isBurning(game, house) {
   return game !== null && game.raid.active && zoneAt(house.x, house.y).id === 'lexia';
 }
 
+function houseSpriteOf(house) {
+  return house.kind === 'school' ? props.schoolSprite() : props.houseSprite(house);
+}
+
 function houses(view, game, time) {
-  return HOUSES.filter((house) => isNear(view, house.x, house.y - 1, 4, 4)).map((house) => ({
-    y: house.y + 3,
-    draw: (ctx) => {
-      put(ctx, props.houseSprite(house), house.x * T, (house.y + 3) * T, view);
-      if (isBurning(game, house)) roofFires(house, time).forEach((fire) => fire(ctx, view));
-    },
-  }));
+  return HOUSES.filter((house) => isNear(view, house.x, house.y - 2, houseSize(house).w, houseSize(house).h + 2)).map((house) => {
+    const bottom = house.y + houseSize(house).h;
+    return {
+      y: bottom,
+      draw: (ctx) => {
+        put(ctx, houseSpriteOf(house), house.x * T, bottom * T, view);
+        if (isBurning(game, house)) roofFires(house, time).forEach((fire) => fire(ctx, view));
+      },
+    };
+  });
 }
 
 function propSprite(prop, time) {
   if (prop.kind === 'fountain') return props.fountain(Math.floor(time * 4) % 2);
   if (prop.kind === 'lamp') return props.lampPost();
   if (prop.kind === 'torch') return props.torch(Math.floor(time * 8) % 3);
+  if (prop.kind === 'campfire') return props.campfire(Math.floor(time * 8) % 3);
+  if (prop.kind === 'crystal') return props.arcaneCrystal(Math.floor(time * 2) % 2);
+  if (prop.kind === 'wall') return props.stoneWall(prop.h > 1 ? 'column' : 'row');
+  if (prop.kind === 'palisade') return props.palisade(prop.h > 1 ? 'column' : 'row');
   if (prop.kind === 'stall') return props.marketStall();
   if (prop.kind === 'barrels') return props.barrels();
   if (prop.kind === 'crates') return props.crates();
@@ -166,8 +181,10 @@ function villageProps(view, time) {
     y: prop.y + prop.h,
     draw: (ctx) => {
       const sprite = propSprite(prop, time);
-      if (prop.kind === 'fence') {
-        for (let i = 0; i < prop.w; i++) put(ctx, sprite, (prop.x + i + 0.5) * T, (prop.y + 1) * T - 1, view);
+      if (IN_PIECES.includes(prop.kind)) {
+        for (let dy = 0; dy < prop.h; dy++) {
+          for (let dx = 0; dx < prop.w; dx++) put(ctx, sprite, (prop.x + dx + 0.5) * T, (prop.y + dy + 1) * T - 1, view);
+        }
       } else {
         put(ctx, sprite, (prop.x + prop.w / 2) * T, (prop.y + prop.h) * T - 1, view);
       }
@@ -219,6 +236,11 @@ const shadow = () =>
     return { canvas: toCanvas(grid), ax: 6, ay: 3 };
   });
 
+// How high the top of the head is, in pixels above the feet: the people of the sprite sheets are taller.
+function headHeight(look) {
+  return look && look.sheet ? 40 : 30;
+}
+
 // The mark above someone who has a quest: ! = a new one, ? = done, come and tell them.
 function questMark(game, npc) {
   const active = activeQuestOf(game, npc.id);
@@ -247,7 +269,7 @@ function npcDrawings(game, view, time) {
     const mark = questMark(game, npc);
     const bob = Math.round(Math.sin(time * 4) * 1.5);
     return personDrawing(npc.look, place, view, time, npc.x, (ctx) => {
-      if (mark) put(ctx, props.bubble(mark), place.x * T, place.y * T - 30 + bob, view);
+      if (mark) put(ctx, props.bubble(mark), place.x * T, place.y * T - headHeight(npc.look) + bob, view);
     });
   });
 }
@@ -294,6 +316,7 @@ function monsterDrawings(game, view, time) {
         put(ctx, sprite, x, y, view);
         const top = y - sprite.ay - view.y;
         put(ctx, props.typeDiamond(typeOf(monster.category).color), x, y - sprite.ay - 3 + Math.round(Math.sin(time * 5)), view);
+        if (monster.tag !== 'normal') put(ctx, props.tagMark(monster.tag), x + 6, y - sprite.ay - 2, view); // Hard ! / Extreme !!
         smallHealthBar(ctx, monster, Math.round(x - view.x), top - 10);
       },
     }));
@@ -305,7 +328,8 @@ function drawEmotes(ctx, game, view) {
     const place = item.who === 'hero' ? game.player : game.run.people[item.who];
     if (!place) continue;
     const pop = Math.max(0, Math.round((item.until - Date.now() - 1450) / 50)); // the first moment: higher
-    put(ctx, props.emoteBubble(item.icon), place.x * T + 6, place.y * T - 30 - pop, view);
+    const look = item.who === 'hero' ? null : npcOf(item.who).look;
+    put(ctx, props.emoteBubble(item.icon), place.x * T + 6, place.y * T - headHeight(look) - pop, view);
   }
 }
 
@@ -390,15 +414,21 @@ function drawSmoke(ctx, game, view, time) {
 
 // ---------- Lights ----------
 
+// The things that burn or glow: a torch of the hero can be lit at the first three.
+const LIGHT_KINDS = { lamp: 44, torch: 44, campfire: 56, crystal: 36 }; // their radius, in pixels
+const COLD_LIGHTS = ['crystal']; // a magic light: no warm halo
+
+// No light by default at night: only the torch of the hero, the lamps, the fires and the magic.
 function lightsOf(game, view) {
-  const lights = [{ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 60 }];
+  const lights = [];
+  if (hasLight(game)) lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 64, warm: true });
   if (game.run.fight) {
     // a fight at night: a big light on the two fighters (and on the friends behind the hero)
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
-  for (const prop of PROPS.filter((item) => (item.kind === 'lamp' || item.kind === 'torch') && isNear(view, item.x, item.y, 1, 1))) {
-    lights.push({ x: (prop.x + 0.5) * T - view.x, y: (prop.y + 1) * T - 20 - view.y, radius: 44, warm: true });
+  for (const prop of PROPS.filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, 1, 1))) {
+    lights.push({ x: (prop.x + 0.5) * T - view.x, y: (prop.y + 1) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind], warm: !COLD_LIGHTS.includes(prop.kind) });
   }
   for (const house of HOUSES.filter((item) => isBurning(game, item) && isNear(view, item.x, item.y, 4, 3))) {
     lights.push({ x: (house.x + 2) * T - view.x, y: house.y * T - view.y, radius: 70, warm: true });
@@ -425,7 +455,7 @@ function writeNames(ctx, game, view, scale) {
   for (const npc of NPCS.filter((item) => isOutside(game, item))) {
     const place = game.run.people[npc.id];
     if (Math.hypot(place.x - game.player.x, place.y - game.player.y) > NAME_RANGE) continue;
-    writeText(ctx, npc.name, (place.x * T - view.x) * scale, (place.y * T - 30 - view.y) * scale, 13, '#ffe9a8');
+    writeText(ctx, npc.name, (place.x * T - view.x) * scale, (place.y * T - headHeight(npc.look) - view.y) * scale, 13, '#ffe9a8');
   }
 }
 

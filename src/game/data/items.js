@@ -1,5 +1,6 @@
 // Everything the player can own.
-// kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give).
+// kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give),
+//       'material' (to make things), 'tool'.
 // price: what a shop asks, in Lexis. sell: what a shop gives for it.
 // power: the damage of the weapon, in HP. defense: the HP the armor stops at each hit.
 export const ITEMS = {
@@ -37,6 +38,13 @@ export const ITEMS = {
   oldCoin: { name: 'Old Coin', icon: '🪙', kind: 'goods', sell: 25 },
   gem: { name: 'Gem', icon: '💎', kind: 'goods', sell: 80 },
   ring: { name: 'Silver Ring', icon: '💍', kind: 'goods', price: 500, sell: 100 },
+
+  // ---------- A torch for the night (see logic/torch.js) ----------
+  branch: { name: 'Branch', icon: '🪵', kind: 'material', sell: 1, text: 'From a tree. For a torch.' },
+  oil: { name: 'Lamp Oil', icon: '🫙', kind: 'material', price: 8, sell: 2, text: 'For a torch.' },
+  cloth: { name: 'Cloth', icon: '🧶', kind: 'material', price: 6, sell: 2, text: 'For a torch.' },
+  flint: { name: 'Flint Stone', icon: '🪨', kind: 'material', sell: 1, text: 'From a rock. Strike 2 to light a fire.' },
+  torch: { name: 'Torch', icon: '🔦', kind: 'tool', sell: 4, text: 'Light it at a fire, or with 2 flint stones.' },
 };
 
 // The order of the upgrades at the smith: each one replaces the one before.
@@ -49,8 +57,9 @@ export const UPGRADES = {
 // What each kind of shop sells.
 export const SHOPS = {
   clinic: ['healthPotion', 'bigPotion', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'],
-  bakery: ['bread', 'carrotSeed'],
-  market: ['map1', 'map2', 'map3', 'ring', 'healthPotion', 'manaPotion'],
+  bakery: ['bread', 'carrotSeed', 'oil'],
+  market: ['map1', 'map2', 'map3', 'ring', 'healthPotion', 'manaPotion', 'oil'],
+  weaver: ['cloth'],
 };
 
 // The next item of an upgrade path (null = already the best).

@@ -7,7 +7,9 @@ import { isSolid } from '../world/map';
 import { isNight } from './clock';
 import { facingOf } from './input';
 import { passHours } from './days';
-import { addFriendship, addHappiness } from './village';
+import { addFriendship, addHappiness, shareFeelings } from './village';
+import { classChoice } from './classes';
+import { schoolChoice } from './school';
 import { marry, partnerOf, childrenOf } from './families';
 import { activeQuestOf, offeredQuest, isQuestReady, questProgress, startQuest, finishQuest } from './quests';
 import { workAsScribe, playWordSprint } from './duels';
@@ -143,6 +145,7 @@ function giftChoice(game, npc) {
   function give() {
     removeItem(game.player, itemId);
     addFriendship(game, npc.id, 6);
+    shareFeelings(game, npc.id); // their friends are happy for them, their rivals a bit jealous
     emote(game, npc.id, 'heart');
     say(game, npc.id, ['A ' + ITEMS[itemId].name.toLowerCase() + '? For me? Thank you!']);
   }
@@ -261,7 +264,7 @@ function proposeChoice(game, npc) {
     if (state.friendship < PROPOSE_FRIENDSHIP) {
       say(game, npc.id, ['...Not yet. Ask me again when you are sure. When I am sure.']);
     } else if (countItem(game.player, 'ring') === 0) {
-      say(game, npc.id, ['You are asking without a ring? Luna sells one, in Port Syntax. Go. I will wait.']);
+      say(game, npc.id, ['You are asking without a ring? Rin sells one, in Port Syntax. Go. I will wait.']);
     } else {
       removeItem(game.player, 'ring');
       game.player.spouse = npc.id;
@@ -278,6 +281,8 @@ const CHOICE_MAKERS = [
   activeQuestChoice,
   newQuestChoice,
   shopChoice,
+  schoolChoice,
+  classChoice,
   workChoice,
   playChoice,
   giftChoice,
@@ -289,6 +294,7 @@ const CHOICE_MAKERS = [
 
 // The player talks to someone: a hello, then everything they can do together.
 export function talkTo(game, npc) {
+  game.npcs[npc.id].met = true; // shown in the Relations of the menu
   const choices = CHOICE_MAKERS.map((make) => make(game, npc)).filter((choice) => choice !== null);
   choices.push({ label: 'Leave', run: () => {} });
   say(game, npc.id, [greeting(game, npc)], choices);

@@ -18,7 +18,7 @@ function paintNight(ctx, width, height, dark, lights) {
   lightMap.width = width;
   lightMap.height = height;
   const map = lightMap.getContext('2d');
-  map.fillStyle = 'rgba(8, 10, 40, ' + 0.86 * dark + ')';
+  map.fillStyle = 'rgba(8, 10, 40, ' + 0.9 * dark + ')'; // without light, almost nothing can be seen
   map.fillRect(0, 0, width, height);
   map.globalCompositeOperation = 'destination-out';
   for (const light of lights) {

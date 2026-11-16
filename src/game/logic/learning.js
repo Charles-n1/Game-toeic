@@ -4,6 +4,7 @@ import { today } from '../../logic/dates';
 import { pickRandom } from '../../logic/random';
 import { TIERS } from '../data/monsters';
 import { typeOf } from '../data/types';
+import { tagOf, countTagAnswer } from './skills';
 import { notify } from './messages';
 
 // The game trains ONE grammar category at a time: the "focus" (the weakest one).
@@ -77,6 +78,7 @@ export function monsterCategory(game) {
 // Every answer of the game goes through here.
 export function recordAnswer(game, question, isCorrect) {
   game.mastery = addAnswer(game.mastery, question.category, isCorrect);
+  countTagAnswer(game, question, isCorrect);
   game.counts.answers += 1;
   if (isCorrect) game.counts.correct += 1;
   if (question.category === game.focus.current) {
@@ -89,44 +91,36 @@ export function recordAnswer(game, question, isCorrect) {
 
 // ---------- Which question a monster asks ----------
 
-// The difficulty the player has reached in a category: 0 Easy, 1 Normal, 2 Difficult, 3 Extreme.
-// The better they are, the harder the questions of this type become.
-export const RANKS = ['Easy', 'Normal', 'Difficult', 'Extreme'];
-const RANK_STEPS = [40, 70, 90]; // % of good answers to reach Normal, Difficult, Extreme
-
-export function difficultyRank(game, categoryId) {
-  const percent = skillPercent(game, categoryId);
-  return RANK_STEPS.filter((step) => percent >= step).length;
-}
-
-// The chance to get a question of the harder difficulties: it grows with the TOEIC score and with the rank.
-function hardChance(game, tier, categoryId) {
-  const scoreBonus = (game.score / 495 - 0.5) * 0.2;
-  const rankBonus = (difficultyRank(game, categoryId) - 1) * 0.15;
-  return Math.min(0.9, Math.max(0.05, tier.hardChance + scoreBonus + rankBonus));
-}
-
 function firstNotEmpty(lists) {
   return lists.find((list) => list.length > 0);
 }
 
-// A question for this opponent: of its tier, and of its type when the tier has some
-// (never twice in the same fight).
+// A question for this opponent: of its sections (short sentences, or long texts for the demons), of its TAG
+// (a Hard monster asks Hard questions), and of its type when there are some (never twice in the same fight).
 // lastText: the text of the question before (null = none). Its other questions come first: like in the real
 // exam, a text is read once and answered several times.
 // Then the questions to recover today (failed before, due now): "it returns when it's time".
 export function pickQuestion(game, opponent, usedIds, lastText) {
-  const tier = TIERS[opponent.tier];
+  const sections = TIERS[opponent.tier].sections;
+  const tag = opponent.tag || tagOf(game, opponent.category);
   const fresh = game.run.questions.filter((q) => !usedIds.includes(q.id));
-  const ofTier = fresh.filter((q) => tier.sections.includes(q.section));
+  const ofTier = fresh.filter((q) => sections.includes(q.section));
   const ofType = ofTier.filter((q) => q.category === opponent.category);
-  const pool = firstNotEmpty([ofType, ofTier, fresh, game.run.questions]);
+  const ofTag = (list) => list.filter((q) => q.difficulty === tag);
+  const pool = firstNotEmpty([ofTag(ofType), ofTag(ofTier), ofType, ofTier, fresh, game.run.questions]);
 
   const ofSameText = pool.filter((q) => q.text !== null && q.text === lastText);
   if (ofSameText.length > 0) return ofSameText[0];
   const due = pool.filter((q) => isDue(q, today()));
   if (due.length > 0) return pickRandom(due);
+  return pickRandom(pool);
+}
 
-  const wanted = Math.random() < hardChance(game, tier, opponent.category) ? tier.hard : tier.easy;
-  return pickRandom(firstNotEmpty([pool.filter((q) => wanted.includes(q.difficulty)), pool]));
+// The question of a spell: of the school of the spell, at the tag the hero has reached in it.
+// (A Gerund spell of a hero who is Hard in gerunds asks a Hard gerund question: it hits 5 times harder.)
+export function pickSpellQuestion(game, categoryId, usedIds) {
+  const fresh = game.run.questions.filter((q) => !usedIds.includes(q.id) && q.section !== 'text');
+  const ofType = fresh.filter((q) => q.category === categoryId);
+  const ofTag = ofType.filter((q) => q.difficulty === tagOf(game, categoryId));
+  return pickRandom(firstNotEmpty([ofTag, ofType, fresh, game.run.questions]));
 }

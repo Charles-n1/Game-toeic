@@ -8,8 +8,9 @@ import Passage from '../../components/Passage';
 import { playEffect } from '../audio/effects';
 import { TYPES, typeOf, weaknessOf } from '../data/types';
 import { ITEMS } from '../data/items';
-import { answer, nextRound, endFight, flee, xpOfFight, SPELL_MANA } from '../logic/fight';
+import { answer, nextRound, endFight, flee, xpOfFight, castSpell, SPELL_MANA } from '../logic/fight';
 import { spellRank } from '../logic/learning';
+import { TAG_NAMES, TAG_COLORS, TAG_POWER, tagOf } from '../logic/skills';
 import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
 import { battlePlaces, hitMoments } from '../draw/battle';
@@ -60,7 +61,18 @@ function answerClass(fight, index) {
   return fight.last && index === fight.last.index ? 'answer answer-bad' : 'answer answer-closed';
 }
 
+// A small colored badge: the tag of a monster or of a question ("Hard ×5").
+function TagBadge({ tag }) {
+  return (
+    <span className="badge" style={{ backgroundColor: TAG_COLORS[tag] }}>
+      {TAG_NAMES[tag]}
+      {TAG_POWER[tag] > 1 ? ' ×' + TAG_POWER[tag] : ''}
+    </span>
+  );
+}
+
 // The menu on the left: how the next good answer will strike.
+// A spell changes the question for one of its school, at the tag the hero has reached in it.
 function Commands({ game, fight, refresh, onFlee }) {
   const [list, setList] = useState('main'); // 'main' | 'magic' | 'item'
   const player = game.player;
@@ -70,6 +82,12 @@ function Commands({ game, fight, refresh, onFlee }) {
 
   function choose(mode) {
     fight.mode = mode;
+    setList('main');
+    refresh();
+  }
+
+  function cast(typeId) {
+    castSpell(game, fight, typeId);
     setList('main');
     refresh();
   }
@@ -88,10 +106,13 @@ function Commands({ game, fight, refresh, onFlee }) {
         </button>
         {spells.length === 0 && <span className="small">No spell yet: reach 20% in a type.</span>}
         {spells.map((type) => (
-          <button key={type.id} className="menu-item" disabled={player.mana < SPELL_MANA} onClick={() => choose(type.id)}>
+          <button key={type.id} className="menu-item" disabled={player.mana < SPELL_MANA} onClick={() => cast(type.id)}>
             <PixelIcon name={type.id} size={14} />
             <span style={styles.spell}>
               {type.short} {type.id === weakness ? '×2' : ''}
+            </span>
+            <span className="small" style={{ color: TAG_COLORS[tagOf(game, type.id)] }}>
+              {TAG_NAMES[tagOf(game, type.id)]}
             </span>
           </button>
         ))}
@@ -117,10 +138,10 @@ function Commands({ game, fight, refresh, onFlee }) {
   const magicLabel = fight.mode === 'strike' ? 'Magic' : typeOf(fight.mode).short;
   return (
     <div className="window commands">
-      <button className={'menu-item' + (fight.mode === 'strike' ? ' selected' : '')} onClick={() => choose('strike')}>
+      <button className={'menu-item' + (fight.mode === 'strike' ? ' selected' : '')} disabled={fight.spellCast} onClick={() => choose('strike')}>
         Attack
       </button>
-      <button className={'menu-item' + (fight.mode !== 'strike' ? ' selected' : '')} onClick={() => setList('magic')}>
+      <button className={'menu-item' + (fight.mode !== 'strike' ? ' selected' : '')} disabled={fight.spellCast} onClick={() => setList('magic')}>
         {magicLabel}
       </button>
       <button className="menu-item" onClick={() => setList('item')}>
@@ -154,7 +175,7 @@ function Mistakes({ mistakes }) {
 }
 
 // The end of a fight: what was won or lost, and the mistakes to review.
-function Ending({ fight, onContinue }) {
+function Ending({ game, fight, onContinue }) {
   const opponent = fight.opponent;
   const percent = fight.asked === 0 ? 0 : Math.round((fight.correct / fight.asked) * 100);
   const isWon = fight.phase === 'won';
@@ -167,7 +188,7 @@ function Ending({ fight, onContinue }) {
       </span>
       {isWon && !opponent.duel && (
         <span className="gold" style={styles.center}>
-          +{xpOfFight(fight)} XP ({percent}% of {opponent.xp}) · +{opponent.lexis} Lexis
+          +{xpOfFight(game, fight)} XP ({percent}% of {opponent.xp}) · +{opponent.lexis} Lexis
         </span>
       )}
       {fight.bestCombo >= 2 && <span style={styles.center}>Best combo: x{fight.bestCombo}</span>}
@@ -189,7 +210,10 @@ function QuestionWindow({ fight, onAnswer, onNext }) {
   return (
     <div className="window grow">
       <Bar value={timeLeft} color={timeLeft > 0.5 ? '#7cfc9a' : timeLeft > 0.25 ? '#ffd23f' : '#ff5a6e'} height={8} />
-      {fight.combo >= 2 && <span className="result-good" style={styles.combo}>Combo x{fight.combo}</span>}
+      <div className="row" style={styles.questionTop}>
+        <TagBadge tag={question.difficulty} />
+        {fight.combo >= 2 && <span className="result-good" style={styles.combo}>Combo x{fight.combo}</span>}
+      </div>
       <span className="question" style={styles.question}>
         {question.question}
       </span>
@@ -298,6 +322,7 @@ export default function FightScreen({ game, refresh }) {
               <PixelIcon name={type.id} size={14} />
               <span>{type.name}</span>
             </div>
+            {opponent.tag && <TagBadge tag={opponent.tag} />}
             {opponent.duel ? (
               <span className="small">mistakes {fight.asked - fight.correct} / 3</span>
             ) : (
@@ -311,7 +336,7 @@ export default function FightScreen({ game, refresh }) {
       </div>
 
       <div className="fight-panel" style={styles.panel}>
-        {isOver && <Ending fight={fight} onContinue={goOn} />}
+        {isOver && <Ending game={game} fight={fight} onContinue={goOn} />}
         {!isOver && fight.question.text && (
           <div className="window" style={styles.passage}>
             <Passage key={fight.question.text} text={fight.question.text} />
@@ -384,9 +409,11 @@ const styles = {
   next: {
     marginTop: 8,
   },
-  combo: {
-    alignSelf: 'flex-end',
+  questionTop: {
+    justifyContent: 'space-between',
     marginTop: 4,
+  },
+  combo: {
     fontSize: 15,
   },
   mistakes: {

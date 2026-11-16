@@ -9,7 +9,7 @@ export const WORLD_SIZE = 120;
 
 export const ZONES = [
   // ---------- Villages (no monster comes in, except during a raid) ----------
-  { id: 'lexia', name: 'Lexia Village', kind: 'village', biome: 'village', x: 52, y: 58, w: 24, h: 24, danger: 0, species: [], label: [64, 60], text: 'A quiet village of farmers and bakers. Your new home.' },
+  { id: 'lexia', name: 'Lexia Village', kind: 'village', biome: 'village', x: 48, y: 55, w: 30, h: 31, danger: 0, species: [], label: [64, 57], text: 'A village of farmers, bakers and mages, behind its stone walls. Your new home.' },
   { id: 'port', name: 'Port Syntax', kind: 'village', biome: 'village', x: 92, y: 84, w: 21, h: 15, danger: 0, species: [], label: [102, 84], text: "A busy harbor: maps, rings and sailors' stories." },
 
   // ---------- Dungeons: a snake of rooms, guards, a boss and a chest at the end ----------
@@ -62,8 +62,9 @@ export const SEALS = [{ x: 64, y: 15, w: 2, h: 1, until: 'general', text: 'Red r
 export const SPAWN = { x: 60.5, y: 68.5 };
 export const HOME_DOOR = { x: 60, y: 67 };
 
-// The houses: x, y = top-left tile. Every house is 4 tiles wide and 3 tiles high, the door is at (x + 1, y + 2).
+// The houses: x, y = top-left tile. A house is 4 tiles wide and 3 tiles high, the door is at (x + 1, y + 2).
 // roof: its color. sign: the picture hanging next to the door (see draw/icons.js), null = none.
+// kind: 'school' = the Arcane School: 6 tiles wide, 4 high, a double door at (x + 2, y + 3) and (x + 3, y + 3).
 export const HOUSES = [
   { x: 59, y: 65, roof: 'red', sign: null }, // the home of the player
   { x: 54, y: 62, roof: 'red', sign: 'healthPotion' }, // Aria's clinic
@@ -73,19 +74,77 @@ export const HOUSES = [
   { x: 54, y: 72, roof: 'red', sign: 'bread' }, // the bakery
   { x: 67, y: 72, roof: 'red', sign: null }, // the elder
   { x: 55, y: 77, roof: 'red', sign: 'carrot' }, // Hana's farm
+  { x: 72, y: 72, roof: 'purple', sign: 'star' }, // the Arcane House (Luna)
+  { x: 70, y: 77, w: 6, h: 4, kind: 'school', roof: 'purple', sign: null }, // the Arcane School (Selene, Elara)
   { x: 96, y: 86, roof: 'blue', sign: 'map1' }, // Luna's market (Port Syntax)
   { x: 102, y: 86, roof: 'blue', sign: 'mug' }, // the inn
   { x: 108, y: 86, roof: 'blue', sign: 'shield' }, // the barracks
   { x: 98, y: 92, roof: 'blue', sign: 'fish' }, // the fisherman
 ];
 
+// The size of a house, in tiles: { w, h }.
+export function houseSize(house) {
+  return { w: house.w || 4, h: house.h || 3 };
+}
+
 // The cobblestone squares of the villages.
-export const PLAZAS = [{ x: 58, y: 71, w: 6, h: 5 }];
+export const PLAZAS = [
+  { x: 58, y: 71, w: 6, h: 5 },
+  { x: 70, y: 81, w: 6, h: 2 }, // in front of the Arcane School
+];
+
+// The clearings of the wild: grass, no tree (where some people live). x, y = top-left tile.
+export const CLEARINGS = [
+  { x: 28, y: 71, w: 5, h: 4 }, // Kael's camp, in Verbwood
+  { x: 14, y: 71, w: 5, h: 4 }, // Sylvia's grove
+  { x: 10, y: 62, w: 4, h: 3 }, // near the crypt (Vespera, at night)
+  { x: 88, y: 71, w: 4, h: 3 }, // the south shore of the lake (the plague doctor, at night)
+];
+
+// ---------- The walls of the villages ----------
+
+// The parts of a line of tiles from `first` to `last` that are not a gate. gates: the first tile of each gate
+// (a gate is 2 tiles wide, like the roads). Returns [[from, to], ...].
+function partsBetweenGates(first, last, gates) {
+  const parts = [];
+  let start = first;
+  for (const gate of [...gates].sort((a, b) => a - b)) {
+    if (gate > start) parts.push([start, gate - 1]);
+    start = gate + 2;
+  }
+  if (start <= last) parts.push([start, last]);
+  return parts;
+}
+
+// The walls all around a village (its border tiles), with a hole for each gate.
+// kind: 'wall' (stones) or 'palisade' (wood). gates: { north: [x...], south: [x...], west: [y...], east: [y...] }
+function wallsAround(zone, kind, gates) {
+  const right = zone.x + zone.w - 1;
+  const bottom = zone.y + zone.h - 1;
+  const rows = (y, holes) => partsBetweenGates(zone.x, right, holes).map(([a, b]) => ({ kind: kind, x: a, y: y, w: b - a + 1, h: 1 }));
+  const columns = (x, holes) => partsBetweenGates(zone.y + 1, bottom - 1, holes).map(([a, b]) => ({ kind: kind, x: x, y: a, w: 1, h: b - a + 1 }));
+  return [...rows(zone.y, gates.north || []), ...rows(bottom, gates.south || []), ...columns(zone.x, gates.west || []), ...columns(right, gates.east || [])];
+}
 
 // The things standing on the ground: nobody can walk through them. x, y = top-left tile, w, h = size in tiles.
-// kind: 'fountain' | 'lamp' | 'torch' | 'fence' | 'stall' | 'barrels' | 'crates' | 'signpost'
+// kind: 'fountain' | 'lamp' | 'torch' | 'campfire' | 'fence' | 'wall' | 'palisade' | 'stall' | 'barrels' | 'crates'
+//       | 'signpost' | 'crystal'
+// The lamps, the torches and the campfires burn: a torch of the hero can be lit there (see logic/torch.js).
 export const PROPS = [
-  // ---------- Lexia ----------
+  // ---------- Lexia: stone walls, 4 gates (on the roads) ----------
+  ...wallsAround({ x: 48, y: 55, w: 30, h: 31 }, 'wall', { north: [64], south: [64], west: [69], east: [69] }),
+  { kind: 'torch', x: 63, y: 56, w: 1, h: 1 }, // the north gate
+  { kind: 'torch', x: 66, y: 56, w: 1, h: 1 },
+  { kind: 'torch', x: 63, y: 84, w: 1, h: 1 }, // the south gate
+  { kind: 'torch', x: 66, y: 84, w: 1, h: 1 },
+  { kind: 'torch', x: 49, y: 68, w: 1, h: 1 }, // the west gate
+  { kind: 'torch', x: 49, y: 71, w: 1, h: 1 },
+  { kind: 'torch', x: 76, y: 68, w: 1, h: 1 }, // the east gate
+  { kind: 'torch', x: 76, y: 71, w: 1, h: 1 },
+  { kind: 'campfire', x: 58, y: 74, w: 1, h: 1 }, // on the main square: everyone can light a torch here
+  { kind: 'crystal', x: 69, y: 81, w: 1, h: 1 }, // the glowing stones of the Arcane School
+  { kind: 'crystal', x: 76, y: 81, w: 1, h: 1 },
+
   { kind: 'fountain', x: 60, y: 72, w: 2, h: 2 },
   { kind: 'lamp', x: 63, y: 68, w: 1, h: 1 },
   { kind: 'lamp', x: 66, y: 68, w: 1, h: 1 },
@@ -102,12 +161,17 @@ export const PROPS = [
   { kind: 'crates', x: 53, y: 73, w: 1, h: 1 },
   { kind: 'signpost', x: 54, y: 67, w: 1, h: 1 },
 
-  // ---------- Port Syntax ----------
+  // ---------- Port Syntax: a wooden palisade, 2 gates (on the main street) ----------
+  ...wallsAround({ x: 92, y: 84, w: 21, h: 15 }, 'palisade', { west: [90], east: [90] }),
+  { kind: 'campfire', x: 105, y: 93, w: 1, h: 1 }, // in front of the inn
   { kind: 'stall', x: 93, y: 87, w: 2, h: 2 },
   { kind: 'lamp', x: 95, y: 89, w: 1, h: 1 },
   { kind: 'lamp', x: 100, y: 89, w: 1, h: 1 },
   { kind: 'lamp', x: 106, y: 89, w: 1, h: 1 },
   { kind: 'barrels', x: 103, y: 93, w: 1, h: 1 },
+
+  // ---------- In the wild ----------
+  { kind: 'campfire', x: 29, y: 72, w: 1, h: 1 }, // Kael's camp
 
   // ---------- The torches at the doors of the dungeons and of the castle ----------
   { kind: 'torch', x: 7, y: 61, w: 1, h: 1 },
@@ -126,7 +190,7 @@ export const FIELD = { x: 60, y: 78, w: 8, h: 3 };
 // The roads. Each one is a straight line, 2 tiles wide.
 export const ROADS = [
   { x1: 8, y1: 69, x2: 86, y2: 69 }, // west forest <-> Lexia <-> east
-  { x1: 64, y1: 16, x2: 64, y2: 80 }, // castle <-> Lexia (north-south)
+  { x1: 64, y1: 16, x2: 64, y2: 86 }, // castle <-> Lexia (north-south), out by the south gate
   { x1: 8, y1: 61, x2: 8, y2: 69 }, // to the crypt
   { x1: 18, y1: 40, x2: 84, y2: 40 }, // the mountain road
   { x1: 18, y1: 37, x2: 18, y2: 40 }, // to the tower

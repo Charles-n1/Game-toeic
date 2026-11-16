@@ -8,7 +8,7 @@ import { say } from './messages';
 // A duel = a fight of words against a person. Nobody is hurt: the player wins by giving `health` good answers,
 // and loses after 3 mistakes. It is used to negotiate a price, to work, and to play.
 
-function makeDuel(npc, options) {
+export function makeDuel(npc, options) {
   return {
     duel: true,
     name: npc.name,

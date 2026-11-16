@@ -12,7 +12,12 @@ export function isHeroArtReady() {
   return atlas.complete && atlas.naturalWidth > 0;
 }
 
-const WALK_PICKS = [1, 3, 5, 7]; // the sheet has 8 pictures for a walk: the game uses 4 of them
+// The sheet has 8 pictures for each walk; the game shows 4 of them, in a loop.
+// To the right: a foot down, the legs passing, the other foot down, the legs passing.
+// (Picture 2 is skipped: the hero holds the sword in it.)
+const WALK_RIGHT = [0, 3, 4, 7];
+// To the top: only the first 3 pictures are seen straight from the back (in the next ones the hero turns).
+const WALK_UP = [1, 0, 2, 0];
 
 // The picture of each pose of a fight (looking right). See POSES in people.js and heroPose in battle.js.
 const FIGHT_FRAMES = {
@@ -39,12 +44,16 @@ const FIGHT_FRAMES = {
 };
 
 // On the map: the picture of a direction and a pose ('stand', 'breath', 'walk0'...'walk3').
-// The sheet has no walk seen from the front: the front picture bounces and turns in a mirror.
+// The sheet has no walk seen from the front: it is made from the standing picture, one leg lifted at each step
+// (see liftLeg), the body going up with it.
 function mapFrame(dir, pose) {
   const step = pose.startsWith('walk') ? Number(pose.slice(4)) : -1;
-  if (dir === 'down') return { name: 'idle-down', mirror: step >= 2, lift: step % 2 === 1 ? 1 : 0 };
-  if (dir === 'up') return { name: step >= 0 ? 'walk-up-' + WALK_PICKS[step] : 'idle-up', mirror: false, lift: 0 };
-  return { name: step >= 0 ? 'walk-right-' + WALK_PICKS[step] : 'idle-right', mirror: dir === 'left', lift: 0 };
+  if (dir === 'down') {
+    const leg = { 0: 'left', 2: 'right' }[step] || null; // the leg lifted in this picture
+    return { name: 'idle-down', mirror: false, lift: leg ? 1 : 0, leg: leg };
+  }
+  if (dir === 'up') return { name: step >= 0 ? 'walk-up-' + WALK_UP[step] : 'idle-up', mirror: false, lift: 0 };
+  return { name: step >= 0 ? 'walk-right-' + WALK_RIGHT[step] : 'idle-right', mirror: dir === 'left', lift: 0 };
 }
 
 function frameOf(dir, pose) {
@@ -67,12 +76,33 @@ function cutFrame(name, mirror) {
   return canvas;
 }
 
+const LEGS_HEIGHT = 11; // pixels: the legs and the boots, at the bottom of the front picture
+const LEG_LIFT = 2; // pixels: how high a foot goes at each step
+
+// The same picture with one leg lifted (a step, seen from the front): the half of the legs on that side goes up,
+// and slides under the body. middle: the column between the two legs.
+function liftLeg(picture, leg, middle) {
+  const { width, height } = picture;
+  const legTop = height - LEGS_HEIGHT;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const up = (side) => (side === leg ? LEG_LIFT : 0);
+  ctx.drawImage(picture, 0, legTop, middle, LEGS_HEIGHT, 0, legTop - up('left'), middle, LEGS_HEIGHT);
+  ctx.drawImage(picture, middle, legTop, width - middle, LEGS_HEIGHT, middle, legTop - up('right'), width - middle, LEGS_HEIGHT);
+  ctx.drawImage(picture, 0, 0, width, legTop, 0, 0, width, legTop); // the body, over the lifted leg
+  return canvas;
+}
+
 // The hero from the sheet, like personSprite: { canvas, ax, ay } ((ax, ay) touches the ground).
 // The sword is in the pictures: no `hand` nor `sword` angle (battle.js does not add one).
 export function heroArtSprite(dir, pose) {
   const frame = frameOf(dir, pose);
-  return once('heroArt' + frame.name + frame.mirror + frame.lift, () => {
+  return once('heroArt' + frame.name + frame.mirror + frame.lift + frame.leg, () => {
     const [, , w, , feetX, feetY] = HERO_FRAMES[frame.name];
-    return { canvas: cutFrame(frame.name, frame.mirror), ax: frame.mirror ? w - 1 - feetX : feetX, ay: feetY + frame.lift, hand: null, sword: undefined };
+    const picture = cutFrame(frame.name, frame.mirror);
+    const canvas = frame.leg ? liftLeg(picture, frame.leg, feetX) : picture;
+    return { canvas: canvas, ax: frame.mirror ? w - 1 - feetX : feetX, ay: feetY + frame.lift, hand: null, sword: undefined };
   });
 }

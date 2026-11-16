@@ -30,6 +30,7 @@ export const WOOD_RAMP = ['#3b2414', '#55331b', '#704423', '#8c582d', '#a86e3b',
 export const ROOF_RAMPS = {
   red: ['#5e1a12', '#80271b', '#a33524', '#c2472e', '#d9613f', '#ea8259'],
   blue: ['#1a2c5e', '#233d80', '#2f50a0', '#3f66bd', '#5a82d4', '#7fa2e6'],
+  purple: ['#2a1a4e', '#3a2468', '#4e3288', '#6442a8', '#7d5cc4', '#9c80dc'], // the arcane buildings
 };
 
 // The color of a type, in the night of a raid... and everything else: mix two colors.

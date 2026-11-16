@@ -1,7 +1,9 @@
 import { secondsPerQuestion } from '../../data/sections';
 import { weaknessOf } from '../data/types';
-import { pickQuestion, recordAnswer, monsterCategory, spellRank } from './learning';
-import { speedOf, strikePower, armorOf, criticalChance, gainXp } from './player';
+import { pickQuestion, pickSpellQuestion, recordAnswer, monsterCategory } from './learning';
+import { speedOf, strikePower, armorOf, criticalChance, gainXp, heal, restoreMana, earnLexis } from './player';
+import { TAG_POWER } from './skills';
+import { classBonus } from './classes';
 import { lootMonster } from './loot';
 import { knockOut } from './death';
 import { saveGame } from './save';
@@ -11,8 +13,11 @@ import { floatText } from './particles';
 // A fight = questions. A good answer strikes the opponent, a bad one (or no answer in time) lets it strike.
 // The opponent is a monster, or a person in a "duel" (negotiating a price, a game, a job): same rules,
 // but a duel does not hurt: it is lost after 3 mistakes.
+// The TAG of the question answered multiplies the blow: a good answer to a Hard question hits 5 times harder,
+// an Extreme one 25 times (see logic/skills.js). Hard monsters ask Hard questions and have 5 times the health.
 
 export const SPELL_MANA = 2; // the cost of a grammar spell
+const SPELL_POWER = 15; // the damage of a spell, before its tag, its class and the weakness of the monster
 const DUEL_MISTAKES = 3;
 const ALLY_DAMAGE = 10; // each friend and each obsidian soldier adds this to a strike
 const COMBO_BONUS = 0.1; // each good answer in a row adds 10% to the damage...
@@ -26,6 +31,16 @@ function clamp(value, min, max) {
 // How many friends fight with the player (people + obsidian soldiers): each one adds +10 damage.
 export function allyCount(player) {
   return player.party.length + player.soldiers;
+}
+
+// The damage of one strike before the opponent's resistance: the weapon, the friends, the class.
+export function attackPower(game) {
+  return strikePower(game.player) + allyCount(game.player) * ALLY_DAMAGE + classBonus(game, 'ally') + classBonus(game, 'attack');
+}
+
+// The armor of the hero, with the class.
+export function armorPower(game) {
+  return armorOf(game.player) + classBonus(game, 'armor');
 }
 
 // The seconds to answer a question, in the real exam. A question with a text to read gets more.
@@ -42,7 +57,8 @@ export function timeLimit(game, fight) {
   const potion = player.haste ? 1.5 : 1;
   const storm = fight.inStorm ? 1.3 : 1;
   const relaxed = game.run.relaxed ? 1.5 : 1; // the relaxed mode of the options
-  return examSeconds(fight.question) * speedRatio * potion * storm * relaxed * 1000;
+  const samurai = 1 + classBonus(game, 'time') / 100;
+  return examSeconds(fight.question) * speedRatio * potion * storm * relaxed * samurai * 1000;
 }
 
 // Who strikes first? A slow hero with a FAST answer still wins: answering at once doubles their speed.
@@ -55,13 +71,33 @@ function askNext(game, fight) {
   const opponent = fight.opponent;
   if (opponent.anyCategory) opponent.category = monsterCategory(game); // the Demon King changes type each time
   const lastText = fight.question ? fight.question.text : null;
+  fight.mode = 'strike';
+  fight.spellCast = false;
   fight.question = pickQuestion(game, opponent, fight.usedIds, lastText);
   if (opponent.tier === 'demon') opponent.category = fight.question.category; // a demon takes the type of its long text
   fight.usedIds.push(fight.question.id);
+  startClock(game, fight);
+}
+
+// A new question is on screen: its clock starts.
+function startClock(game, fight) {
   fight.hidden = []; // the wrong answers removed by a hint potion
   fight.limit = timeLimit(game, fight);
   fight.startedAt = Date.now();
   fight.phase = 'ask';
+}
+
+// The hero casts a spell: it costs mana at once, and the question changes for one of the school of the spell,
+// at the tag the hero has reached in it. (One spell per question: it can not be used to skip a question.)
+export function castSpell(game, fight, categoryId) {
+  if (fight.spellCast || game.player.mana < SPELL_MANA) return;
+  game.player.mana -= SPELL_MANA;
+  fight.mode = categoryId;
+  fight.spellCast = true;
+  fight.usedIds = fight.usedIds.filter((id) => id !== fight.question.id); // the skipped question can come back
+  fight.question = pickSpellQuestion(game, categoryId, fight.usedIds);
+  fight.usedIds.push(fight.question.id);
+  startClock(game, fight);
 }
 
 export function startFight(game, opponent) {
@@ -90,20 +126,21 @@ export function nextRound(game) {
 }
 
 // The hit of the player: { damage, critical }. A spell uses the magic resistance, a strike the resistance.
+// The tag of the question multiplies everything (Hard x5, Extreme x25).
 function playerHit(game, fight) {
-  const player = game.player;
   const opponent = fight.opponent;
   const isSpell = fight.mode !== 'strike';
-  let power = strikePower(player) + allyCount(player) * ALLY_DAMAGE + (fight.inStorm ? 10 : 0);
+  let power = attackPower(game) + (fight.inStorm ? 10 : 0);
   let blocked = opponent.resistance;
   if (isSpell) {
-    power = 10 * (1 + spellRank(game, fight.mode));
+    power = SPELL_POWER * (1 + classBonus(game, 'spell') / 100);
     if (weaknessOf(opponent.category) === fight.mode) power *= 2;
     blocked = opponent.magicResistance;
   }
-  const critical = Math.random() < criticalChance(player);
+  const critical = Math.random() < criticalChance(game.player) + classBonus(game, 'critical') / 100;
   const combo = 1 + COMBO_BONUS * Math.min(COMBO_MAX, fight.combo - 1);
-  const damage = varied(Math.max(MIN_DAMAGE, power * (1 - blocked) * combo)) * (critical ? 2 : 1);
+  const tag = TAG_POWER[fight.question.difficulty] || 1;
+  const damage = varied(Math.max(MIN_DAMAGE, power * (1 - blocked) * combo) * tag) * (critical ? 2 : 1);
   return { damage: damage, critical: critical };
 }
 
@@ -113,14 +150,18 @@ function varied(damage) {
 }
 
 // The hit of the monster, in HP. Armor stops strikes, not magic. half: the player was only a bit slow.
+// The Puppeteer's strings make it softer.
 function monsterHit(game, opponent, half) {
-  const strike = opponent.attack - armorOf(game.player);
-  const damage = varied(Math.max(MIN_DAMAGE, strike, opponent.magicAttack));
+  const strike = opponent.attack - armorPower(game);
+  const soften = 1 - classBonus(game, 'soften') / 100;
+  const damage = varied(Math.max(MIN_DAMAGE, strike, opponent.magicAttack) * soften);
   return half ? Math.ceil(damage / 2) : damage;
 }
 
-function payForSpell(game, fight) {
-  if (fight.mode !== 'strike') game.player.mana -= SPELL_MANA;
+// The class of the hero after a good blow: some heal (Witch, Paladin, Druid), some steal life (Necromancer).
+function classAfterHit(game, damage) {
+  const healed = classBonus(game, 'heal') + Math.round((damage * classBonus(game, 'drain')) / 100);
+  if (healed > 0) heal(game.player, healed);
 }
 
 function phaseAfter(game, fight) {
@@ -142,7 +183,6 @@ export function answer(game, fight, index) {
   countCombo(fight, isCorrect);
   if (!isCorrect) fight.mistakes.push(question);
   recordAnswer(game, question, isCorrect);
-  payForSpell(game, fight);
 
   if (isCorrect) {
     const hit = opponent.duel ? { damage: 1, critical: false } : playerHit(game, fight);
@@ -150,6 +190,7 @@ export function answer(game, fight, index) {
     last.damage = hit.damage;
     last.critical = hit.critical;
     last.first = strikesFirst(used, speedOf(game.player), opponent.speed);
+    if (!opponent.duel) classAfterHit(game, hit.damage);
     if (!last.first && opponent.health > 0) last.taken = monsterHit(game, opponent, true);
   } else {
     last.taken = monsterHit(game, opponent, false);
@@ -158,7 +199,6 @@ export function answer(game, fight, index) {
   game.player.health -= last.taken;
   last.mode = fight.mode; // 'strike', or the spell used (for the animation)
   fight.last = last;
-  fight.mode = 'strike';
   fight.phase = phaseAfter(game, fight);
 }
 
@@ -181,15 +221,18 @@ export function flee(game, fight) {
   fight.phase = game.player.health <= 0 ? 'lost' : 'result';
 }
 
-// XP depends on the answers of the fight: 100% correct = all the XP, 50% = half.
-export function xpOfFight(fight) {
+// XP depends on the answers of the fight: 100% correct = all the XP, 50% = half. (+ the Plague Doctor's bonus)
+export function xpOfFight(game, fight) {
   if (fight.asked === 0) return 0;
-  return Math.round((fight.opponent.xp * fight.correct) / fight.asked);
+  const bonus = 1 + classBonus(game, 'xp') / 100;
+  return Math.round(((fight.opponent.xp * fight.correct) / fight.asked) * bonus);
 }
 
 function winBattle(game, fight) {
-  const xp = xpOfFight(fight);
+  const xp = xpOfFight(game, fight);
   lootMonster(game, fight.opponent);
+  earnLexis(game, Math.round((fight.opponent.lexis * classBonus(game, 'lexis')) / 100)); // the Brigand's share
+  restoreMana(game.player, classBonus(game, 'mana'));
   floatText(game, game.player.x, game.player.y, '+' + xp + ' XP', '#7CFC9A');
   gainXp(game, xp);
 }

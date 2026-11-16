@@ -3,6 +3,7 @@ import { ZONES, zoneAt } from '../data/zones';
 import { pickRandom } from '../../logic/random';
 import { isSolid, dungeonMonsters } from '../world/map';
 import { monsterCategory } from './learning';
+import { TAG_POWER, TAG_ATTACK, tagOf, higherTag, nextTag } from './skills';
 import { isNight } from './clock';
 import { startFight } from './fight';
 import { isBarrier } from './powers';
@@ -16,14 +17,33 @@ const TOO_FAR = 18; // tiles: a wild monster this far from the player disappears
 const SIGHT = 5.5; // tiles: a monster this close runs to the player
 const TOUCH = 0.7; // tiles: this close = the fight starts
 
+const ELITE_CHANCE = 0.1; // in the dangerous lands, a wild monster is sometimes one tag above the hero
+
+// The tag of a new monster: the tag of its species, or the tag the hero has reached in its type (the higher one).
+// In a dangerous land (danger 2 and more), a wild one is sometimes an "elite": one tag higher.
+function tagFor(game, species, category, x, y, isWild) {
+  const tag = higherTag(species.tag || 'normal', tagOf(game, category));
+  const isElite = isWild && zoneAt(x, y).danger >= 2 && Math.random() < ELITE_CHANCE && nextTag(tag);
+  return isElite ? nextTag(tag) : tag;
+}
+
 // A new monster. Its type (grammar category) is its own, or follows what the player must train.
+// Its tag makes it stronger: health x5 per tag, blows x2, rewards x5 (see logic/skills.js).
 export function makeMonster(game, speciesId, x, y, extra = {}) {
   const species = SPECIES[speciesId];
+  const category = species.category || monsterCategory(game);
+  const tag = tagFor(game, species, category, x, y, !extra.key && !extra.raid);
   return {
     ...species,
     species: speciesId,
-    category: species.category || monsterCategory(game),
-    maxHealth: species.health,
+    category: category,
+    tag: tag,
+    health: species.health * TAG_POWER[tag],
+    maxHealth: species.health * TAG_POWER[tag],
+    attack: species.attack * TAG_ATTACK[tag],
+    magicAttack: species.magicAttack * TAG_ATTACK[tag],
+    xp: species.xp * TAG_POWER[tag],
+    lexis: species.lexis * TAG_POWER[tag],
     x: x,
     y: y,
     walkX: 0, // the direction it wanders in

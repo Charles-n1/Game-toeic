@@ -4,6 +4,7 @@ import { heroLook } from '../data/hero';
 import { SPAWN } from '../data/zones';
 import { INTRO, GOAL_BLESSING, SCENES, CHAPTERS } from '../data/story';
 import { chooseFocus } from './learning';
+import { emptySkills } from './skills';
 import { emptyExplored, exploreAround } from './explore';
 import { placeDungeonMonsters } from './monsters';
 import { placePeople } from './people';
@@ -60,11 +61,13 @@ function firstMastery(stats, score) {
   return mastery;
 }
 
+function firstPerson() {
+  return { alive: true, friendship: 0, talkedDay: 0, datedDay: 0, told: 0 };
+}
+
 function firstPeople() {
   const people = {};
-  for (const npc of NPCS) {
-    people[npc.id] = { alive: true, friendship: 0, talkedDay: 0, datedDay: 0, told: 0 };
-  }
+  for (const npc of NPCS) people[npc.id] = firstPerson();
   return people;
 }
 
@@ -97,6 +100,8 @@ function firstPlayer(hero) {
     blessings: 3, // how many times Aria can still save the player
     spouse: null,
     children: [],
+    classId: null, // the class of the hero (see data/classes.js)
+    torchHours: 0, // the hours of light left (see logic/torch.js)
   };
 }
 
@@ -114,6 +119,7 @@ export function newGame(goalId, score, stats, hero, slot) {
     hour: 9,
     player: firstPlayer(hero),
     mastery: firstMastery(stats, score),
+    skills: emptySkills(), // the tag of each skill: Normal, Hard, Extreme (see logic/skills.js)
     focus: { current: null, tally: { good: 0, bad: 0 }, mastered: {} },
     npcs: firstPeople(),
     families: [
@@ -129,6 +135,7 @@ export function newGame(goalId, score, stats, hero, slot) {
     visited: {}, // the zones already seen
     crops: {},
     dug: {}, // the treasures already dug
+    gathered: {}, // the trees and rocks already used today (see logic/torch.js)
     chests: {},
     bosses: {}, // the bosses already dead
     cleared: {}, // the dungeon guards dead today
@@ -143,11 +150,23 @@ export function newGame(goalId, score, stats, hero, slot) {
   return game;
 }
 
+// A save from before the classes, the tags and the torches: what is missing is added.
+function addMissing(game) {
+  if (!game.skills) game.skills = emptySkills();
+  if (!game.gathered) game.gathered = {};
+  if (game.player.classId === undefined) game.player.classId = null;
+  if (game.player.torchHours === undefined) game.player.torchHours = 0;
+  for (const npc of NPCS) {
+    if (!game.npcs[npc.id]) game.npcs[npc.id] = firstPerson(); // the new people of the world
+  }
+}
+
 // Fills what is not saved. Used for a new game and for a loaded one.
 export function wakeUp(game) {
   if (typeof game.explored !== 'string') game.explored = emptyExplored(); // a save from before the world map
   if (typeof game.player.name !== 'string') game.player.name = 'Hero'; // a save from before the avatars
   if (!game.player.look) game.player.look = { ...HERO_LOOK };
+  addMissing(game);
   game.run = makeRun();
   placePeople(game);
   placeDungeonMonsters(game);

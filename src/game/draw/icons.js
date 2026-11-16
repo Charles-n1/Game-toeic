@@ -60,6 +60,13 @@ const CROSS = ['RR......RR..', '.RR....RR...', '..RR..RR....', '...RRRR.....', '
 const PLAY = ['..W.........', '..WW........', '..WWW.......', '..WWWW......', '..WWWWW.....', '..WWWW......', '..WWW.......', '..WW........', '..W.........'];
 const GEAR = ['....GG......', '.G.GGGG.G...', '..GGGGGGG...', '.GGG..GGG...', 'GGG....GGG..', '.GGG..GGG...', '..GGGGGGG...', '.G.GGGG.G...', '....GG......'];
 const BIG_POTION = ['....NNNN....', '....GGGG....', '...GPPPPG...', '..GPPPPPPG..', '.GPPWPPPPPG.', '.GPWPPPPPPG.', '.GPPPPPPPPG.', '.GPPPPPPPPG.', '..GPPPPPPG..', '...GGGGGG...'];
+const BRANCH = ['..........N.', '.........N..', '....N...N...', '.....N.N....', '......N.....', '.....N......', '....N.......', '...N........', '..N.........', '.N..........'];
+const JAR = ['....KKKK....', '....NNNN....', '...GYYYYG...', '..GYYWYYYG..', '..GYWYYYYG..', '..GYYYYYYG..', '..GYYYYYYG..', '...GGGGGG...'];
+const CLOTH = ['............', '.CCCCCCCCC..', '.CLCLCLCLC..', '.CCCCCCCCC..', '.CLCLCLCLC..', '.CCCCCCCCC..', '..cccccccc..'];
+const STONES = ['............', '....GGG.....', '...GLGGG....', '...GGGGg.GG.', '....ggg.GLGG', '........GGGg', '.........gg.'];
+const TORCH = ['....R.......', '...ROR......', '...RYOR.....', '...ROYR.....', '....RR......', '...CCCC.....', '....NN......', '....NN......', '....NN......', '....NN......'];
+const HAT = ['.....M......', '....MMY.....', '....MMM.....', '...MMMMM....', '...MMMMM....', '..MMMMMMM...', 'YYYYYYYYYYY.', '.MMMMMMMMM..'];
+const HEART = ['.RR...RR....', 'RWRR.RRRR...', 'RWRRRRRRR...', 'RRRRRRRRR...', '.RRRRRRR....', '..RRRRR.....', '...RRR......', '....R.......'];
 const BRIDGE = ['..NNNNNNNN..', '.NnNnNnNnNN.', 'NN........NN', 'N..........N', 'UUU......UUU', 'UUUU....UUUU'];
 
 // The colors shared by every picture. Each icon can change some of them.
@@ -104,6 +111,12 @@ const ICONS = {
   mug: [MUG, {}],
   shield: [SHIELD, {}],
   fish: [FISH, {}],
+  star: [STAR, {}],
+  branch: [BRANCH, { N: '#8a5a30' }],
+  oil: [JAR, { Y: '#e8b83a', W: '#fff2a8' }],
+  cloth: [CLOTH, { C: '#d8b4f8', L: '#8a5fd0', c: '#8a5fd0' }],
+  flint: [STONES, { G: '#9aa6b8', L: '#e8eef7', g: '#6d7686' }],
+  torch: [TORCH, { C: '#d8b4f8' }],
 
   // ---------- The grammar types ----------
   gerunds: [FLOWER, { P: '#ff6fb5', N: '#4caf50' }],
@@ -146,6 +159,8 @@ const ICONS = {
   menu: [MENU, {}],
   resume: [PLAY, { W: '#7cfc9a' }],
   options: [GEAR, { G: '#c9d1e0' }],
+  classes: [HAT, { M: '#6442a8' }],
+  people: [HEART, {}],
 
   // ---------- The world map ----------
   town: [TOWN, { R: '#e8423f', N: '#7a4a24' }],

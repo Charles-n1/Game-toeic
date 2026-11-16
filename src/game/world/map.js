@@ -1,4 +1,4 @@
-import { ZONES, HOUSES, FIELD, ROADS, PLAZAS, PROPS, RIVERS, WORLD_SIZE, zoneAt } from '../data/zones';
+import { ZONES, HOUSES, FIELD, ROADS, PLAZAS, CLEARINGS, PROPS, RIVERS, WORLD_SIZE, zoneAt, houseSize } from '../data/zones';
 import { noise, smoothNoise } from './noise';
 
 export { noise };
@@ -96,10 +96,13 @@ function buildCastle(tiles, zone) {
   fillRect(tiles, zone.x + 10, zone.y + zone.h - 1, 2, 1, TILE.FLOOR); // the door
 }
 
+// A house: the roof, then its front wall (the last row) with the door. The school has a double door.
 function buildHouse(tiles, house) {
-  fillRect(tiles, house.x, house.y, 4, 2, TILE.ROOF);
-  fillRect(tiles, house.x, house.y + 2, 4, 1, TILE.HOUSE);
-  setTile(tiles, house.x + 1, house.y + 2, TILE.DOOR);
+  const { w, h } = houseSize(house);
+  fillRect(tiles, house.x, house.y, w, h - 1, TILE.ROOF);
+  fillRect(tiles, house.x, house.y + h - 1, w, 1, TILE.HOUSE);
+  const doors = house.kind === 'school' ? [2, 3] : [1];
+  doors.forEach((dx) => setTile(tiles, house.x + dx, house.y + h - 1, TILE.DOOR));
 }
 
 // A river: a line 2 tiles wide that follows its points, with small bends. It never goes through a village.
@@ -143,6 +146,7 @@ function buildMap() {
     for (let x = 0; x < MAP_SIZE; x++) setTile(tiles, x, y, landTile(x, y));
   }
   RIVERS.forEach((river) => buildRiver(tiles, river));
+  CLEARINGS.forEach((clearing) => fillRect(tiles, clearing.x, clearing.y, clearing.w, clearing.h, TILE.GRASS));
   for (const zone of ZONES) {
     if (zone.kind === 'dungeon') buildDungeon(tiles, zone);
     if (zone.kind === 'castle') buildCastle(tiles, zone);

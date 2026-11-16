@@ -66,7 +66,7 @@ export const CHAPTERS = {
     { id: 'friends', place: { zone: 'lexia' }, title: 'Neighbors', text: 'Become friends with 3 people.', reward: 60, done: (game) => friendCount(game) >= 3 },
     NIGHT_OF_SILENCE,
     { id: 'happy', place: { zone: 'lexia' }, title: 'A happy village', text: 'Help people until the happiness of Lexia reaches 70.', reward: 150, done: (game) => game.happiness >= 70 },
-    { id: 'wedding', place: { npc: 'luna' }, title: 'A promise', text: 'Buy a ring in Port Syntax and marry someone you love.', reward: 200, done: (game) => game.player.spouse !== null },
+    { id: 'wedding', place: { npc: 'rin' }, title: 'A promise', text: 'Buy a ring in Port Syntax and marry someone you love.', reward: 200, done: (game) => game.player.spouse !== null },
     { id: 'family', place: { zone: 'lexia' }, title: 'A full table', text: 'Live together until a child is born.', reward: 0, done: (game) => game.player.children.length > 0 },
   ],
   wanderer: [
@@ -94,7 +94,7 @@ export const ENDINGS = {
   ],
   guardian: [
     'General Barbarism drops his sword. He smiles like a teacher.',
-    '"Good guard. Tell Selene... her stance was always better than mine."',
+    '"Good guard. Tell Lyra... her stance was always better than mine."',
     'Without him, the raids of the north lose their shape. Lexia will stand.',
     'The Demon King is still up there. But tonight, the village sleeps.',
   ],

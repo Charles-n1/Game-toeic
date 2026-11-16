@@ -15,9 +15,10 @@ import { say, notify } from './messages';
 const DAYS_BETWEEN_RAIDS = 7;
 const BITE_SECONDS = 6; // how long a monster must stay on a villager to kill them
 const GATES = [
-  { x: 65, y: 58.5 }, // the north gate
-  { x: 52.5, y: 70 }, // the west road
-  { x: 75, y: 70 }, // the east road
+  { x: 65, y: 55.5 }, // the north gate
+  { x: 48.5, y: 70 }, // the west gate
+  { x: 77.5, y: 70 }, // the east gate
+  { x: 65, y: 85.5 }, // the south gate
 ];
 // The monsters of the 1st raid, of the 2nd... (the last list is used for all the next ones).
 const WAVES = [['wolf'], ['wolf', 'treant'], ['treant', 'imp'], ['imp', 'golem'], ['imp', 'demonKnight']];

@@ -1,11 +1,14 @@
 import { ITEMS, SHOPS, nextUpgrade } from '../data/items';
 import { priceFactor } from './village';
 import { addItem, removeItem, equip, earnLexis } from './player';
+import { classBonus } from './classes';
 
-// Buying and selling. The prices move with the happiness of the village and with the negotiations.
+// Buying and selling. The prices move with the happiness of the village, the negotiations, and the Warsmith
+// class (the smiths of the Guild get a discount).
 
 export function priceOf(game, itemId) {
-  return Math.max(1, Math.ceil(ITEMS[itemId].price * priceFactor(game)));
+  const guild = 1 - classBonus(game, 'discount') / 100;
+  return Math.max(1, Math.ceil(ITEMS[itemId].price * priceFactor(game) * guild));
 }
 
 // What this shop offers right now. The forge sells the NEXT upgrade of each piece of equipment.

@@ -2,16 +2,23 @@ import PixelIcon from '../PixelIcon';
 import Bar from '../Bar';
 import { TYPES } from '../../data/types';
 import { ITEMS } from '../../data/items';
-import { skillPercent, spellRank, difficultyRank, RANKS } from '../../logic/learning';
-import { speedOf, strikePower, armorOf, criticalChance, xpForLevel } from '../../logic/player';
-import { allyCount } from '../../logic/fight';
+import { spellRank } from '../../logic/learning';
+import { TAG_NAMES, TAG_COLORS, tagOf, tagPercent, tagAnswers, skillPower, canEvolve, evolveSkill, nextTag } from '../../logic/skills';
+import { speedOf, criticalChance, xpForLevel } from '../../logic/player';
+import { attackPower, armorPower } from '../../logic/fight';
+import { heroClass, classBonus } from '../../logic/classes';
 
-const RANK_COLORS = ['#22a06b', '#3f9b2f', '#2f6fd8', '#8a3fd1'];
-
-// One grammar type: its icon, its level (the % of good answers) and the difficulty reached in it.
-function SkillLine({ game, type }) {
-  const rank = difficultyRank(game, type.id);
+// One grammar type: its tag (Normal, Hard, Extreme), the % in this tag, its power, and the button to evolve it.
+function SkillLine({ game, type, refresh }) {
+  const tag = tagOf(game, type.id);
   const isFocus = game.focus.current === type.id;
+  const ready = canEvolve(game, type.id);
+
+  function evolve() {
+    evolveSkill(game, type.id);
+    refresh();
+  }
+
   return (
     <div className="line">
       <PixelIcon name={type.id} size={28} />
@@ -19,19 +26,28 @@ function SkillLine({ game, type }) {
         <span style={styles.name}>
           {type.short} {isFocus && <span className="gold">◆</span>}
         </span>
-        <span className="small">{spellRank(game, type.id) > 0 ? type.spell + ' ' + spellRank(game, type.id) : 'Spell locked (20%)'}</span>
+        <span className="small">
+          {TAG_NAMES[tag]}: {tagPercent(game, type.id, tag)}% ({tagAnswers(game, type.id, tag)} answers) · Power {skillPower(game, type.id)}
+        </span>
+        <span className="small">{spellRank(game, type.id) > 0 ? 'Spell: ' + type.spell : 'Spell locked (20%)'}</span>
       </div>
-      <span style={styles.level}>Lv. {skillPercent(game, type.id)} / 100</span>
-      <span className="badge" style={{ backgroundColor: RANK_COLORS[rank] }}>
-        {RANKS[rank]}
-      </span>
+      {ready ? (
+        <button className="px-button px-gold" onClick={evolve}>
+          ▲ {TAG_NAMES[nextTag(tag)]}
+        </button>
+      ) : (
+        <span className="badge" style={{ backgroundColor: TAG_COLORS[tag] }}>
+          {TAG_NAMES[tag]}
+        </span>
+      )}
     </div>
   );
 }
 
-// The hero's numbers, and the skills: your grammar is your magic.
-export default function StatsPanel({ game }) {
+// The hero's numbers, the class, and the skills: your grammar is your magic.
+export default function StatsPanel({ game, refresh }) {
   const player = game.player;
+  const current = heroClass(game);
   return (
     <>
       <div style={styles.hero}>
@@ -40,20 +56,26 @@ export default function StatsPanel({ game }) {
         </span>
         <Bar value={player.xp / xpForLevel(player.level)} color="#7cfc9a" height={8} />
         <span className="small" style={styles.numbers}>
-          Attack {strikePower(player) + allyCount(player) * 10} · Armor {armorOf(player)} · Speed {speedOf(player)} · Critical{' '}
-          {Math.round(criticalChance(player) * 100)}%
+          Attack {attackPower(game)} · Armor {armorPower(game)} · Speed {speedOf(player)} · Critical{' '}
+          {Math.round(criticalChance(player) * 100 + classBonus(game, 'critical'))}%
         </span>
         <span className="small">
           {ITEMS[player.weapon].name} · {ITEMS[player.armor].name} · {ITEMS[player.boots].name}
         </span>
+        <span className="small">Class: {current ? current.title : 'none yet (Menu → Classes)'}</span>
         <span className="small">Aria can still carry you home {player.blessings} time(s). After that, death is the end.</span>
       </div>
       <span className="section">Your language skills</span>
       {TYPES.map((type) => (
-        <SkillLine key={type.id} game={game} type={type} />
+        <SkillLine key={type.id} game={game} type={type} refresh={refresh} />
       ))}
       <span className="small" style={styles.hint}>
-        ◆ = trained now. Reach your goal in it: the training moves to your next weakness. Keep going to reach the next level!
+        Each tag is the level above the other: 100% in Normal = 20% in Hard. With more than 90% in your tag (on your last
+        answers, at least 10), the skill can evolve: its monsters become Hard (5× health), but each good Hard answer hits
+        5× harder and gives 5× more.
+      </span>
+      <span className="small" style={styles.hint}>
+        ◆ = trained now. Reach your goal in it: the training moves to your next weakness.
       </span>
     </>
   );
@@ -68,10 +90,6 @@ const styles = {
   },
   name: {
     fontSize: 17,
-  },
-  level: {
-    fontSize: 15,
-    marginRight: 4,
   },
   hint: {
     marginTop: 8,

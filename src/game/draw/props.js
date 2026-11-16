@@ -1,4 +1,4 @@
-import { makeGrid, dot, fillRect, fillEllipse, fillBall, toneOf, drawLine, drawPicture, sprinkle, randomOf, addOutline, addRimShade, toCanvas, once, spriteOf, colorAt } from './pixels';
+import { makeGrid, dot, fillRect, fillEllipse, fillBall, toneOf, drawLine, drawPicture, sprinkle, randomOf, addOutline, addRimShade, toCanvas, once, spriteOf, colorAt, fillTriangle } from './pixels';
 import { OUTLINE, WOOD, darker, lighter, LEAF_RAMP, LIGHT_LEAF_RAMP, PINE_RAMP, WOOD_RAMP, STONE_RAMP, SNOW_RAMP, ROOF_RAMPS } from './palette';
 
 // Everything that stands on the ground: trees, rocks, houses, lamps... Each one is a "sprite":
@@ -319,6 +319,7 @@ const SIGNS = {
   mug: ['.........', '..WWWW...', '.YYYYYY..', '.YYYYYYY.', '.YYYYY.Y.', '.YYYYYYY.', '.YYYYYY..', '.........', '.........'],
   shield: ['.GGGGGG..', '.GUUUUG..', '.GUYYUG..', '.GUYYUG..', '..GUUG...', '...GG....', '.........', '.........', '.........'],
   fish: ['.........', '.........', '.U..UUU..', '.UUUUWUU.', '.UUUUUUU.', '.U..UUU..', '.........', '.........', '.........'],
+  star: ['....Y....', '....Y....', '...YWY...', 'YYYWWWYYY', '.YYWWWYY.', '..YYWYY..', '..YY.YY..', '.YY...YY.', '.........'],
 };
 
 // ---------- Village things ----------
@@ -563,5 +564,166 @@ export function typeDiamond(color) {
   return once('diamond' + color, () => {
     const rows = ['..L..', '.LMM.', 'LMMMD', '.MDD.', '..D..'];
     return sprite(spriteOf(rows, { L: lighter(color), M: color, D: darker(color) }, OUTLINE), 3, 7);
+  });
+}
+
+// ---------- The walls of the villages ----------
+
+// One piece (16 pixels wide) of the stone wall of Lexia: blocks of stone, a lighter top.
+// side: 'row' (a wall going left-right: the pieces touch, no edge on their sides) or 'column' (up-down).
+export function stoneWall(side) {
+  return once('stoneWall' + side, () => {
+    const grid = makeGrid(16, 22);
+    for (let y = 1; y < 21; y++) {
+      for (let x = 0; x < 16; x++) {
+        const offset = Math.floor(y / 5) % 2 ? 4 : 0;
+        const isMortar = y % 5 === 0 || (x + offset) % 8 === 7;
+        const light = y < 5 ? 0.88 : 0.62 - y * 0.012 + randomOf(x, y, 70) * 0.1;
+        dot(grid, x, y, isMortar ? STONE_RAMP[1] : toneOf(STONE_RAMP, light, x, y));
+      }
+    }
+    fillRect(grid, 0, 0, 16, 1, OUTLINE);
+    fillRect(grid, 0, 21, 16, 1, OUTLINE);
+    if (side === 'column') {
+      fillRect(grid, 0, 0, 1, 22, OUTLINE);
+      fillRect(grid, 15, 0, 1, 22, OUTLINE);
+    }
+    return sprite(toCanvas(grid), 8, 21);
+  });
+}
+
+// One piece (16 pixels wide) of the wooden palisade of Port Syntax: 3 pointed stakes, a rope band.
+export function palisade(side) {
+  return once('palisade' + side, () => {
+    const grid = makeGrid(16, 24);
+    for (const left of [0, 5, 10]) {
+      const width = left === 10 ? 6 : 5;
+      fillTriangle(grid, [left, 4], [left + width / 2, 0], [left + width, 4], (x, y) => toneOf(WOOD_RAMP, 0.7, x, y));
+      for (let y = 4; y < 23; y++) {
+        for (let x = left; x < left + width; x++) dot(grid, x, y, toneOf(WOOD_RAMP, 0.72 - (x - left) * 0.1, x, y));
+      }
+      fillRect(grid, left + width - 1, 3, 1, 20, WOOD_RAMP[1]); // the shade between two stakes
+    }
+    fillRect(grid, 0, 9, 16, 2, '#c9a86a'); // the rope
+    fillRect(grid, 0, 17, 16, 1, WOOD_RAMP[1]);
+    fillRect(grid, 0, 23, 16, 1, OUTLINE);
+    if (side === 'column') {
+      fillRect(grid, 0, 2, 1, 22, OUTLINE);
+      fillRect(grid, 15, 2, 1, 22, OUTLINE);
+    }
+    return sprite(toCanvas(grid), 8, 23);
+  });
+}
+
+// ---------- Fires and magic ----------
+
+// A campfire: logs in a ring of stones, and the flame. frame: 0, 1 or 2. Its flame can light a torch.
+export function campfire(frame) {
+  return once('campfire' + frame, () => {
+    const grid = makeGrid(16, 18);
+    drawPicture(grid, FIRE_FRAMES[frame], FIRE_COLORS, 4, 3);
+    drawLine(grid, 2, 15, 13, 12, WOOD.dark); // the logs
+    drawLine(grid, 2, 12, 13, 15, WOOD.base);
+    drawLine(grid, 3, 12, 13, 14, WOOD.light);
+    [[1.5, 15], [4.5, 16.5], [8, 17], [11.5, 16.5], [14.5, 15]].forEach(([x, y]) => fillBall(grid, x, y, 1.6, 1.1, STONE_RAMP));
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 8, 17);
+  });
+}
+
+// A glowing crystal of the Arcane School, on a stone base. frame: it shines a bit brighter or softer.
+export function arcaneCrystal(frame) {
+  return once('crystal' + frame, () => {
+    const grid = makeGrid(12, 22);
+    const glow = frame ? ['#3a2468', '#6442a8', '#9c80dc', '#d8c8ff', '#ffffff'] : ['#2a1a4e', '#4e3288', '#7d5cc4', '#b8a0f0', '#e8e0ff'];
+    fillTriangle(grid, [2, 8], [6, 0], [10, 8], (x, y) => toneOf(glow, 0.9 - x * 0.06, x, y));
+    fillTriangle(grid, [2, 8], [6, 16], [10, 8], (x, y) => toneOf(glow, 0.6 - x * 0.05, x, y));
+    fillRect(grid, 1, 16, 10, 5, STONE_RAMP[2]);
+    fillRect(grid, 1, 16, 10, 1, STONE_RAMP[4]);
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 6, 21);
+  });
+}
+
+// ---------- The Arcane School: 6 tiles wide, 4 high, a tower with a star ----------
+
+function paintSchoolWalls(grid) {
+  for (let y = 46; y < 82; y++) {
+    for (let x = 2; x < 94; x++) {
+      const offset = Math.floor(y / 6) % 2 ? 5 : 0;
+      const isMortar = y % 6 === 0 || (x + offset) % 10 === 9;
+      dot(grid, x, y, isMortar ? STONE_RAMP[1] : toneOf(STONE_RAMP, 0.7 - (y - 46) * 0.006 + randomOf(x, y, 71) * 0.08, x, y));
+    }
+  }
+}
+
+// A roof of purple tiles, wider at the bottom.
+function paintSchoolRoof(grid, ramp) {
+  for (let y = 26; y <= 46; y++) {
+    const inset = Math.round((46 - y) * 0.45);
+    for (let x = inset; x < 96 - inset; x++) {
+      const isSeam = (x + (Math.floor((y - 26) / 4) % 2) * 3) % 6 === 0;
+      dot(grid, x, y, toneOf(ramp, 0.78 - ((y - 26) % 4) * 0.14 - (isSeam ? 0.25 : 0) - (x / 96) * 0.12, x, y));
+    }
+  }
+  fillRect(grid, 0, 46, 96, 1, ramp[0]);
+}
+
+// The tower in the middle, its pointed roof and the gold star of the Astral Circle.
+function paintTower(grid, ramp) {
+  for (let y = 14; y < 46; y++) {
+    for (let x = 38; x < 58; x++) dot(grid, x, y, toneOf(STONE_RAMP, 0.82 - (x - 38) * 0.02, x, y));
+  }
+  fillTriangle(grid, [35, 16], [48, -1], [61, 16], (x, y) => toneOf(ramp, 0.85 - (x - 35) * 0.025, x, y));
+  fillRect(grid, 44, 22, 8, 11, '#2a1a4e'); // the round window of the tower, glowing
+  fillRect(grid, 45, 23, 6, 9, '#9c80dc');
+  fillRect(grid, 46, 24, 2, 3, '#ffffff');
+  drawPicture(grid, SIGNS.star, SIGN_COLORS, 44, 1);
+}
+
+function paintArchWindow(grid, x, y) {
+  fillRect(grid, x, y + 3, 12, 13, STONE_RAMP[0]);
+  fillEllipse(grid, x + 6, y + 3, 6, 3, STONE_RAMP[0]);
+  fillRect(grid, x + 1, y + 3, 10, 12, '#6442a8');
+  fillEllipse(grid, x + 6, y + 3, 5, 2.5, '#6442a8');
+  fillRect(grid, x + 2, y + 2, 3, 4, '#d8c8ff');
+  fillRect(grid, x + 5, y + 1, 1, 14, STONE_RAMP[1]);
+}
+
+function paintDoubleDoor(grid) {
+  fillRect(grid, 34, 56, 28, 26, STONE_RAMP[0]);
+  fillEllipse(grid, 48, 57, 14, 6, STONE_RAMP[0]);
+  for (let y = 54; y < 82; y++) {
+    for (let x = 36; x < 60; x++) {
+      const inside = y >= 58 || (x - 48) * (x - 48) / 144 + (y - 58) * (y - 58) / 16 <= 1;
+      if (inside) dot(grid, x, y, x === 47 || x === 48 ? WOOD_RAMP[0] : toneOf(WOOD_RAMP, 0.6 - ((x - 36) % 4) * 0.08, x, y));
+    }
+  }
+  fillBall(grid, 44.5, 70.5, 1.3, 1.3, ['#8a6a12', '#e8b83a', '#fff2a8']);
+  fillBall(grid, 51.5, 70.5, 1.3, 1.3, ['#8a6a12', '#e8b83a', '#fff2a8']);
+}
+
+export function schoolSprite() {
+  return once('school', () => {
+    const grid = makeGrid(96, 84);
+    const ramp = ROOF_RAMPS.purple;
+    paintSchoolRoof(grid, ramp);
+    paintTower(grid, ramp);
+    paintSchoolWalls(grid);
+    paintArchWindow(grid, 8, 56);
+    paintArchWindow(grid, 76, 56);
+    paintArchWindow(grid, 20, 56);
+    paintArchWindow(grid, 64, 56);
+    paintDoubleDoor(grid);
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 0, 84);
+  });
+}
+
+// ---------- The tag of a monster ----------
+
+// The small mark over a Hard (one !) or Extreme (two !!) monster.
+export function tagMark(tag) {
+  return once('tagMark' + tag, () => {
+    const rows = tag === 'extreme' ? ['R.R', 'R.R', 'R.R', '...', 'R.R'] : ['R', 'R', 'R', '.', 'R'];
+    const color = tag === 'extreme' ? '#ff3b4f' : '#ffa62b';
+    return sprite(spriteOf(rows, { R: color }, OUTLINE), tag === 'extreme' ? 2 : 1, 7);
   });
 }
