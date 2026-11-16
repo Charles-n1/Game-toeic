@@ -14,6 +14,7 @@ import { passHours } from './days';
 import { addFriendship, addHappiness, shareFeelings } from './village';
 import { classChoice } from './classes';
 import { schoolChoice, teacherChoice } from './school';
+import { sparringChoice } from './sparring';
 import { marry, partnerOf, childrenOf } from './families';
 import { activeQuestOf, offeredQuest, isQuestReady, questProgress, startQuest, finishQuest } from './quests';
 import { workAsScribe, playWordSprint } from './duels';
@@ -400,6 +401,7 @@ function strikeNpcChoice(game, npc) {
 
 const CHOICE_MAKERS = [
   talkChoice,
+  sparringChoice,
   activeQuestChoice,
   newQuestChoice,
   shopChoice,

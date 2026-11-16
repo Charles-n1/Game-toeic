@@ -1,11 +1,14 @@
 import { NPCS, npcOf } from '../data/npcs';
 import { zoneAt, HOUSES, doorOf } from '../data/zones';
-import { isSolid } from '../world/map';
+import { isSolid, propsAround } from '../world/map';
 import { pickRandom } from '../../logic/random';
 import { killNpc, addFriendship, addHappiness } from './village';
+import { hasLight } from './torch';
+import { addBoost, clearBoostSource } from './boosts';
 import { say, notify } from './messages';
 import { burst } from './particles';
 import { cue } from './cues';
+import { emote } from './emotes';
 
 // The sky: clear, cloudy, rain, or a storm. A storm throws lightning at random: whoever is hit is knocked out
 // (KO), or killed (only the simple villagers can die of it). A KO person can be saved: the hero carries them
@@ -98,6 +101,42 @@ function nextStrikePlace(game) {
   return { x: player.x + (Math.random() - 0.5) * STRIKE_RANGE * 2, y: player.y + (Math.random() - 0.5) * STRIKE_RANGE * 1.4 };
 }
 
+export function cureCold(game, reason = null) {
+  const cold = game.player.cold;
+  if (!cold) return false;
+  const wasSick = Boolean(cold.active);
+  cold.active = false;
+  cold.exposure = 0;
+  clearBoostSource(game, 'cold');
+  if (wasSick && reason) notify(game, reason, '#7cfc9a');
+  return wasSick;
+}
+
+function updateCold(game, dt) {
+  const player = game.player;
+  if (!player.cold) player.cold = { active: false, exposure: 0 };
+  const nearFire = propsAround(player.x, player.y, 3).some((prop) => prop.kind === 'campfire' || prop.kind === 'stove');
+  if (nearFire || !isOutdoors(game)) {
+    player.cold.exposure = Math.max(0, player.cold.exposure - dt * 2.5);
+    if (nearFire && player.cold.active && Math.random() < dt * 0.08) {
+      cureCold(game, '🔥 The fire warmed you right up — your cold is gone!');
+    }
+    return;
+  }
+  if (!isRaining(game) || hasLight(game)) {
+    player.cold.exposure = Math.max(0, player.cold.exposure - dt * 0.6);
+    return;
+  }
+  player.cold.exposure += dt * (game.weather.kind === 'storm' ? 1.6 : 1.0);
+  if (!player.cold.active && player.cold.exposure >= 22) {
+    player.cold.active = true;
+    addBoost(game, 'speed', -2, null, 'cold');
+    addBoost(game, 'attack', -3, null, 'cold');
+    emote(game, 'hero', 'sweat');
+    notify(game, '🤧 You caught a cold in the rain! (-2 Speed, -3 Attack). Warm up indoors, by a fire, or with hot soup/tea.', '#9fd8ff');
+  }
+}
+
 // ---------- Every frame ----------
 
 export function updateWeather(game, dt) {
@@ -107,6 +146,7 @@ export function updateWeather(game, dt) {
     if (kind === 'storm') notify(game, '⛈️ A storm is coming. Stay away from the open fields...', '#9fb4ff');
     if (kind === 'rain') notify(game, '🌧️ It starts to rain.', '#9fd8ff');
   }
+  updateCold(game, dt);
   game.run.bolts = game.run.bolts.filter((bolt) => Date.now() - bolt.at < 600);
   if (game.weather.kind !== 'storm' || !isOutdoors(game)) return;
   game.run.strikeTime -= dt;

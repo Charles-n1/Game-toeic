@@ -31,6 +31,11 @@ export function addBoost(game, stat, amount, hours, source) {
   game.player.boosts = boosts;
 }
 
+// Clears every boost belonging to a given source (e.g. curing 'cold').
+export function clearBoostSource(game, source) {
+  game.player.boosts = boostsOf(game).filter((boost) => boost.source !== source);
+}
+
 // The boosts still running (the old ones are forgotten).
 export function activeBoosts(game) {
   const now = gameHours(game);

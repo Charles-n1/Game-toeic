@@ -701,3 +701,104 @@ export function turret(look) {
     return sprite(grid, 0, 76, outlineColor);
   });
 }
+
+// ---------- Visited Village House Interiors (dining room, bathroom/toilets, bedrooms) ----------
+
+export function toilet() {
+  return once('toilet', () => {
+    const grid = makeGrid(16, 18);
+    fillRect(grid, 3, 2, 10, 6, '#e8eef7'); // ceramic tank
+    fillRect(grid, 4, 2, 8, 2, '#ffffff');
+    fillRect(grid, 2, 8, 12, 8, '#dce4f0'); // bowl outer rim
+    fillRect(grid, 4, 9, 8, 5, '#ffffff');
+    fillEllipse(grid, 8, 12, 3, 2, '#6fa0d8'); // water
+    fillRect(grid, 5, 16, 6, 2, '#b8c4d8'); // porcelain pedestal
+    return sprite(grid, 8, 17);
+  });
+}
+
+export function basin() {
+  return once('basin', () => {
+    const grid = makeGrid(16, 20);
+    fillRect(grid, 4, 0, 8, 6, '#c8d6eb'); // wall mirror
+    fillRect(grid, 5, 1, 6, 4, '#8cc5ee');
+    fillRect(grid, 2, 7, 12, 8, '#e8eef7'); // porcelain sink counter
+    fillRect(grid, 4, 9, 8, 4, '#4aa0ff'); // water basin
+    fillRect(grid, 7, 7, 2, 3, '#9aa6b8'); // chrome tap
+    fillRect(grid, 6, 15, 4, 5, '#c9d1e0'); // pedestal
+    return sprite(grid, 8, 19);
+  });
+}
+
+export function diningTable() {
+  return once('diningTable', () => {
+    const grid = makeGrid(32, 22);
+    fillRect(grid, 1, 5, 30, 10, WOOD.base); // wooden table top
+    fillRect(grid, 1, 5, 30, 2, WOOD.light);
+    fillRect(grid, 9, 6, 14, 8, '#f6efe0'); // linen cloth runner
+    fillEllipse(grid, 6, 10, 2, 1.5, '#e8eef7'); // plate left
+    fillEllipse(grid, 25, 10, 2, 1.5, '#e8eef7'); // plate right
+    fillRect(grid, 14, 8, 4, 3, '#d9a05a'); // loaf of bread
+    fillRect(grid, 3, 15, 3, 7, WOOD.dark); // legs
+    fillRect(grid, 26, 15, 3, 7, WOOD.dark);
+    return sprite(grid, 0, 22);
+  });
+}
+
+// The bar of the Guild of Adventurers: a long wooden counter with mugs of ale on it. tiles: its width.
+export function barCounter(tiles) {
+  return once('barCounter' + tiles, () => {
+    const width = tiles * 16;
+    const grid = makeGrid(width, 26);
+    fillRect(grid, 0, 8, width, 4, WOOD.light); // the top
+    fillRect(grid, 0, 12, width, 14, WOOD.dark); // the front
+    for (let x = 3; x < width; x += 8) fillRect(grid, x, 13, 1, 12, WOOD.base); // the planks
+    fillRect(grid, 0, 24, width, 2, '#3a2416');
+    for (let x = 6; x < width - 4; x += 13) {
+      fillRect(grid, x, 3, 4, 5, '#e0a22a'); // a mug of ale...
+      fillRect(grid, x, 2, 4, 2, '#fff8ea'); // ...and its foam
+      fillRect(grid, x + 4, 4, 1, 3, '#b07a2a'); // the handle
+    }
+    return sprite(grid, 0, 25);
+  });
+}
+
+// A round table of the tavern, with two mugs.
+export function tavernTable() {
+  return once('tavernTable', () => {
+    const grid = makeGrid(28, 22);
+    fillEllipse(grid, 14, 8, 13, 5, WOOD.base);
+    fillEllipse(grid, 14, 7, 12, 4, WOOD.light);
+    fillRect(grid, 12, 12, 4, 10, WOOD.dark); // the foot
+    fillRect(grid, 8, 19, 12, 2, WOOD.dark);
+    for (const x of [7, 18]) {
+      fillRect(grid, x, 3, 4, 5, '#e0a22a');
+      fillRect(grid, x, 2, 4, 2, '#fff8ea');
+    }
+    return sprite(grid, 0, 21);
+  });
+}
+
+export function wardrobe() {
+  return once('wardrobe', () => {
+    const grid = makeGrid(16, 24);
+    fillRect(grid, 1, 1, 14, 22, WOOD.base);
+    fillRect(grid, 1, 1, 14, 3, WOOD.light);
+    fillRect(grid, 7, 4, 2, 17, WOOD.deep); // double doors seam
+    fillRect(grid, 5, 12, 1, 2, '#ffd23f'); // knobs
+    fillRect(grid, 10, 12, 1, 2, '#ffd23f');
+    return sprite(grid, 8, 23);
+  });
+}
+
+export function smallBed(color = '#5a9fd6') {
+  return once('smallBed' + color, () => {
+    const grid = makeGrid(20, 26);
+    fillRect(grid, 2, 2, 16, 22, WOOD.base);
+    fillRect(grid, 3, 4, 14, 5, '#f6efe0'); // pillow
+    fillRect(grid, 3, 9, 14, 14, color);
+    fillRect(grid, 3, 9, 14, 2, lighter(color));
+    fillRect(grid, 2, 0, 16, 3, WOOD.dark);
+    return sprite(grid, 0, 26);
+  });
+}

@@ -1,23 +1,20 @@
 import { zoneAt, dungeonOf, HOME_DOOR } from '../data/zones';
-import { MAP_SIZE, TILE, noise, TREASURES, tileAt } from '../world/map';
+import { MAP_SIZE, TILE, TREASURES, tileAt } from '../world/map';
 import { CELLS } from '../world/size';
 import { paintedGround, paintedForest } from '../world/painting';
-import paintedMapUrl from '../assets/world/world-map.jpg';
-import { BLOCK, BLOCKS, isBlockKnown, isKnown } from '../logic/explore';
+import paintedMapUrl from '../assets/world/map2.png';
+import { BLOCKS, isBlockKnown, isKnown } from '../logic/explore';
 import { PLACES, SHOP_MARKS, mainQuestMark, sideQuestMarks, blockedMarks } from '../logic/places';
 import { iconCanvas } from './icons';
 import { makeGrid, fillEllipse, drawLine, addOutline, toCanvas, once } from './pixels';
 
-// The world map: the painting of the world itself (art/MAP.png, made smaller by tools/build_world.py).
+// The world map: the high-detail painting of the world itself (art/map2.png).
 // Until it is loaded, the cells of the painting are shown, one color each.
 // Each frame draws a part of it, the fog on the places the player does not know yet, and the marks:
 // places, quests, shops, the player. The corner map of the HUD shows the real tiles around the player.
 
 const paintedMap = new Image();
 paintedMap.src = paintedMapUrl;
-
-// The places whose names are already written on the painting (their boxes are only drawn when chosen).
-const PAINTED_NAMES = ['castle', 'mountain', 'tower', 'crypt', 'greendale', 'lexia', 'port', 'ruins', 'desert', 'woods', 'watchtower', 'skyreach', 'fort'];
 
 // ---------- The painting ----------
 
@@ -71,6 +68,7 @@ function islandPosition(game) {
   const zone = zoneAt(game.player.x, game.player.y);
   if (zone.kind !== 'inside') return { x: game.player.x, y: game.player.y };
   if (zone.dungeon) return { x: dungeonOf(zone.dungeon).door[0] + 0.5, y: dungeonOf(zone.dungeon).door[1] + 0.5 };
+  if (zone.id === 'visitHouse' && game.run?.visitHouse?.exit) return { x: game.run.visitHouse.exit.x, y: game.run.visitHouse.exit.y };
   return { x: HOME_DOOR.x + 0.5, y: HOME_DOOR.y + 1 };
 }
 
@@ -175,12 +173,6 @@ function drawLabel(ctx, frame, place, isSelected) {
   return box;
 }
 
-// The box of a name written on the painting (not drawn: only to know when it is tapped).
-function labelBox(frame, place) {
-  const at = toScreen(frame, place.x, place.y);
-  return { x: Math.round(at.x - 40), y: Math.round(at.y - 10), w: 80, h: 20, place: place };
-}
-
 // Is this tile on the map shown? (the names of the places outside it are not written: they would pile up on the edges)
 function isInFrame(frame, x, y) {
   return x >= frame.left && x <= frame.left + frame.visible && y >= frame.top && y <= frame.top + frame.visible;
@@ -191,9 +183,7 @@ function drawPlaces(ctx, game, frame, view, selectedId) {
   for (const place of PLACES) {
     const showLand = place.kind !== 'land' || view.zoom >= 2;
     if (!showLand || !isInFrame(frame, place.x, place.y) || !isKnown(game, place.x, place.y)) continue;
-    const isSelected = place.id === selectedId;
-    if (PAINTED_NAMES.includes(place.id) && !isSelected) boxes.push(labelBox(frame, place));
-    else boxes.push(drawLabel(ctx, frame, place, isSelected));
+    boxes.push(drawLabel(ctx, frame, place, place.id === selectedId));
   }
   return boxes;
 }

@@ -9,5 +9,6 @@ import { furnitureProps } from './home';
 // Called when a game opens, and each time one of these things changes.
 export function refreshWorld(game) {
   setOverrides(villageBridges(game));
-  setDynamic([...villageWalls(game), ...puzzleProps(game), ...furnitureProps(game)], []);
+  const visitProps = game.run && game.run.visitHouse ? game.run.visitHouse.props : [];
+  setDynamic([...villageWalls(game), ...puzzleProps(game), ...furnitureProps(game), ...visitProps], []);
 }

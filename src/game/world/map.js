@@ -229,10 +229,20 @@ let dynamicBlocked = new Set();
 // The props that change with the game (the walls of the villages, the gates of the puzzles...).
 let dynamicProps = [];
 let dynamicBlocks = new Map();
+let mapRevision = 1;
+
+export function bumpMapRevision() {
+  mapRevision += 1;
+}
+
+export function getMapRevision() {
+  return mapRevision;
+}
 
 export function setOverrides(list) {
   overrides.clear();
   for (const item of list) overrides.set(item.y * MAP_WIDTH + item.x, item.tile);
+  mapRevision += 1;
 }
 
 // props: [{ kind, x, y, w, h }] that block (unless walkable), blockers: [{ x, y }] more tiles that block.
@@ -241,6 +251,7 @@ export function setDynamic(props, blockers) {
   dynamicBlocks = sortInBlocks(props);
   dynamicBlocked = blockedTiles(props);
   for (const item of blockers) dynamicBlocked.add(item.y * MAP_WIDTH + item.x);
+  mapRevision += 1;
 }
 
 // Every prop of the world right now (a long list: prefer propsInArea).

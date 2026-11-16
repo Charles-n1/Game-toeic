@@ -8,7 +8,7 @@ import Passage from '../../components/Passage';
 import { playEffect } from '../audio/effects';
 import { TYPES, typeOf, weaknessOf } from '../data/types';
 import { ITEMS } from '../data/items';
-import { answer, nextRound, endFight, flee, xpOfFight, castSpell, SPELL_MANA } from '../logic/fight';
+import { answer, nextRound, endFight, flee, xpOfFight, castSpell, totalOf, SPELL_MANA } from '../logic/fight';
 import { TAGS, TAG_NAMES, TAG_COLORS, TAG_POWER, spellLevel } from '../logic/skills';
 import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
@@ -20,18 +20,23 @@ const ANSWER_KEYS = ['1', '2', '3', '4', 'a', 'b', 'c', 'd']; // 1 = a, 2 = b...
 
 // One sentence that tells what the last answer did.
 function storyOf(last) {
-  if (last.fleeFailed) return { good: false, text: 'You could not escape! −' + last.taken + ' HP' };
+  const sHit = last.soldierDamage > 0 ? ' · ⚔️ Soldier +' + last.soldierDamage + ' dmg' : '';
+  const sShield = last.soldierTaken > 0 ? ' (🛡️ Soldier blocked ' + last.soldierTaken + ')' : '';
+  if (last.fleeFailed) return { good: false, text: 'You could not escape!' + (last.taken > 0 ? ' −' + last.taken + ' HP' : '') + sShield };
   const flair = last.special ? '★ ' + last.special + '! ' : '';
-  if (last.isCorrect && last.taken === 0) return { good: true, text: flair + (last.critical ? 'CRITICAL! ' : '') + (last.first ? 'You struck first! ' : 'Correct! ') + last.damage + ' damage' };
-  if (last.isCorrect) return { good: true, text: flair + 'Correct, but slow: it struck too. −' + last.taken + ' HP' };
+  if (last.isCorrect && last.taken === 0) {
+    return { good: true, text: flair + (last.critical ? 'CRITICAL! ' : '') + (last.first ? 'You struck first! ' : 'Correct! ') + last.damage + ' damage' + sHit + sShield };
+  }
+  if (last.isCorrect) return { good: true, text: flair + 'Correct, but slow: it struck too. −' + last.taken + ' HP' + sHit + sShield };
   const why = last.index === null ? 'Too slow!' : 'Wrong.';
-  return { good: false, text: last.taken > 0 ? why + ' −' + last.taken + ' HP' : why };
+  return { good: false, text: (last.taken > 0 ? why + ' −' + last.taken + ' HP' : why) + sHit + sShield };
 }
 
 // The sparks, the number and the flash on the opponent, when the hero's blow lands.
 function hitFoe(game, places, last, color, combo) {
   burst(game, places.foe.x, places.foe.y - 0.8, color, last.critical || last.special ? 36 : 16);
-  floatText(game, places.foe.x + 0.6, places.foe.y - 0.6, String(last.damage), last.critical ? '#ffd23f' : '#ffffff');
+  if (last.damage > 0) floatText(game, places.foe.x + 0.6, places.foe.y - 0.6, String(last.damage), last.critical ? '#ffd23f' : '#ffffff');
+  if (last.soldierDamage > 0) floatText(game, places.foe.x - 0.3, places.foe.y - 1.1, '⚔️ ' + last.soldierDamage, '#c9a8ff');
   if (last.special) floatText(game, places.foe.x, places.foe.y - 1.5, '★ ' + last.special + '!', '#ffd23f');
   if (combo >= 2) floatText(game, places.foe.x, places.foe.y - 2.2, 'COMBO x' + combo, '#7cfc9a');
   if (last.critical || last.special) game.run.flashUntil = Date.now() + 90;
@@ -50,11 +55,14 @@ function celebrate(game, last, color, combo) {
   const places = battlePlaces(game);
   const moments = hitMoments(last);
   playEffect(last.critical ? 'critical' : last.isCorrect ? 'good' : 'wrong');
-  if (last.damage > 0) {
+  if (last.damage > 0 || last.soldierDamage > 0) {
     setTimeout(() => {
-      playEffect(last.special ? 'specialBurst' : last.mode !== 'strike' ? 'magicCast' : game.player.party.length > 0 && Math.random() < 0.35 ? 'companionStrike' : 'slash');
+      playEffect(last.special ? 'specialBurst' : last.mode !== 'strike' && last.damage > 0 ? 'magicCast' : last.soldierDamage > 0 || game.player.party.length > 0 ? 'companionStrike' : 'slash');
       hitFoe(game, places, last, color, combo);
     }, moments.foe);
+  }
+  if (last.soldierTaken > 0) {
+    setTimeout(() => floatText(game, places.hero.x + 1.0, places.hero.y - 1.1, '🛡️ ' + last.soldierTaken, '#c9a8ff'), moments.hero);
   }
   if (last.taken > 0) setTimeout(() => hitHero(game, places, last), moments.hero);
 }
@@ -198,7 +206,7 @@ function Ending({ game, fight, onContinue }) {
       </span>
       {isWon && !opponent.duel && (
         <span className="gold" style={styles.center}>
-          +{xpOfFight(game, fight)} XP ({percent}% of {opponent.xp}) · +{opponent.lexis} Lexis
+          +{xpOfFight(game, fight)} XP ({percent}% of {totalOf(fight, 'xp')}) · +{totalOf(fight, 'lexis')} Lexis
         </span>
       )}
       {fight.bestCombo >= 2 && <span style={styles.center}>Best combo: x{fight.bestCombo}</span>}
@@ -246,6 +254,30 @@ function QuestionWindow({ fight, onAnswer, onNext }) {
       )}
     </div>
   );
+}
+
+// In a duo or a trio: who is targeted now, and who is beaten. One good answer per monster finishes a round.
+function GroupLine({ fight }) {
+  if (fight.opponents.length < 2) return null;
+  return (
+    <div className="row small" style={styles.group}>
+      <span className="gold">Round {fight.round}</span>
+      {fight.opponents.map((foe, i) => (
+        <span key={i} style={foe.health <= 0 ? styles.beaten : foe === fight.opponent ? styles.target : null}>
+          {foe.health <= 0 ? '✖ ' : foe === fight.opponent ? '▶ ' : ''}
+          {foe.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// The title of the fight: "Defeat the Slime!", "Defeat the Slime & the Wolf!", "Practice of Gerunds with...".
+function titleOf(fight) {
+  const opponent = fight.opponent;
+  if (opponent.training) return opponent.title;
+  if (opponent.duel) return opponent.title + ' with ' + opponent.name;
+  return 'Defeat ' + fight.opponents.map((foe) => foe.name).join(' & ') + '!';
 }
 
 // The fight: the hero and the opponent face to face on the map (see draw/battle.js), the questions below.
@@ -318,7 +350,7 @@ export default function FightScreen({ game, refresh }) {
 
   const isOver = ['won', 'lost', 'fled'].includes(fight.phase);
   const wide = useScreen().wide;
-  const title = opponent.duel ? opponent.title + ' with ' + opponent.name : 'Defeat ' + opponent.name + '!';
+  const title = titleOf(fight);
 
   return (
     <div className="hud">
@@ -328,6 +360,7 @@ export default function FightScreen({ game, refresh }) {
           <span>
             <span className="gold">◆</span> {title}
           </span>
+          <GroupLine fight={fight} />
           <div className="row" style={styles.chips}>
             <div className="chip" style={{ backgroundColor: type.color }}>
               <PixelIcon name={type.id} size={14} />
@@ -389,6 +422,18 @@ const styles = {
   },
   weak: {
     gap: 4,
+  },
+  group: {
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  target: {
+    color: '#ffd23f',
+  },
+  beaten: {
+    opacity: 0.45,
+    textDecoration: 'line-through',
   },
   panel: {
     pointerEvents: 'auto',

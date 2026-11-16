@@ -3,7 +3,7 @@ import { npcOf } from '../data/npcs';
 import { TILE_PX } from './tiles';
 import { OUTLINE, WOOD, WOOD_RAMP, STONE_RAMP } from './palette';
 import { makeGrid, dot, fillRect, fillEllipse, drawLine, fillTriangle, addOutline, mirrored, toCanvas, once, spriteOf } from './pixels';
-import { personSprite, walkPose } from './people';
+import { personSprite, walkPose, swordSprite } from './people';
 import { animalSprite } from './animals';
 import { monsterSprite } from './monsters';
 import * as props from './props';
@@ -224,9 +224,73 @@ function caravanDrawings(game, view, time) {
   return list;
 }
 
+function knightShieldSprite(color = '#d6302f') {
+  return once('warShield|' + color, () => {
+    const grid = makeGrid(10, 12);
+    fillRect(grid, 1, 1, 8, 7, color);
+    fillTriangle(grid, [1, 8], [5, 11], [9, 8], () => color);
+    fillRect(grid, 4, 2, 2, 7, '#ffd23f');
+    fillRect(grid, 2, 4, 6, 2, '#ffd23f');
+    return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: 5, ay: 6 };
+  });
+}
+
+function drawKnightOverlay(ctx, v, px, py, view, time, now) {
+  const dir = v.dir || 'right';
+  const shield = knightShieldSprite(v.look?.trim || '#d6302f');
+  const animAge = v.attackAnimKind === 'knight' && v.attackAnimAt ? now - v.attackAnimAt : 9999;
+  const striking = animAge >= 0 && animAge < 340;
+  const p = striking ? animAge / 340 : 0;
+  const baseAngle = dir === 'left' ? -155 : dir === 'right' ? -25 : dir === 'up' ? -90 : 75;
+  const swingAngle = striking ? baseAngle - 65 + Math.sin(p * Math.PI) * 135 : baseAngle + Math.sin(time * 5 + v.x) * 12;
+  const sword = swordSprite(swingAngle, 'steelSword');
+  const reachX = striking && v.attackDx ? Math.sign(v.attackDx) * Math.sin(p * Math.PI) * 6 : 0;
+  const reachY = striking && v.attackDy ? Math.sign(v.attackDy) * Math.sin(p * Math.PI) * 4 : 0;
+  const handX = dir === 'left' ? -7 : dir === 'right' ? 7 : 6;
+  const shieldX = dir === 'left' ? 5 : dir === 'right' ? -5 : -6;
+  put(ctx, shield, px + shieldX, py - 9 + Math.round(Math.sin(time * 4) * 0.8), view);
+  put(ctx, sword, px + handX + reachX, py - 11 + reachY, view);
+  if (striking && p > 0.2 && p < 0.85) {
+    const cx = Math.round(px + (v.attackDx ? Math.sign(v.attackDx) * 10 : dir === 'left' ? -10 : 10) - view.x);
+    const cy = Math.round(py - 12 + (v.attackDy ? Math.sign(v.attackDy) * 6 : 0) - view.y);
+    ctx.strokeStyle = 'rgba(255, 224, 102, ' + (1 - Math.abs(p - 0.5) * 2) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 11, (swingAngle * Math.PI) / 180 - 0.7, (swingAngle * Math.PI) / 180 + 0.5);
+    ctx.stroke();
+  }
+}
+
+function drawPitchforkFighter(ctx, v, px, py, view, time, now) {
+  const dir = v.dir || 'right';
+  const animAge = v.attackAnimAt ? now - v.attackAnimAt : 9999;
+  const anim = animAge >= 0 && animAge < 340;
+  const p = anim ? animAge / 340 : 0;
+  const handDx = dir === 'left' ? -6 : dir === 'right' ? 6 : 7;
+  let thrustX = 0;
+  let thrustY = 0;
+  if (anim && v.attackAnimKind === 'thrust') {
+    const pulse = Math.sin(p * Math.PI);
+    thrustX = (dir === 'left' ? -7 : dir === 'right' ? 7 : 0) * pulse;
+    thrustY = (dir === 'up' ? -6 : dir === 'down' ? 6 : -1) * pulse;
+  } else if (anim && v.attackAnimKind === 'throw') {
+    const pull = Math.sin(p * Math.PI * 1.4);
+    thrustX = (dir === 'left' ? 4 : -4) * pull;
+    thrustY = -4 * pull;
+  } else {
+    thrustY = Math.round(Math.sin(time * 3.5 + v.y) * 1.2);
+  }
+  put(ctx, pitchforkSprite(dir), px + handDx + thrustX, py - 2 + thrustY, view);
+  if (anim && v.attackAnimKind === 'thrust' && p > 0.25 && p < 0.75) {
+    ctx.fillStyle = '#fff6c8';
+    ctx.fillRect(Math.round(px + handDx + thrustX * 1.4 - view.x - 1), Math.round(py - 12 + thrustY - view.y), 3, 3);
+  }
+}
+
 function defenderOverlayDrawings(game, view, time) {
   const villagers = game.run && Array.isArray(game.run.villagers) ? game.run.villagers : [];
   const list = [];
+  const now = Date.now();
   for (const v of villagers) {
     if (!v.fighting || v.dead || v.ko || !isNear(view, v.x - 1, v.y - 2, 2, 2)) continue;
     list.push({
@@ -235,16 +299,18 @@ function defenderOverlayDrawings(game, view, time) {
         const px = v.x * T;
         const py = v.y * T;
         if (v.job === 'foreman') {
-          ctx.strokeStyle = 'rgba(255, 210, 63, ' + (0.4 + Math.sin(time * 5) * 0.2) + ')';
-          ctx.lineWidth = 1;
+          const strikeAge = v.attackAnimKind === 'foreman' && v.attackAnimAt ? now - v.attackAnimAt : 9999;
+          const strikeBoost = strikeAge < 360 ? Math.sin((strikeAge / 360) * Math.PI) * 8 : 0;
+          ctx.strokeStyle = 'rgba(255, 210, 63, ' + (0.45 + Math.sin(time * 5) * 0.25) + ')';
+          ctx.lineWidth = strikeBoost > 0 ? 2 : 1;
           ctx.beginPath();
-          ctx.arc(Math.round(px - view.x), Math.round(py - view.y), 10, 0, Math.PI * 2);
+          ctx.arc(Math.round(px - view.x), Math.round(py - view.y), 10 + strikeBoost, 0, Math.PI * 2);
           ctx.stroke();
           put(ctx, rallyBubbleSprite(), px, py - 33 + Math.round(Math.sin(time * 5)), view);
-        } else if (v.sex === 'man' && !v.knight) {
-          const dir = v.dir || 'right';
-          const handDx = dir === 'left' ? -6 : dir === 'right' ? 6 : 7;
-          put(ctx, pitchforkSprite(dir), px + handDx, py - 2, view);
+        } else if (v.knight) {
+          drawKnightOverlay(ctx, v, px, py, view, time, now);
+        } else if (v.sex === 'man') {
+          drawPitchforkFighter(ctx, v, px, py, view, time, now);
         }
       },
     });

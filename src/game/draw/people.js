@@ -557,20 +557,28 @@ export function swordSprite(angle, weapon) {
 const OBSIDIAN = ['#0d0a14', '#1a1428', '#271e3c', '#372a52', '#4b3b6e', '#6a5a9a'];
 const GLOW = '#c9a8ff';
 
-// A soldier of black glass, with a spear and glowing eyes. frame: it breathes.
+// A tall, armored guardian of black glass, with a heavy shield, crested helm, halberd and glowing eyes. frame: it breathes.
 export function obsidianSoldier(frame) {
-  return once('soldier' + (frame % 2), () => {
-    const grid = makeGrid(20, 26);
+  return once('soldierBig' + (frame % 2), () => {
+    const grid = makeGrid(32, 42);
     const lift = frame % 2;
-    paintCloth(grid, 6, 17, 8, 24, OBSIDIAN); // the legs
-    paintCloth(grid, 10, 17, 12, 24, OBSIDIAN);
-    fillBall(grid, 9.5, 13 - lift, 5.5, 5.5, OBSIDIAN, { ambient: 0.25 }); // the body
-    fillBall(grid, 9.5, 6 - lift, 4.5, 4.5, OBSIDIAN, { ambient: 0.3 }); // the helmet
-    fillRect(grid, 7, 6 - lift, 6, 1, GLOW); // the eyes behind the visor
-    drawLine(grid, 16, 1, 16, 25, OBSIDIAN[4]); // the spear
-    fillRect(grid, 15, 0, 3, 3, GLOW);
-    fillBall(grid, 15, 13 - lift, 1.6, 1.6, OBSIDIAN); // the hand
-    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 9, ay: 25 };
+    paintCloth(grid, 9, 27, 13, 39, OBSIDIAN); // left leg
+    paintCloth(grid, 16, 27, 20, 39, OBSIDIAN); // right leg
+    fillRect(grid, 8, 37, 6, 3, OBSIDIAN[1]); // heavy boots
+    fillRect(grid, 15, 37, 6, 3, OBSIDIAN[1]);
+    fillBall(grid, 14.5, 22 - lift, 8.5, 8, OBSIDIAN, { ambient: 0.25 }); // armored torso
+    fillBall(grid, 6, 17 - lift, 3.8, 3.2, OBSIDIAN, { ambient: 0.3 }); // left pauldron
+    fillBall(grid, 22, 17 - lift, 3.8, 3.2, OBSIDIAN, { ambient: 0.3 }); // right pauldron
+    fillBall(grid, 14.5, 11 - lift, 6.2, 6.2, OBSIDIAN, { ambient: 0.35 }); // crested helmet
+    drawLine(grid, 10, 6 - lift, 8, 2 - lift, OBSIDIAN[4]); // helmet horns
+    drawLine(grid, 19, 6 - lift, 21, 2 - lift, OBSIDIAN[4]);
+    fillRect(grid, 11, 11 - lift, 8, 2, GLOW); // glowing visor eyes
+    fillRect(grid, 20, 15 - lift, 7, 15, OBSIDIAN[2]); // front obsidian tower shield
+    fillRect(grid, 22, 17 - lift, 3, 11, GLOW); // shield rune
+    drawLine(grid, 28, 3, 28, 39, OBSIDIAN[4]); // tall halberd shaft
+    fillRect(grid, 26, 0, 5, 6, GLOW); // glowing halberd blade
+    fillBall(grid, 25, 21 - lift, 2.2, 2.2, OBSIDIAN); // shield hand
+    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 15, ay: 40 };
   });
 }
 

@@ -87,6 +87,8 @@ export default function StatsPanel({ game, refresh }) {
         <span className="small">
           Class: {current ? current.title : 'none yet (Menu → Classes)'} · Infamy: {society.infamy}
           {villain ? ' · ☠ Villain' : ''}
+          {player.cold?.active ? ' · 🤧 Cold (-2 Spd, -3 Atk)' : ''}
+          {player.soldiers > 0 ? ' · ♟️ Soldiers ' + player.soldiers + ' (' + (player.soldierHp || player.soldiers * 45) + ' Shield HP)' : ''}
         </span>
         <span className="small">Aria can still carry you home {player.blessings} time(s). After that, death is the end.</span>
       </div>

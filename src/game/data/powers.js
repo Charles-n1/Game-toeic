@@ -2,11 +2,11 @@
 // key: what the player must have awakened or learned to use it ('obsidian', 'lightning', or an element).
 // mana: its cost. cooldown: seconds to wait before using it again. Its icon has its id (see draw/icons.js).
 export const POWERS = [
-  // ---------- Obsidian: the hidden power. It awakens at level 3. ----------
-  { id: 'obsidianBarrier', key: 'obsidian', name: 'Obsidian Barrier', mana: 2, cooldown: 8, text: 'A ring of black glass around you for 10 s. Monsters can not pass.' },
-  { id: 'obsidianSoldier', key: 'obsidian', name: 'Obsidian Soldier', mana: 4, cooldown: 20, text: 'A soldier of obsidian follows you (3 max). Each one adds +10 damage.' },
-  { id: 'obsidianPet', key: 'obsidian', name: 'Obsidian Cat', mana: 3, cooldown: 30, text: 'A small cat of obsidian. It shows the buried treasures near you.' },
-  { id: 'obsidianBlade', key: 'obsidian', name: 'Obsidian Blade', mana: 5, cooldown: 40, text: 'Your weapon turns to obsidian: +20 damage for 5 fights.' },
+  // ---------- Obsidian: the hidden power. Awakens at level 3 (Barrier unlocked first; others require training). ----------
+  { id: 'obsidianBarrier', key: 'obsidian', name: 'Obsidian Barrier', mana: 2, cooldown: 8, train: null, text: 'A ring of black glass around you for 10 s. Monsters can not pass.' },
+  { id: 'obsidianSoldier', key: 'obsidian', name: 'Obsidian Soldier', mana: 4, cooldown: 20, train: { xp: 4, trial: 3 }, text: 'A giant obsidian sentinel stands in front, attacks every turn, and absorbs damage for you (3 max).' },
+  { id: 'obsidianPet', key: 'obsidian', name: 'Obsidian Cat', mana: 3, cooldown: 30, train: { xp: 10, trial: 4 }, text: 'A small cat of obsidian. It shows the buried treasures near you.' },
+  { id: 'obsidianBlade', key: 'obsidian', name: 'Obsidian Blade', mana: 5, cooldown: 40, train: { xp: 16, trial: 5 }, text: 'Your weapon turns to obsidian: +20 damage for 5 fights.' },
 
   // ---------- Lightning: the second hidden power. It awakens the Night of Silence. ----------
   { id: 'lightningStrike', key: 'lightning', name: 'Thunder Verdict', mana: 6, cooldown: 25, text: 'Kills the small monsters near you, wounds the big ones. No answer, so no XP.' },

@@ -141,15 +141,17 @@ function firstNotEmpty(lists) {
 // lastText: the text of the question before (null = none). Its other questions come first: like in the real
 // exam, a text is read once and answered several times.
 // Then the questions to recover today (failed before, due now): "it returns when it's time".
+// A training (at a dummy) asks only the sections chosen by the hero, and stays in the chosen category first.
 export function pickQuestion(game, opponent, usedIds, lastText) {
-  const sections = (TIERS[opponent.tier] || TIERS.small).sections;
+  const sections = opponent.sections || (TIERS[opponent.tier] || TIERS.small).sections;
   const tag = opponent.tag || tagOf(game, opponent.category);
   const bank = opponent.questions || game.run.questions; // a negotiation has its own sentences
   const fresh = bank.filter((q) => !usedIds.includes(q.id));
   const ofTier = fresh.filter((q) => sections.includes(q.section));
   const ofType = ofTier.filter((q) => q.category === opponent.category);
   const ofTag = (list) => list.filter((q) => q.difficulty === tag);
-  const pool = opponent.questions ? firstNotEmpty([fresh, bank]) : firstNotEmpty([ofTag(ofType), ofTag(ofTier), ofType, ofTier, fresh, bank]);
+  const order = opponent.training ? [ofTag(ofType), ofType, ofTag(ofTier), ofTier, fresh, bank] : [ofTag(ofType), ofTag(ofTier), ofType, ofTier, fresh, bank];
+  const pool = opponent.questions ? firstNotEmpty([fresh, bank]) : firstNotEmpty(order);
 
   const ofSameText = pool.filter((q) => q.text !== null && q.text === lastText);
   if (ofSameText.length > 0) return ofSameText[0];

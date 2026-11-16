@@ -1,19 +1,80 @@
 import { POWERS, powerOf } from '../data/powers';
+import { NPCS } from '../data/npcs';
 import { isSolid } from '../world/map';
 import { heal, maxMana } from './player';
 import { lootMonster } from './loot';
-import { notify } from './messages';
+import { notify, say } from './messages';
 import { burst, bolt, floatText } from './particles';
+import { startFight } from './fight';
+import { makeDuel } from './duels';
+import { saveGame } from './save';
 
 // The powers used on the map: obsidian, lightning, and the elements.
 // A power never kills a big monster: only a good answer can. (And a kill without answer gives no XP.)
 
 const MAX_SOLDIERS = 3;
+export const SOLDIER_MAX_HP = 45;
+// The obsidian soldiers and the cat crumble after a while (seconds of walking on the map, not in a fight or a menu).
+// "Obsidian Control", trained at the training dummies of the villages (logic/school.js), keeps them longer.
+const SUMMON_SECONDS = 20;
+const SECONDS_PER_CONTROL = 20;
+export const MAX_CONTROL = 5;
 const MANA_EVERY = 15; // seconds to get 1 mana back, just by walking around
 const DIRECTIONS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 export function knownPowers(player) {
   return POWERS.filter((power) => player.powers.includes(power.key));
+}
+
+export function isPowerUnlocked(player, powerId) {
+  const power = powerOf(powerId);
+  if (!power || !player.powers.includes(power.key)) return false;
+  if (!power.train) return true;
+  if (power.key === 'obsidian') {
+    const unlocked = player.obsidianUnlocked || ['obsidianBarrier'];
+    return unlocked.includes(powerId);
+  }
+  return true;
+}
+
+export function gainObsidianXp(game, amount = 1) {
+  const player = game.player;
+  if (!player.powers.includes('obsidian')) return;
+  if (!Array.isArray(player.obsidianUnlocked)) player.obsidianUnlocked = ['obsidianBarrier'];
+  player.obsidianXp = (player.obsidianXp || 0) + amount;
+  for (const power of POWERS) {
+    if (power.key !== 'obsidian' || !power.train) continue;
+    if (!player.obsidianUnlocked.includes(power.id) && player.obsidianXp >= power.train.xp) {
+      player.obsidianUnlocked.push(power.id);
+      notify(game, '🌑 Obsidian training complete: unlocked ' + power.name + '!', '#c9a8ff');
+    }
+  }
+}
+
+export function trainObsidianPower(game, powerId) {
+  const power = powerOf(powerId);
+  const player = game.player;
+  if (!power || !power.train || isPowerUnlocked(player, powerId)) return;
+  if (!Array.isArray(player.obsidianUnlocked)) player.obsidianUnlocked = ['obsidianBarrier'];
+  const guide = NPCS[0];
+  startFight(
+    game,
+    makeDuel(guide, {
+      title: 'Obsidian Trial: ' + power.name,
+      category: game.focus.current || 'connectors',
+      tag: 'normal',
+      health: power.train.trial,
+      speed: 11,
+      shape: 'wisp',
+      onWin: () => {
+        if (!player.obsidianUnlocked.includes(powerId)) player.obsidianUnlocked.push(powerId);
+        player.obsidianXp = Math.max(player.obsidianXp || 0, power.train.xp);
+        say(game, null, ['🌑 The black glass answers your command! You mastered ' + power.name + '!']);
+        saveGame(game);
+      },
+      onLose: () => say(game, null, ['The obsidian shard cools down. Train harder or fight more to unlock ' + power.name + '.']),
+    })
+  );
 }
 
 // Seconds before this power can be used again (0 = ready).
@@ -23,7 +84,7 @@ export function cooldownLeft(game, powerId) {
 }
 
 export function canUsePower(game, power) {
-  return game.player.mana >= power.mana && cooldownLeft(game, power.id) === 0;
+  return isPowerUnlocked(game.player, power.id) && game.player.mana >= power.mana && cooldownLeft(game, power.id) === 0;
 }
 
 function distance(a, b) {
@@ -46,6 +107,8 @@ function raiseBarrier(game) {
       }
     }
   }
+  if (!game.player.obsidianUnlocked) game.player.obsidianUnlocked = ['obsidianBarrier'];
+  gainObsidianXp(game, 1);
   return true;
 }
 
@@ -55,8 +118,10 @@ function summonSoldier(game) {
     return false;
   }
   game.player.soldiers += 1;
+  game.player.soldierHp = Math.min(game.player.soldiers * SOLDIER_MAX_HP, (game.player.soldierHp || 0) + SOLDIER_MAX_HP);
+  game.player.soldierTime = summonSeconds(game.player); // a new soldier: the whole guard stays longer
   burst(game, game.player.x, game.player.y, '#3a2f5b', 30);
-  notify(game, '♟️ An obsidian soldier rises. +10 damage.');
+  notify(game, '♟️ A tall obsidian soldier rises! Attacks every turn and shields you in front.');
   return true;
 }
 
@@ -66,6 +131,7 @@ function summonPet(game) {
     return false;
   }
   game.player.pet = true;
+  game.player.petTime = summonSeconds(game.player);
   burst(game, game.player.x, game.player.y, '#3a2f5b', 20);
   notify(game, '🐈‍⬛ It purrs like breaking glass. It will show the treasures near you.');
   return true;
@@ -76,6 +142,46 @@ function forgeBlade(game) {
   burst(game, game.player.x, game.player.y, '#b48cff', 30);
   notify(game, '🔪 Obsidian Blade: +20 damage for 5 fights.');
   return true;
+}
+
+// ---------- How long the obsidian guard and the cat stay ----------
+
+// 20 seconds, +20 for each level of Obsidian Control.
+export function summonSeconds(player) {
+  return SUMMON_SECONDS + (player.obsidianControl || 0) * SECONDS_PER_CONTROL;
+}
+
+// The soldiers go back to the ground (the player sent them away, or their time is over).
+export function dismissSoldiers(game) {
+  if (game.player.soldiers > 0) burst(game, game.player.x, game.player.y, '#3a2f5b', 20);
+  game.player.soldiers = 0;
+  game.player.soldierHp = 0;
+  game.player.soldierTime = 0;
+}
+
+export function dismissPet(game) {
+  if (game.player.pet) burst(game, game.player.x, game.player.y, '#3a2f5b', 10);
+  game.player.pet = false;
+  game.player.petTime = 0;
+}
+
+// Every frame on the map: the time of the soldiers and of the cat runs out.
+function countDownSummons(game, dt) {
+  const player = game.player;
+  if (player.soldiers > 0) {
+    player.soldierTime -= dt;
+    if (player.soldierTime <= 0) {
+      dismissSoldiers(game);
+      notify(game, '♟️ Your obsidian guard crumbles back into the ground.', '#c9a8ff');
+    }
+  }
+  if (player.pet) {
+    player.petTime -= dt;
+    if (player.petTime <= 0) {
+      dismissPet(game);
+      notify(game, '🐈‍⬛ The obsidian cat melts into a shadow.', '#c9a8ff');
+    }
+  }
 }
 
 // ---------- Lightning ----------
@@ -203,4 +309,5 @@ export function updatePowers(game, dt) {
   game.run.balls.forEach((ball) => moveBall(game, ball, dt));
   game.run.balls = game.run.balls.filter((ball) => ball.life > 0);
   regainMana(game, dt);
+  countDownSummons(game, dt);
 }

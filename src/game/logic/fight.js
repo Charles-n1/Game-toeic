@@ -10,7 +10,7 @@ import { classBonus } from './classes';
 import { lootMonster } from './loot';
 import { knockOut } from './death';
 import { saveGame } from './save';
-import { isInStormField } from './powers';
+import { isInStormField, gainObsidianXp, SOLDIER_MAX_HP } from './powers';
 import { floatText } from './particles';
 import { notify } from './messages';
 import { finalizeLinkTests } from './statLinks';
@@ -37,9 +37,9 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-// How many friends fight with the player (people + obsidian soldiers): each one adds +10 damage.
+// How many companions fight directly beside the hero.
 export function allyCount(player) {
-  return player.party.length + player.soldiers;
+  return player.party.length;
 }
 
 // The damage of one strike before the opponent's resistance: the weapon, the friends, companions, the class.
@@ -113,9 +113,13 @@ export function castSpell(game, fight, categoryId) {
   startClock(game, fight);
 }
 
-export function startFight(game, opponent) {
+// opponent: who the hero fights. others: the monsters fighting with it (a duo or a trio): each one gets a
+// question in turn, so a round of a trio is 3 answers. The fight is won when all of them are beaten.
+export function startFight(game, opponent, others = []) {
   const fight = {
-    opponent: opponent,
+    opponent: opponent, // the one the current question targets
+    opponents: [opponent, ...others],
+    round: 1, // a round = one question for each monster still standing
     asked: 0,
     correct: 0,
     usedIds: [],
@@ -133,9 +137,30 @@ export function startFight(game, opponent) {
   askNext(game, fight);
 }
 
-// The player tapped "Next" after reading the result.
+// The player tapped "Next" after reading the result: the next monster standing is targeted.
 export function nextRound(game) {
-  askNext(game, game.run.fight);
+  const fight = game.run.fight;
+  nextTarget(fight);
+  askNext(game, fight);
+}
+
+// The monsters of the fight still standing.
+export function standing(fight) {
+  return fight.opponents.filter((opponent) => opponent.health > 0);
+}
+
+// The next monster standing after the current one (in a duo or a trio). Back to the first one = a new round.
+function nextTarget(fight) {
+  if (fight.opponents.length === 1) return;
+  const start = fight.opponents.indexOf(fight.opponent);
+  for (let step = 1; step <= fight.opponents.length; step++) {
+    const index = (start + step) % fight.opponents.length;
+    if (fight.opponents[index].health > 0) {
+      if (index <= start) fight.round += 1;
+      fight.opponent = fight.opponents[index];
+      return;
+    }
+  }
 }
 
 // The hit of the player: { damage, critical }. A spell uses the magic resistance, a strike the resistance.
@@ -181,9 +206,24 @@ function classAfterHit(game, damage, companionHeal = 0) {
 }
 
 function phaseAfter(game, fight) {
-  if (fight.opponent.health <= 0) return 'won';
+  if (standing(fight).length === 0) return 'won';
   if (fight.opponent.duel) return fight.asked - fight.correct >= (fight.opponent.mistakesAllowed || DUEL_MISTAKES) ? 'lost' : 'result';
   return game.player.health <= 0 ? 'lost' : 'result';
+}
+
+// Obsidian soldiers stand in front and absorb damage meant for the hero.
+function absorbBySoldiers(game, rawTaken) {
+  const player = game.player;
+  if (rawTaken <= 0 || player.soldiers <= 0) return { heroTaken: rawTaken, soldierTaken: 0 };
+  if (!player.soldierHp || player.soldierHp <= 0) player.soldierHp = player.soldiers * SOLDIER_MAX_HP;
+  const absorbed = Math.min(rawTaken, player.soldierHp);
+  player.soldierHp -= absorbed;
+  const remaining = player.soldierHp > 0 ? Math.ceil(player.soldierHp / SOLDIER_MAX_HP) : 0;
+  if (remaining < player.soldiers) {
+    player.soldiers = remaining;
+    notify(game, '💥 An Obsidian Soldier shattered shielding you!', '#c9a8ff');
+  }
+  return { heroTaken: rawTaken - absorbed, soldierTaken: absorbed };
 }
 
 // The player answered. index: the tapped answer (null = the time ran out).
@@ -192,7 +232,7 @@ export function answer(game, fight, index) {
   const question = fight.question;
   const isCorrect = index === question.correct_index;
   const used = clamp((Date.now() - fight.startedAt) / fight.limit, 0, 1);
-  const last = { index: index, isCorrect: isCorrect, first: false, damage: 0, critical: false, taken: 0, at: Date.now() };
+  const last = { index: index, isCorrect: isCorrect, first: false, damage: 0, soldierDamage: 0, soldierTaken: 0, critical: false, taken: 0, at: Date.now() };
 
   fight.asked += 1;
   if (isCorrect) fight.correct += 1;
@@ -211,11 +251,20 @@ export function answer(game, fight, index) {
     if (!opponent.duel) {
       classAfterHit(game, hit.damage, companionStatBonuses(game).heal);
     }
-    if (!last.first && opponent.health > 0) last.taken = monsterHit(game, opponent, true);
-  } else {
-    last.taken = monsterHit(game, opponent, false);
   }
-  if (opponent.duel) last.taken = 0;
+  // Obsidian soldiers attack every turn automatically when fighting monsters!
+  if (!opponent.duel && game.player.soldiers > 0 && opponent.health > 0) {
+    const tag = TAG_POWER[question.difficulty] || 1;
+    const sDmg = Math.max(4, Math.round(game.player.soldiers * 12 * tag * (1 - (opponent.resistance || 0))));
+    opponent.health -= sDmg;
+    last.soldierDamage = sDmg;
+  }
+  if (!opponent.duel && opponent.health > 0 && (!isCorrect || !last.first)) {
+    const rawTaken = monsterHit(game, opponent, isCorrect);
+    const guard = absorbBySoldiers(game, rawTaken);
+    last.taken = guard.heroTaken;
+    last.soldierTaken = guard.soldierTaken;
+  }
   game.player.health -= last.taken;
   last.mode = fight.mode; // 'strike', or the spell used (for the animation)
   fight.last = last;
@@ -230,14 +279,16 @@ function countCombo(fight, isCorrect) {
 
 // Running away: easier when the player is faster. Failing costs a hit. Nobody runs from a boss or a duel.
 export function flee(game, fight) {
-  const chance = clamp(0.5 + (speedOf(game.player, game) - fight.opponent.speed) * 0.04, 0.2, 0.95);
+  const fastest = Math.max(...standing(fight).map((opponent) => opponent.speed));
+  const chance = clamp(0.5 + (speedOf(game.player, game) - fastest) * 0.04, 0.2, 0.95);
   if (Math.random() < chance) {
     fight.phase = 'fled';
     return;
   }
-  const taken = monsterHit(game, fight.opponent, false);
-  game.player.health -= taken;
-  fight.last = { index: null, isCorrect: false, first: false, damage: 0, critical: false, taken: taken, at: Date.now(), fleeFailed: true };
+  const rawTaken = monsterHit(game, fight.opponent, false);
+  const guard = absorbBySoldiers(game, rawTaken);
+  game.player.health -= guard.heroTaken;
+  fight.last = { index: null, isCorrect: false, first: false, damage: 0, soldierDamage: 0, soldierTaken: guard.soldierTaken, critical: false, taken: guard.heroTaken, at: Date.now(), fleeFailed: true };
   fight.phase = game.player.health <= 0 ? 'lost' : 'result';
 }
 
@@ -245,7 +296,12 @@ export function flee(game, fight) {
 export function xpOfFight(game, fight) {
   if (fight.asked === 0) return 0;
   const bonus = 1 + (classBonus(game, 'xp') + companionStatBonuses(game).xp) / 100;
-  return Math.round(((fight.opponent.xp * fight.correct) / fight.asked) * bonus);
+  return Math.round(((totalOf(fight, 'xp') * fight.correct) / fight.asked) * bonus);
+}
+
+// The XP or the Lexis of all the monsters of the fight together.
+export function totalOf(fight, key) {
+  return fight.opponents.reduce((total, opponent) => total + (opponent[key] || 0), 0);
 }
 
 function maybeDropGear(game, opponent) {
@@ -263,10 +319,11 @@ function maybeDropGear(game, opponent) {
 function winBattle(game, fight) {
   const xp = xpOfFight(game, fight);
   const compLexis = companionStatBonuses(game).lexis;
-  lootMonster(game, fight.opponent);
-  earnLexis(game, Math.round((fight.opponent.lexis * (classBonus(game, 'lexis') + compLexis)) / 100)); // the Brigand's & companion share
+  fight.opponents.forEach((opponent) => lootMonster(game, opponent));
+  earnLexis(game, Math.round((totalOf(fight, 'lexis') * (classBonus(game, 'lexis') + compLexis)) / 100)); // the Brigand's & companion share
   restoreMana(game.player, classBonus(game, 'mana'));
   recordCompanionCombat(game);
+  gainObsidianXp(game, fight.opponent.boss ? 3 : fight.opponents.length);
   addCompanionFatigue(game, fight.opponent.boss ? 12 : 6);
   maybeDropGear(game, fight.opponent);
   floatText(game, game.player.x, game.player.y, '+' + xp + ' XP', '#7CFC9A');

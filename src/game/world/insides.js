@@ -214,6 +214,7 @@ function joinFloors() {
 export function buildInsides() {
   for (const inside of INSIDES) {
     if (inside.kind === 'home') buildHome(inside);
+    else if (inside.kind === 'houseVisit') continue;
     else if (dungeonOf(inside.dungeon).look === 'tower') buildTowerFloor(inside);
     else buildFloor(inside);
   }

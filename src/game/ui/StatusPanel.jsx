@@ -31,7 +31,8 @@ function NeedBar({ icon, value, color }) {
   );
 }
 
-// The hero, top-left of the screen: the face, the level, the HP and the MP. With the Lexis (the money).
+// The hero, top-left of the screen: the face, the level, the HP and the MP.
+// (The Lexis are not shown here: they are in the Inventory and in the shops.)
 export default function StatusPanel({ game }) {
   const player = game.player;
   return (
@@ -40,15 +41,9 @@ export default function StatusPanel({ game }) {
         <Portrait look={player.look} size={64} />
       </div>
       <div className="window" style={styles.stats}>
-        <div className="row between">
-          <span style={styles.level}>
-            {player.name} <span className="gold">Lv. {player.level}</span>
-          </span>
-          <div className="row" style={styles.lexis}>
-            <PixelIcon name="lexis" size={14} />
-            <span>{player.lexis}</span>
-          </div>
-        </div>
+        <span style={styles.level}>
+          {player.name} <span className="gold">Lv. {player.level}</span>
+        </span>
         <StatLine label="HP" value={player.health} max={maxHealth(player, game)} color="#e8423f" />
         <StatLine label="MP" value={player.mana} max={maxMana(player)} color="#3a7bff" />
         <div className="row" style={styles.needs}>
@@ -79,11 +74,6 @@ const styles = {
   },
   level: {
     fontSize: 16,
-  },
-  lexis: {
-    fontSize: 14,
-    gap: 4,
-    color: '#ffd86b',
   },
   stat: {
     marginTop: 2,

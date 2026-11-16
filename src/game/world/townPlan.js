@@ -171,41 +171,66 @@ function graveyardIn(lot, plan) {
 }
 
 function gardenIn(lot, plan, random) {
-  plan.trees.push({ x: lot.x + between(random, 3, 10), y: lot.y + between(random, 3, 6) });
+  plan.trees.push({ x: lot.x + between(random, 3, 10), y: lot.y + between(random, 3, 5) });
   plan.flowers.push({ x: lot.x + 2, y: lot.y + 7, w: CELL_W - 5, h: 2 });
+  plan.props.push({ kind: 'bench', x: lot.x + 5, y: lot.y + 5, w: 2, h: 1 });
+  plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: lot.x + 3, y: lot.y + 5, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: lot.x + 8, y: lot.y + 5, w: 1, h: 1, walkable: true });
 }
 
-// A few things around a building: a statue by a church, barrels, crates, logs, or hay.
+// Rich exterior decorations around every building (never blocking its front door).
 function decorate(house, plan, random) {
+  const doorX = house.x + Math.floor(house.w / 2);
+  const leftX = house.x + 1;
+  const rightX = house.x + house.w - 2;
   if (house.role === 'church') {
     plan.props.push({ kind: 'statue', x: house.x + 1, y: house.y + house.h, w: 2, h: 2 });
+    if (rightX > doorX) plan.props.push({ kind: 'topiary', x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: 'flowerPot', variant: 1, x: house.x, y: house.y + house.h, w: 1, h: 1, walkable: true });
     return;
+  }
+  if (leftX < doorX) {
+    plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: leftX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+  }
+  if (rightX > doorX && (house.role === 'inn' || house.role === 'clinic' || house.role === 'school' || random() < 0.7)) {
+    plan.props.push({ kind: house.role === 'inn' || house.size === 'palace' ? 'topiary' : 'flowerPot', variant: between(random, 0, 2), x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
   }
   const kind = house.role === 'farm' || house.role === 'mill' ? 'hay' : house.style === 'hut' ? 'logs' : pickWith(random, ['barrels', 'crates', 'barrels', null]);
   if (!kind || house.size === 'palace') return;
   plan.props.push({ kind: kind, x: house.x + house.w, y: house.y + house.h - 1, w: kind === 'logs' ? 2 : 1, h: 1 });
 }
 
-// The garden of the hero, beside the home: soil to plant in.
+// The hero garden next to home: soil to plant in, plus a welcoming flower pot.
 function heroGarden(house, plan) {
   plan.fields.push({ x: house.x + house.w + 1, y: house.y + 1, w: 3, h: house.h - 2, crop: null, village: house.village, garden: true });
 }
 
 // ---------- The square ----------
 
-function squareProps(place, square, plan) {
+function squareProps(place, square, plan, random) {
   const middle = { x: square.x + Math.floor(square.w / 2), y: square.y + Math.floor(square.h / 2) };
   const isBig = place.kind === 'town' || place.kind === 'capital';
   if (isBig) plan.props.push({ kind: 'fountain', x: middle.x - 1, y: middle.y - 3, w: 2, h: 2 });
   else plan.props.push({ kind: 'well', x: middle.x + 3, y: middle.y - 3, w: 1, h: 1 });
   plan.props.push({ kind: 'campfire', x: middle.x + 4, y: middle.y + 3, w: 1, h: 1 }); // the fire of the feasts
   plan.props.push({ kind: 'board', x: square.x + 1, y: square.y + 1, w: 1, h: 1 }); // the notice board (bounties)
+  plan.props.push({ kind: 'flowerPot', variant: 0, x: square.x + 2, y: square.y + 1, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: 'flowerPot', variant: 2, x: square.x + square.w - 2, y: square.y + 1, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: 'signpost', x: square.x + 1, y: square.y + square.h - 2, w: 1, h: 1 });
   if (place.kind !== 'hamlet') {
     for (const [x, y] of [[square.x, square.y], [square.x + square.w - 1, square.y], [square.x, square.y + square.h - 1], [square.x + square.w - 1, square.y + square.h - 1]]) plan.props.push({ kind: 'lamp', x: x, y: y, w: 1, h: 1 });
+    plan.props.push({ kind: 'bench', x: middle.x - 4, y: middle.y - 1, w: 2, h: 1 });
   }
   if (isBig) {
     plan.props.push({ kind: 'stall', x: square.x + 3, y: square.y + square.h - 4, w: 2, h: 2 });
     plan.props.push({ kind: 'stall', x: square.x + square.w - 6, y: square.y + square.h - 4, w: 2, h: 2 });
+    plan.props.push({ kind: 'bench', x: middle.x + 2, y: middle.y - 1, w: 2, h: 1 });
+    plan.props.push({ kind: 'topiary', x: square.x + 2, y: square.y + 2, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: 'topiary', x: square.x + square.w - 3, y: square.y + 2, w: 1, h: 1, walkable: true });
+    const flagColors = ['#d6302f', '#3b7be0', '#2e9e54', '#c9961e', '#8b5ad6'];
+    const bannerColor = flagColors[Math.floor(random() * flagColors.length)];
+    plan.props.push({ kind: 'banner', color: bannerColor, x: middle.x - 5, y: square.y + 1, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: 'banner', color: bannerColor, x: middle.x + 4, y: square.y + 1, w: 1, h: 1, walkable: true });
   }
   if (place.kind === 'capital') {
     plan.props.push({ kind: 'statue', x: middle.x - 9, y: middle.y - 3, w: 2, h: 2 });
@@ -263,7 +288,7 @@ export function planTown(place) {
     plan.houses.push({ ...palace, role: 'palace', size: 'palace', style: 'stone', roof: place.roof, sign: null, village: place.id });
     plan.downtown = { x: place.x + Math.floor(place.w / 4), y: place.y + Math.floor(place.h / 4), w: Math.floor(place.w / 2) + STREET, h: Math.floor(place.h / 2) + STREET };
   }
-  plan.center = squareProps(place, square, plan);
+  plan.center = squareProps(place, square, plan, random);
   const lots = lotsOf(place, streets, [square, ...(palace ? [palace] : [])]);
   fillLots(place, lots, plan, random);
   return plan;

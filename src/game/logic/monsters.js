@@ -18,6 +18,10 @@ const SIGHT = 5.5; // tiles: a monster this close runs to the player
 const TOUCH = 0.7; // tiles: this close = the fight starts
 
 const ELITE_CHANCE = 0.1; // in the dangerous lands, a wild monster is sometimes one tag above the hero
+const PACK_CHANCE = 0.3; // a wild monster sometimes comes with friends: a duo...
+const TRIO_CHANCE = 0.1; // ...or a trio
+const PACK_RANGE = 3; // tiles: the monsters this close to the one touched join the fight
+const PACK_MAX = 3; // never more than 3 monsters in one fight
 
 // The tag of a new monster: the tag of its species, or the tag the hero has reached in its type (the higher one).
 // In a dangerous land (danger 2 and more), a wild one is sometimes an "elite": one tag higher.
@@ -106,7 +110,22 @@ function spawnWild(game) {
   const place = spawnPlace(game);
   if (!place) return;
   const list = speciesFor(game, zoneAt(place.x, place.y));
-  if (list.length > 0) game.run.monsters.push(makeMonster(game, pickRandom(list), place.x, place.y));
+  if (list.length === 0) return;
+  const roll = Math.random();
+  const size = roll < TRIO_CHANCE ? 3 : roll < PACK_CHANCE ? 2 : 1;
+  for (let i = 0; i < size; i++) {
+    const spot = i === 0 ? place : { x: place.x + (Math.random() - 0.5) * 2, y: place.y + (Math.random() - 0.5) * 2 };
+    if (i > 0 && isSolid(spot.x, spot.y)) continue;
+    game.run.monsters.push(makeMonster(game, pickRandom(list), spot.x, spot.y));
+  }
+}
+
+// The wild monsters near the one touched join the fight (a duo or a trio). Never with a boss or a guard.
+function packOf(game, touched) {
+  if (!isWild(touched) || touched.boss || touched.warKind) return [];
+  return game.run.monsters
+    .filter((monster) => monster !== touched && isWild(monster) && !monster.boss && !monster.warKind && distance(monster, touched) < PACK_RANGE)
+    .slice(0, PACK_MAX - 1);
 }
 
 function removeFarMonsters(game) {
@@ -183,5 +202,5 @@ export function updateMonsters(game, dt) {
   game.run.monsters.forEach((monster) => moveMonster(game, monster, dt));
 
   const touched = touchedMonster(game);
-  if (touched && Date.now() > game.run.safeUntil) startFight(game, touched);
+  if (touched && Date.now() > game.run.safeUntil) startFight(game, touched, packOf(game, touched));
 }

@@ -38,21 +38,37 @@ function foeSprite(opponent, frame, pose = 'idle') {
 
 // What the opponent is doing now: jumping to strike, falling (beaten), or waiting.
 function foePose(fight, last, ages) {
-  if (fight.phase === 'won' && ages.foeHit > 0) return { pose: 'death', frame: Math.min(2, Math.floor(ages.foeHit / 220)) };
+  if (fight.opponent.health <= 0 && ages.foeHit > 0) return { pose: 'death', frame: Math.min(2, Math.floor(ages.foeHit / 220)) };
   if (last && last.taken > 0 && ages.foe >= 0 && ages.foe <= FOE_JUMP) return { pose: 'attack', frame: 0 };
   return { pose: 'idle', frame: Math.floor(Date.now() / 450) % 2 };
 }
 
-// Tiles between the two fighters: enough room for the opponent, however big it is.
+// Tiles between the two fighters: enough room for the opponent and spaced front-line soldiers.
 export function battleGap(game) {
   const width = foeSprite(game.run.fight.opponent, 0).canvas.width;
-  return Math.max(BATTLE_GAP, (width / 2 + 20) / TILE_PX);
+  const base = (game.player.soldiers || 0) > 0 ? 3.6 : BATTLE_GAP;
+  return Math.max(base, (width / 2 + 24) / TILE_PX);
 }
 
-// Where the two fighters stand, in tiles.
+// Where the monsters of a duo or a trio stand, around the first place (tiles: [right, down]).
+const GROUP_SPOTS = {
+  1: [[0, 0]],
+  2: [[0, -0.8], [1, 0.8]],
+  3: [[0, -1.3], [1.2, 0], [0, 1.3]],
+};
+
+// Where this opponent stands, in tiles.
+function foeSpot(game, opponent) {
+  const fight = game.run.fight;
+  const spots = GROUP_SPOTS[fight.opponents.length] || GROUP_SPOTS[1];
+  const [dx, dy] = spots[fight.opponents.indexOf(opponent)] || [0, 0];
+  return { x: game.player.x + battleGap(game) + dx, y: game.player.y + dy };
+}
+
+// Where the hero and the opponent targeted now stand, in tiles.
 export function battlePlaces(game) {
   const player = game.player;
-  return { hero: { x: player.x, y: player.y }, foe: { x: player.x + battleGap(game), y: player.y } };
+  return { hero: { x: player.x, y: player.y }, foe: foeSpot(game, game.run.fight.opponent) };
 }
 
 // ---------- The time line of a turn ----------
@@ -156,7 +172,7 @@ function isBlinking(hitAge) {
 // A beaten opponent fades away: 1 = fully there, 0 = gone.
 // A beaten opponent fades away (slower for the monsters of the sheets: they play their fall first).
 function foeOpacity(fight, ages) {
-  if (fight.phase !== 'won') return 1;
+  if (fight.opponent.health > 0) return 1;
   const wait = fight.opponent.art ? FLASH_TIME + 500 : FLASH_TIME;
   return Math.max(0, Math.min(1, 1 - (ages.foeHit - wait) / FADE_TIME));
 }
@@ -303,13 +319,20 @@ function drawHealthBar(ctx, x, y, width, value, max) {
   ctx.fillRect(left, y, Math.round((width * Math.max(0, value)) / max), 1);
 }
 
+// A small yellow arrow over the monster targeted by the question (in a duo or a trio).
+function drawTargetArrow(ctx, x, y, time) {
+  const bob = Math.round(Math.sin(time * 6));
+  ctx.fillStyle = '#ffd23f';
+  for (let row = 0; row < 4; row++) ctx.fillRect(Math.round(x - 3 + row), y - 4 + row + bob, 7 - row * 2, 1);
+}
+
 function drawSprite(ctx, sprite, x, y) {
   ctx.drawImage(sprite.canvas, Math.round(x - sprite.ax), Math.round(y - sprite.ay));
 }
 
 // ---------- The friends of the hero ----------
 
-// Where the friends stand, from the hero (pixels): behind them, some higher (farther), some lower (closer).
+// Where the friends stand behind hero: party companions and the obsidian cat.
 const ALLY_SPOTS = [
   [-27, -11],
   [-31, 10],
@@ -318,19 +341,50 @@ const ALLY_SPOTS = [
   [-14, 15],
 ];
 
-// The friends who fight with the hero: the recruited people, the obsidian soldiers, the obsidian cat.
-// inFront: true = only the ones lower than the hero (drawn after the hero), false = the others.
-function drawAllies(ctx, game, hero, time, inFront) {
+// Where the obsidian soldiers stand: IN FRONT OF the hero with clear formation spacing.
+const SOLDIER_SPOTS = [
+  [25, -14],
+  [36, 1],
+  [25, 16],
+];
+
+// Draws companions behind hero, and obsidian soldiers standing IN FRONT of the hero.
+function drawAllies(ctx, game, home, time, inFront, last, ages) {
   const player = game.player;
   const friends = [
     ...player.party.map((id, i) => personSprite(npcOf(id).look, 'right', Math.floor(time * 1.4 + i) % 2 ? 'breath' : 'stand')),
-    ...Array.from({ length: player.soldiers }, (_, i) => obsidianSoldier(Math.floor(time * 3) + i)),
     ...(player.pet ? [obsidianCat()] : []),
   ];
   friends.slice(0, ALLY_SPOTS.length).forEach((sprite, i) => {
     const [dx, dy] = ALLY_SPOTS[i];
-    if (dy > 0 === inFront) drawSprite(ctx, sprite, hero.x + dx, hero.y + dy);
+    if (dy > 0 === inFront) drawSprite(ctx, sprite, home.x + dx, home.y + dy);
   });
+
+  const lunge = last && last.soldierDamage > 0 && ages && ages.all >= 0 && ages.all < 380 ? Math.sin((ages.all / 380) * Math.PI) * 14 : 0;
+  for (let i = 0; i < Math.min(player.soldiers, SOLDIER_SPOTS.length); i++) {
+    const [dx, dy] = SOLDIER_SPOTS[i];
+    if (dy > 0 === inFront) {
+      const spr = obsidianSoldier(Math.floor(time * 3 + i) % 2);
+      const bob = Math.round(Math.sin(time * 4 + i * 1.4));
+      const sx = home.x + dx + lunge;
+      const sy = home.y + dy + bob;
+      drawSprite(ctx, spr, sx, sy);
+      if (lunge > 4) {
+        ctx.strokeStyle = '#d8b4f8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx + 10, sy - 22, 11, -0.8, 0.8);
+        ctx.stroke();
+      }
+      if (last && last.soldierTaken > 0 && ages && ages.heroHit >= 0 && ages.heroHit < 300) {
+        ctx.strokeStyle = '#c9a8ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx + 6, sy - 20, 13, -1.1, 1.1);
+        ctx.stroke();
+      }
+    }
+  }
 }
 
 // Draws companion effects scaling with their strength (Rank 0 = none/faint, 1..4 = up to 4 distinct sprites/auras).
@@ -371,6 +425,22 @@ function drawCompanionEffects(ctx, game, middle, last, ages) {
   });
 }
 
+// ---------- The other monsters of a duo or a trio ----------
+
+// They wait their turn (they breathe), with their health bar. The beaten ones are gone.
+function drawWaitingFoes(ctx, game, camera, time) {
+  const fight = game.run.fight;
+  for (const opponent of fight.opponents) {
+    if (opponent === fight.opponent || opponent.health <= 0) continue;
+    const spot = foeSpot(game, opponent);
+    const look = foeSprite(opponent, Math.floor(time * 3 + fight.opponents.indexOf(opponent)) % 2, 'idle');
+    const x = spot.x * TILE_PX - camera.x;
+    const y = spot.y * TILE_PX - camera.y;
+    drawSprite(ctx, look, x, y);
+    drawHealthBar(ctx, x, y - look.ay - 6, Math.max(26, Math.round(look.canvas.width * 0.6)), opponent.health, opponent.maxHealth);
+  }
+}
+
 // ---------- Everything ----------
 
 // Where everything is right now, in pixels of the screen buffer. camera: the top-left of the screen.
@@ -396,7 +466,7 @@ export function drawBattle(ctx, game, camera, time) {
   const stage = stageOf(game, camera, time);
   const { fight, last, ages, home, hero, foe, foeHome, foeLook, pose } = stage;
 
-  drawAllies(ctx, game, home, time, false);
+  drawAllies(ctx, game, home, time, false, last, ages);
   const heroSprite = personSprite(game.player.look, 'right', pose);
   drawSprite(ctx, heroSprite, hero.x, hero.y);
   if (heroSprite.sword !== undefined && heroSprite.hand) {
@@ -404,7 +474,8 @@ export function drawBattle(ctx, game, camera, time) {
     drawSprite(ctx, sword, hero.x - heroSprite.ax + heroSprite.hand[0], hero.y - heroSprite.ay + heroSprite.hand[1]);
   }
 
-  drawAllies(ctx, game, home, time, true);
+  drawAllies(ctx, game, home, time, true, last, ages);
+  drawWaitingFoes(ctx, game, camera, time);
 
   const opacity = foeOpacity(fight, ages);
   const middle = { x: foeHome.x, y: foeHome.y - Math.round(foeLook.ay / 2) }; // where the blows land
@@ -415,6 +486,7 @@ export function drawBattle(ctx, game, camera, time) {
     ctx.globalAlpha = 1;
     const barWidth = Math.max(26, Math.round(foeLook.canvas.width * 0.6));
     if (!fight.opponent.duel) drawHealthBar(ctx, foeHome.x, foeHome.y - foeLook.ay - 6, barWidth, fight.opponent.health, fight.opponent.maxHealth);
+    if (fight.opponents.length > 1 && fight.opponent.health > 0) drawTargetArrow(ctx, foeHome.x, foeHome.y - foeLook.ay - 10, time);
   }
 
   if (last && last.damage > 0 && last.mode === 'strike') drawSlash(ctx, { x: hero.x + 3, y: hero.y - 13 }, ages.hero, last);

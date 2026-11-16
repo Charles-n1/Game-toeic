@@ -1127,6 +1127,75 @@ export function hay() {
   });
 }
 
+// Decorative wooden / clay planter box with bright blooms. variant: 0, 1 or 2.
+export function flowerPot(variant = 0) {
+  return once('flowerPot|' + (variant % 3), () => {
+    const palettes = [
+      ['#e8423f', '#ffd23f', '#fff6c8'],
+      ['#5a9fd6', '#b48cff', '#eef6ff'],
+      ['#ff6fa8', '#ffd23f', '#ffffff'],
+    ];
+    const [c1, c2, hi] = palettes[variant % 3];
+    const grid = makeGrid(14, 16);
+    fillRect(grid, 2, 10, 10, 5, WOOD.base);
+    fillRect(grid, 1, 9, 12, 2, WOOD.light);
+    fillRect(grid, 2, 13, 10, 2, WOOD.dark);
+    fillEllipse(grid, 7, 7, 5, 3, LEAF_RAMP[2]);
+    fillEllipse(grid, 7, 6, 4, 2.5, LIGHT_LEAF_RAMP[3]);
+    [[4, 5, c1], [7, 4, c2], [10, 6, c1], [6, 7, hi], [9, 5, c2]].forEach(([fx, fy, col]) => {
+      fillRect(grid, fx, fy, 2, 2, col);
+    });
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 7, 15);
+  });
+}
+
+// Cozy park / square bench (2 tiles wide = 32px).
+export function bench() {
+  return once('bench', () => {
+    const grid = makeGrid(32, 18);
+    // Cast-iron legs
+    fillRect(grid, 3, 11, 2, 6, IRON.base);
+    fillRect(grid, 27, 11, 2, 6, IRON.base);
+    fillRect(grid, 3, 3, 2, 8, IRON.base);
+    fillRect(grid, 27, 3, 2, 8, IRON.base);
+    // Backrest & seat wooden slats
+    fillRect(grid, 2, 3, 28, 3, WOOD_RAMP[3]);
+    fillRect(grid, 2, 7, 28, 2, WOOD_RAMP[2]);
+    fillRect(grid, 1, 10, 30, 3, WOOD_RAMP[4]);
+    fillRect(grid, 1, 12, 30, 1, WOOD_RAMP[1]);
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 16, 17);
+  });
+}
+
+// Sculpted rounded topiary shrub in a stone planter.
+export function topiary() {
+  return once('topiary', () => {
+    const grid = makeGrid(16, 26);
+    fillRect(grid, 4, 19, 8, 6, STONE_RAMP[2]);
+    fillRect(grid, 3, 18, 10, 2, STONE_RAMP[4]);
+    fillRect(grid, 7, 14, 2, 5, WOOD.dark);
+    fillBall(grid, 8, 9, 5.5, 5.5, LEAF_RAMP, { ambient: 0.2, brightness: 1.1 });
+    dot(grid, 6, 7, '#ff8ca8');
+    dot(grid, 10, 10, '#ffd23f');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 8, 25);
+  });
+}
+
+// Tall town pennant pole in kingdom colors.
+export function bannerPole(color = '#d6302f') {
+  return once('bannerPole|' + color, () => {
+    const grid = makeGrid(14, 30);
+    fillRect(grid, 6, 2, 2, 26, WOOD_RAMP[2]);
+    fillRect(grid, 4, 26, 6, 3, STONE_RAMP[2]);
+    fillRect(grid, 5, 1, 4, 2, '#ffd23f');
+    fillRect(grid, 2, 4, 10, 13, color);
+    fillTriangle(grid, [2, 17], [7, 21], [12, 17], () => color);
+    fillRect(grid, 6, 7, 2, 7, '#ffd23f');
+    fillRect(grid, 4, 9, 6, 2, '#ffd23f');
+    return sprite(toCanvas(addOutline(grid, OUTLINE)), 7, 29);
+  });
+}
+
 // ---------- The tag of a monster ----------
 
 // The small mark over a Hard (one !) or Extreme (two !!) monster.

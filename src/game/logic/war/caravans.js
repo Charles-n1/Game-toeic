@@ -202,8 +202,7 @@ function updateCaravanAttackers(game, caravan, dt) {
         caravan.underAttack = false;
         addCorpse(game, 'merchant', caravan.name, caravan.x, caravan.y, caravan.merchantLook);
         game.run.monsters = game.run.monsters.filter((other) => other.caravanId !== caravan.id);
-        notify(game, '💀 ' + caravan.name + ' fell on the road...', '#ff8080');
-        return;
+        return; // no toast: a merchant dying far away is not fun to read
       }
     }
   }

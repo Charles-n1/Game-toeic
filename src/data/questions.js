@@ -1,5 +1,6 @@
 // Our "database" (hardcoded for now).
 import { MORE_RC10, MORE_RC8, MORE_TEXT } from './moreQuestions';
+import { GENERATED_RC10 } from './generated';
 
 let nextId = 1;
 
@@ -11109,4 +11110,16 @@ const MORE = [
   ),
 ];
 
-export const QUESTIONS = [...RC10, ...RC8, ...TEXT, ...MORE];
+// ---------- The generated questions (src/data/generated/) ----------
+// Short sentences built from models: 15 times more questions in each grammar category.
+// A generated sentence already in the database is skipped (the text of a question is its key in the saves).
+const WRITTEN = [...RC10, ...RC8, ...TEXT, ...MORE];
+const takenSentences = new Set(WRITTEN.filter((question) => question.section === 'rc10').map((question) => question.question));
+const GENERATED = [];
+for (const item of GENERATED_RC10) {
+  if (takenSentences.has(item.question)) continue;
+  takenSentences.add(item.question);
+  GENERATED.push(createQuestion({ ...item, section: 'rc10' }));
+}
+
+export const QUESTIONS = [...WRITTEN, ...GENERATED];

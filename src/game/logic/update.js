@@ -6,6 +6,8 @@ import { updateMonsters } from './monsters';
 import { updatePeople, personNear, talkTo } from './people';
 import { updateFollowers } from './followers';
 import { updatePowers } from './powers';
+import { updateGuildHall, actionsOfGuildHall } from './guildHall';
+import { slowSparring } from './sparring';
 import { updateRaid } from './raid';
 import { updateStory } from './chapters';
 import { updateParticles, dust } from './particles';
@@ -32,11 +34,13 @@ import { updateWar, slowWar, actionsOfWar } from './war';
 import { updateSociety, slowSociety, actionsOfSociety, ridingSpeedMultiplier } from './society';
 import { updateCamp, slowCamp, actionsOfCamp } from './camp';
 import { updateBonds, slowBonds, actionsOfBonds } from './bonds';
+import { exitVisitedHouseIfStairs, actionsOfHouses } from './houses';
 
 // One step of the world. Called at every frame while the player is on the map.
 
-const WALK_SPEED = 2.1; // tiles per second (the hero walks slowly...)
-const RUN_SPEED = 4.4; // ...and runs (Shift, or the stick pushed to its edge)
+const WALK_SPEED = 4.2; // tiles per second (base walking speed)
+const RUN_SPEED = 8.8; // ...and runs (Shift, or the stick pushed to its edge)
+const MAX_MOVE_STEP = 0.25; // max tiles per collision sub-step
 const BODY = 0.28; // half the width of the hero, in tiles (to not walk into the walls)
 const SAVE_EVERY = 10; // seconds
 const FADE = 350; // milliseconds: the screen goes black when the hero takes stairs
@@ -75,15 +79,19 @@ function walk(game, input, dt) {
 
   game.run.running = isRunning(input);
   const mount = ridingSpeedMultiplier(game);
-  const speed = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
-  if (canStand(game, player.x + direction.x * speed, player.y)) player.x += direction.x * speed;
-  else if (direction.y === 0) tryPush(game, direction.x, 0);
-  if (canStand(game, player.x, player.y + direction.y * speed)) player.y += direction.y * speed;
-  else if (direction.x === 0) tryPush(game, 0, direction.y);
+  const distance = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
+  const steps = Math.max(1, Math.ceil(distance / MAX_MOVE_STEP));
+  const stepDist = distance / steps;
+  for (let i = 0; i < steps; i++) {
+    if (canStand(game, player.x + direction.x * stepDist, player.y)) player.x += direction.x * stepDist;
+    else if (direction.y === 0 && i === 0) tryPush(game, direction.x, 0);
+    if (canStand(game, player.x, player.y + direction.y * stepDist)) player.y += direction.y * stepDist;
+    else if (direction.x === 0 && i === 0) tryPush(game, 0, direction.y);
+  }
   player.dir = facingOf(direction.x, direction.y);
 
   const stepBefore = Math.floor(player.step);
-  player.step += dt * (game.run.running ? 9 : 6) * (mount > 1 ? 1.3 : 1);
+  player.step += dt * (game.run.running ? 11 : 7) * (mount > 1 ? 1.3 : 1);
   if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) {
     dust(game, player.x, player.y);
     cue(game, 'step');
@@ -104,6 +112,7 @@ export function travelTo(game, x, y) {
 
 // Stepping on stairs takes the hero to the other side (once: they must step off before taking them again).
 function takeStairs(game) {
+  if (exitVisitedHouseIfStairs(game, travelTo)) return;
   const player = game.player;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   const link = tileAt(player.x, player.y) === TILE.STAIRS ? linkAt(player.x, player.y) : null;
@@ -199,6 +208,8 @@ function actionsOf(game) {
     ...actionsOfCamp(game),
     { when: () => villagerNear(game), icon: 'talk', run: () => talkToVillager(game, villagerNear(game)) },
     { when: () => isAtHomeDoor(player), icon: 'quit', run: () => enterHome(game) },
+    ...actionsOfGuildHall(game),
+    ...actionsOfHouses(game, travelTo),
     { when: () => atHome && furnitureAt(game, front.x, front.y), icon: 'inventory', run: () => pickUpAndRefresh(game, furnitureAt(game, front.x, front.y)) },
     { when: () => atHome && propNear(game, ['bed'], 2.2), icon: 'sleep', run: () => offerBed(game) },
     { when: () => atHome && propNear(game, ['storage'], 1.5), icon: 'chest', run: () => openStorage(game) },
@@ -261,6 +272,7 @@ function slowUpdates(game, dt) {
     slowSociety(game);
     slowCamp(game);
     slowBonds(game);
+    slowSparring(game);
   }
   game.run.saveTime += dt;
   if (game.run.saveTime >= SAVE_EVERY) {
@@ -281,6 +293,7 @@ export function updateGame(game, input, dt) {
   updateFollowers(game, dt);
   updateMonsters(game, dt);
   updatePowers(game, dt);
+  updateGuildHall(game, dt);
   updateRaid(game, dt);
   updateWeather(game, dt);
   updateEncounters(game, dt);

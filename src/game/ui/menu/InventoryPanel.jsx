@@ -9,6 +9,7 @@ import { refreshWorld } from '../../logic/worldState';
 import { TORCH_RECIPE, TORCH_HOURS, canCraftTorch, craftTorch, canLightTorch, lightAtFire, lightWithFlint, hasLight } from '../../logic/torch';
 import { isNearCamp, canSetCamp, setCampHere, openCampMenu, packCamp, companionFatigue, hasAutoHeater } from '../../logic/camp';
 import { companionRank } from '../../logic/bonds/training';
+import { dismissSoldiers, dismissPet } from '../../logic/powers';
 import { ensureSociety } from '../../logic/society/state';
 import { interactMountedHorse, interactParkedHorse } from '../../logic/society/horses';
 
@@ -154,6 +155,13 @@ export default function InventoryPanel({ game, refresh }) {
 
   return (
     <>
+      <div className="line">
+        <PixelIcon name="lexis" size={28} />
+        <span className="grow">
+          Lexis <span className="gold">{player.lexis}</span>
+        </span>
+      </div>
+
       <span className="section">Equipment</span>
       <EquipmentSlot label="Weapon" itemId={player.weapon} />
       <EquipmentSlot label="Armor" itemId={player.armor} />
@@ -234,7 +242,29 @@ export default function InventoryPanel({ game, refresh }) {
         </div>
       ))}
 
-      {player.party.length > 0 && <span className="section">Companions</span>}
+      {(player.party.length > 0 || player.soldiers > 0 || player.pet) && <span className="section">Companions</span>}
+      {player.soldiers > 0 && (
+        <div className="line">
+          <PixelIcon name="obsidianSoldier" size={28} />
+          <span className="grow">
+            Obsidian soldiers ×{player.soldiers} <span className="small">· {Math.ceil(player.soldierTime)} s left</span>
+          </span>
+          <button className="px-button" onClick={() => useItem(() => dismissSoldiers(game))}>
+            Dismiss
+          </button>
+        </div>
+      )}
+      {player.pet && (
+        <div className="line">
+          <PixelIcon name="obsidianPet" size={28} />
+          <span className="grow">
+            Obsidian cat <span className="small">· {Math.ceil(player.petTime)} s left</span>
+          </span>
+          <button className="px-button" onClick={() => useItem(() => dismissPet(game))}>
+            Dismiss
+          </button>
+        </div>
+      )}
       {player.party.map((npcId) => (
         <div key={npcId} className="line">
           <PixelIcon name="woodSword" size={28} />

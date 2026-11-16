@@ -1,7 +1,7 @@
 import { CATEGORIES, totalAnswers } from '../../data/categories';
 import { NPCS, HERO_LOOK } from '../data/npcs';
 import { heroLook } from '../data/hero';
-import { SPAWN } from '../data/zones';
+import { SPAWN, zoneAt } from '../data/zones';
 import { ITEMS } from '../data/items';
 import { TYPES } from '../data/types';
 import { isSolid } from '../world/map';
@@ -49,6 +49,8 @@ export function makeRun() {
     cooldowns: {}, // { powerId: the time it is ready again }
     villagers: [], // the people working in the villages (see villages.js)
     animals: [], // the animals of the pens
+    caravans: [],
+    skirmishes: [],
     bolts: [], // the lightning strikes of the moment (see weather.js)
     strikeTime: 8,
     encounter: null, // someone met on the road (see encounters.js)
@@ -132,12 +134,19 @@ function firstPlayer(hero) {
     mapLevel: 0, // 0 = no map bought
     bag: { healthPotion: 2, carrotSeed: 3, bread: 2 },
     powers: [], // 'obsidian', 'lightning', 'water', 'fire', 'wind', 'earth'
+    obsidianUnlocked: ['obsidianBarrier'], // only Barrier by default; Soldier, Cat, Blade require training
+    obsidianXp: 0,
     party: [], // the ids of the friends who fight with the player
     soldiers: 0, // obsidian soldiers
+    soldierHp: 0, // shared shield/health pool of active obsidian soldiers (45 HP each)
     pet: false, // the obsidian cat
+    soldierTime: 0, // seconds before the obsidian soldiers crumble
+    petTime: 0, // seconds before the obsidian cat melts away
+    obsidianControl: 0, // trained at the dummies: the soldiers and the cat stay 20 s longer per level
     obsidianBlade: 0, // fights left with the obsidian blade
     stoneSkin: false,
     haste: false, // a speed potion was drunk
+    cold: { active: false, exposure: 0 },
     blessings: 3, // how many times Aria can still save the player
     spouse: null,
     children: [],
@@ -270,6 +279,13 @@ function addMissing(game) {
   if (p.accessory === undefined || (p.accessory && !ITEMS[p.accessory])) p.accessory = null;
   if (p.classId === undefined) p.classId = null;
   if (p.torchHours === undefined) p.torchHours = 0;
+  if (!Array.isArray(p.obsidianUnlocked)) p.obsidianUnlocked = ['obsidianBarrier'];
+  if (typeof p.obsidianXp !== 'number') p.obsidianXp = 0;
+  if (typeof p.soldierHp !== 'number') p.soldierHp = (p.soldiers || 0) * 45;
+  if (typeof p.obsidianControl !== 'number') p.obsidianControl = 0;
+  if (typeof p.soldierTime !== 'number') p.soldierTime = 20;
+  if (typeof p.petTime !== 'number') p.petTime = 20;
+  if (!p.cold) p.cold = { active: false, exposure: 0 };
   if (!p.spells) p.spells = {};
   if (!Array.isArray(p.powers)) p.powers = [];
   if (!Array.isArray(p.children)) p.children = [];
@@ -319,7 +335,7 @@ export function wakeUp(game) {
   moveToNewWorld(game);
   game.run = makeRun();
   refreshWorld(game);
-  if (!Number.isFinite(game.player.x) || !Number.isFinite(game.player.y) || isSolid(game.player.x, game.player.y)) {
+  if (!Number.isFinite(game.player.x) || !Number.isFinite(game.player.y) || isSolid(game.player.x, game.player.y) || zoneAt(game.player.x, game.player.y).id === 'visitHouse') {
     game.player.x = SPAWN.x;
     game.player.y = SPAWN.y;
   }

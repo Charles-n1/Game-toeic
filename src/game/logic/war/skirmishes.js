@@ -159,7 +159,7 @@ export function updateSkirmishes(game, dt) {
 }
 
 export function skirmishNear(game, range = 3.2) {
-  return game.run.skirmishes.find((s) => s.state === 'active' && dist(s, game.player) <= range) || null;
+  return (game.run?.skirmishes || []).find((s) => s.state === 'active' && dist(s, game.player) <= range) || null;
 }
 
 export function interactSkirmish(game, skirmish) {

@@ -9,7 +9,7 @@ import { growVillages } from './villages';
 import { placeVillagers } from './villagers';
 import { placeAnimals } from './animals';
 import { refreshWorld } from './worldState';
-import { isRaining } from './weather';
+import { isRaining, isOutdoors, cureCold } from './weather';
 import { notify } from './messages';
 import { newDayWar } from './war';
 import { newDaySociety } from './society';
@@ -57,6 +57,7 @@ export function passHours(game, hours) {
 // Sleeping: the next sunrise, with all the HP and the mana back.
 export function sleepUntilMorning(game) {
   const hoursSlept = game.hour >= SUNRISE ? 24 - game.hour + SUNRISE : SUNRISE - game.hour;
+  if (!isOutdoors(game)) cureCold(game, '😴 A warm sleep indoors cured your cold!');
   if (game.hour >= SUNRISE) newDay(game); // before midnight: the morning is tomorrow
   game.hour = SUNRISE;
   updateSurvival(game, hoursSlept * 0.5); // the body slows down while it sleeps

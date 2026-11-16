@@ -455,7 +455,38 @@ function king(color, frame) {
   return grid;
 }
 
-const PAINTERS = { slime, bat, wolf, wisp, imp, treant, golem, knight, lich, warden, general, king };
+// A training dummy of straw on a wooden post (the practices of the villages). Its target has the color of the
+// skill trained. frame: it wobbles a little on its post.
+const STRAW = ['#6b5320', '#8a6d2a', '#a88a3a', '#c9a64e', '#d6b45a', '#f2d88a'];
+const BURLAP = ['#5a4128', '#6e5032', '#86643f', '#9c7a50', '#b59266', '#cfae80'];
+
+function dummy(color, frame) {
+  const grid = makeGrid(34, 48);
+  const sway = frame; // the top leans 1 pixel
+  fillRect(grid, 16, 26, 3, 22, WOOD_RAMP[1]); // the post
+  fillRect(grid, 16, 26, 1, 22, WOOD_RAMP[3]);
+  fillRect(grid, 11, 45, 13, 3, WOOD_RAMP[0]); // the foot
+  fillRect(grid, 3 + sway, 17, 28, 3, WOOD_RAMP[2]); // the arms
+  fillRect(grid, 3 + sway, 17, 28, 1, WOOD_RAMP[4]);
+  for (const x of [2, 31]) fillBall(grid, x + sway, 18, 2.5, 2.5, STRAW); // straw out of the sleeves
+  fillBall(grid, 17 + sway, 27, 9, 10, BURLAP, { ambient: 0.3 }); // the body
+  drawLine(grid, 10 + sway, 21, 24 + sway, 21, BURLAP[0]); // the rope at the waist
+  drawLine(grid, 10 + sway, 34, 24 + sway, 34, BURLAP[0]);
+  fillBall(grid, 17 + sway, 27, 5, 5, ['#8a8a8a', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff']); // the target
+  fillBall(grid, 17 + sway, 27, 3.5, 3.5, rampOf(color));
+  fillRect(grid, 16 + sway, 26, 2, 2, '#ffffff');
+  fillBall(grid, 17 + sway, 9, 7, 7, BURLAP, { ambient: 0.3 }); // the head, a sack
+  fillRect(grid, 12 + sway, 2, 2, 3, STRAW[4]); // straw on top
+  fillRect(grid, 18 + sway, 1, 2, 3, STRAW[3]);
+  drawLine(grid, 12 + sway, 7, 14 + sway, 9, DARK); // stitched eyes: X X
+  drawLine(grid, 14 + sway, 7, 12 + sway, 9, DARK);
+  drawLine(grid, 19 + sway, 7, 21 + sway, 9, DARK);
+  drawLine(grid, 21 + sway, 7, 19 + sway, 9, DARK);
+  drawLine(grid, 13 + sway, 12, 20 + sway, 12, DARK); // the stitched mouth
+  return grid;
+}
+
+const PAINTERS = { slime, bat, wolf, wisp, imp, treant, golem, knight, lich, warden, general, king, dummy };
 
 // ---------- The sprite ----------
 

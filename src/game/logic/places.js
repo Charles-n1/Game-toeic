@@ -26,7 +26,10 @@ export function placeOf(id) {
 // Inside a dungeon: the dungeon. Inside the home: Eldermoor.
 export function placeHere(game) {
   const zone = zoneAt(game.player.x, game.player.y);
-  if (zone.kind === 'inside') return placeOf(zone.dungeon || 'lexia');
+  if (zone.kind === 'inside') {
+    if (zone.id === 'visitHouse' && game.run?.visitHouse?.house?.village) return placeOf(game.run.visitHouse.house.village);
+    return placeOf(zone.dungeon || 'lexia');
+  }
   return placeOf(zone.id);
 }
 

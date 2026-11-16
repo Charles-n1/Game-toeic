@@ -1,6 +1,6 @@
-"""Builds the world of the game from the painted map art/MAP.png.
+"""Builds the world of the game from the painted map art/map2.png.
 
-The map is cut in 256 x 256 tiles (one tile = about 5 pixels of the painting). For each tile, the colors of its
+The map is cut in 256 x 256 tiles (one tile = about 8 pixels of the painting). For each tile, the colors of its
 pixels say what it is: sea, river, forest, meadow, road, sand, snow, rock, lava...
 Then nature is added (trees, rocks, cacti, lava cracks) following how dark or bright the painting is there.
 
@@ -11,7 +11,7 @@ The painting is only the ABSTRACT version of the world: in the game, each cell o
   BIOME_TEXT   the land of each cell (meadow, forest, mountain, demon, desert, coast);
   FOREST_TEXT  how many trees grow there, from a (none) to j (a deep forest);
   ROAD_TEXT    the middle line of the painted roads (r = a road passes here).
-Writes src/game/world/terrain.js (that text), and src/game/assets/world/world-map.jpg: the painting itself,
+Writes src/game/world/terrain.js (that text), and src/game/assets/world/map2.png: the painting itself,
 for the world map of the menu. The villages, the dungeons, the castle and the people are NOT here: they are
 placed by the game (see world/places.js), on top of this ground.
 
@@ -27,9 +27,9 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parent.parent
-MAP = ROOT / 'art' / 'MAP.png'
+MAP = ROOT / 'art' / 'map2.png'
 OUT = ROOT / 'src' / 'game' / 'world' / 'terrain.js'
-PAINTING = ROOT / 'src' / 'game' / 'assets' / 'world' / 'world-map.jpg'
+PAINTING = ROOT / 'src' / 'game' / 'assets' / 'world' / 'map2.png'
 
 SIZE = 256  # tiles
 
@@ -341,7 +341,7 @@ def main(preview_path):
     connect_lands(ground)
     letters_biome = [[BIOME[item] for item in row] for row in biome]
     OUT.write_text(
-        '// Made by tools/build_world.py from art/MAP.png: do not change by hand.\n'
+        '// Made by tools/build_world.py from art/map2.png: do not change by hand.\n'
         '// One row per line of cells, separated by |. Each part: a letter and how many cells have it.\n'
         '// The letters: see world/painting.js.\n'
         f'export const TERRAIN_SIZE = {SIZE};\n'

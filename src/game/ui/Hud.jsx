@@ -144,6 +144,13 @@ export default function Hud({ game, input, onAction, onMenu }) {
             </span>
           )}
           {isVillain(game) && <span style={styles.raid}>☠ Villain</span>}
+          {game.player.cold?.active && <span style={styles.raid}>🤧 Cold</span>}
+          {game.player.soldiers > 0 && (
+            <span style={styles.light}>
+              ♟️ Guard ×{game.player.soldiers} · {Math.ceil(game.player.soldierTime)}s
+            </span>
+          )}
+          {game.player.pet && <span style={styles.light}>🐈‍⬛ Cat · {Math.ceil(game.player.petTime)}s</span>}
           {isNearCamp(game) && <span style={styles.light}>⛺ Camp</span>}
         </div>
       </div>
@@ -157,7 +164,7 @@ export default function Hud({ game, input, onAction, onMenu }) {
       </div>
 
       <div className="window" style={{ ...styles.zone, bottom: showTouch ? 158 : 12 }}>
-        <span>{zone.name}</span>
+        <span>{zone.id === 'visitHouse' && game.run.visitHouse ? game.run.visitHouse.title : zone.name}</span>
       </div>
       {showTouch ? <TouchControls game={game} input={input} onAction={onAction} onMenu={onMenu} /> : <KeyHelp game={game} />}
     </div>

@@ -1,9 +1,9 @@
 import { NPCS, npcOf } from '../data/npcs';
-import { HOUSES, SEALS, WORLD_SIZE, MAP_HEIGHT, zoneAt, houseSize } from '../data/zones';
+import { HOUSES, SEALS, WORLD_SIZE, INSIDE_TOP, HOME_DOOR, zoneAt, houseSize } from '../data/zones';
 import { typeOf } from '../data/types';
-import { MAP_WIDTH, TILE, tileAt, biomeAt, noise, CHESTS, PORTS, propsInArea } from '../world/map';
+import { TILE, tileAt, biomeAt, noise, CHESTS, PORTS, propsInArea, getMapRevision } from '../world/map';
 import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
-import { cropAt, isCropReady, closestTreasure } from '../logic/farm';
+import { isCropReady, closestTreasure } from '../logic/farm';
 import { isSealOpen } from '../logic/seals';
 import { hasLight } from '../logic/torch';
 import { visibleVillagers } from '../logic/villagers';
@@ -89,19 +89,78 @@ function tilesOf(view, margin, bottomMargin = margin) {
   };
 }
 
-// ---------- The ground ----------
+// ---------- The ground (16 x 16 tile chunk cache for fast scrolling & low CPU) ----------
+
+const CHUNK = 16;
+const CHUNK_PX = CHUNK * T;
+const MAX_CHUNKS = 96;
+const groundChunks = new Map();
+
+function chunkHasAnimation(cx, cy) {
+  const x0 = cx * CHUNK - 1;
+  const y0 = cy * CHUNK - 1;
+  for (let y = y0; y <= y0 + CHUNK + 1; y++) {
+    for (let x = x0; x <= x0 + CHUNK + 1; x++) {
+      const t = tileAt(x, y);
+      if (t === TILE.WATER || t === TILE.LAVA) return true;
+    }
+  }
+  return false;
+}
+
+function getGroundChunk(cx, cy, time, wallColor) {
+  const rev = getMapRevision();
+  const isInside = cy * CHUNK + CHUNK > INSIDE_TOP;
+  const baseKey = cx + ',' + cy + '|' + rev + (isInside ? '|' + wallColor : '');
+  let entry = groundChunks.get(baseKey);
+  if (!entry) {
+    if (groundChunks.size >= MAX_CHUNKS) groundChunks.delete(groundChunks.keys().next().value);
+    entry = { animated: chunkHasAnimation(cx, cy), frames: {} };
+    groundChunks.set(baseKey, entry);
+  } else {
+    // Refresh LRU order
+    groundChunks.delete(baseKey);
+    groundChunks.set(baseKey, entry);
+  }
+  const frame = entry.animated ? Math.floor(time * 2) % 4 : 0;
+  if (!entry.frames[frame]) {
+    const canvas = document.createElement('canvas');
+    canvas.width = CHUNK_PX;
+    canvas.height = CHUNK_PX;
+    const cctx = canvas.getContext('2d');
+    const ox = cx * CHUNK;
+    const oy = cy * CHUNK;
+    for (let y = 0; y < CHUNK; y++) {
+      for (let x = 0; x < CHUNK; x++) {
+        cctx.drawImage(groundTile(ox + x, oy + y, frame * 0.5), x * T, y * T);
+        if (tileAt(ox + x, oy + y) === TILE.FLOWER) cctx.drawImage(flowersDecal(ox + x, oy + y), x * T, y * T);
+      }
+    }
+    entry.frames[frame] = canvas;
+  }
+  return entry.frames[frame];
+}
 
 function drawGround(ctx, game, view, time) {
-  if (game) setHomeWallColor(WALL_COLORS[game.home.wall]);
+  const wallColor = game ? WALL_COLORS[game.home.wall] : WALL_COLORS[0];
+  setHomeWallColor(wallColor);
   const area = tilesOf(view, 0);
-  for (let y = area.top; y < area.bottom; y++) {
-    for (let x = area.left; x < area.right; x++) {
-      const px = x * T - view.x;
-      const py = y * T - view.y;
-      ctx.drawImage(groundTile(x, y, time), px, py);
-      if (tileAt(x, y) === TILE.FLOWER) ctx.drawImage(flowersDecal(x, y), px, py);
-      const crop = game && tileAt(x, y) === TILE.SOIL ? cropAt(game, x, y) : null;
-      if (crop) put(ctx, props.crop(isCropReady(game, crop)), (x + 0.5) * T, (y + 1) * T - 3, view);
+  const cx0 = Math.floor(area.left / CHUNK);
+  const cy0 = Math.floor(area.top / CHUNK);
+  const cx1 = Math.floor((area.right - 1) / CHUNK);
+  const cy1 = Math.floor((area.bottom - 1) / CHUNK);
+  for (let cy = cy0; cy <= cy1; cy++) {
+    for (let cx = cx0; cx <= cx1; cx++) {
+      const chunk = getGroundChunk(cx, cy, time, wallColor);
+      ctx.drawImage(chunk, cx * CHUNK_PX - view.x, cy * CHUNK_PX - view.y);
+    }
+  }
+  if (game && game.crops) {
+    for (const [key, crop] of Object.entries(game.crops)) {
+      const [x, y] = key.split(',').map(Number);
+      if (x >= area.left && x < area.right && y >= area.top && y < area.bottom && tileAt(x, y) === TILE.SOIL) {
+        put(ctx, props.crop(isCropReady(game, crop)), (x + 0.5) * T, (y + 1) * T - 3, view);
+      }
     }
   }
 }
@@ -134,14 +193,42 @@ function isBushy(x, y, tile, biome) {
 // The things made of pieces, one per tile (a fence, a wall, a palisade, spikes).
 const IN_PIECES = ['fence', 'wall', 'palisade', 'spikes'];
 
+const STANDING_BLOCKS = new Map();
+const MAX_STANDING_BLOCKS = 120;
+
+function standingBlock(bx, by) {
+  const key = bx + ',' + by;
+  let items = STANDING_BLOCKS.get(key);
+  if (items) return items;
+  if (STANDING_BLOCKS.size >= MAX_STANDING_BLOCKS) STANDING_BLOCKS.delete(STANDING_BLOCKS.keys().next().value);
+  items = [];
+  const x0 = bx * CHUNK;
+  const y0 = by * CHUNK;
+  for (let y = y0; y < y0 + CHUNK; y++) {
+    for (let x = x0; x < x0 + CHUNK; x++) {
+      const sprite = standingSprite(x, y);
+      if (sprite) items.push({ x: x, y: y, sprite: sprite });
+    }
+  }
+  STANDING_BLOCKS.set(key, items);
+  return items;
+}
+
 // Each drawing: { y (the line of its feet, in tiles: who is lower is drawn later, in front), draw }.
 function treesAndRocks(view) {
   const area = tilesOf(view, 4, 8);
+  const bx0 = Math.floor(area.left / CHUNK);
+  const by0 = Math.floor(area.top / CHUNK);
+  const bx1 = Math.floor((area.right - 1) / CHUNK);
+  const by1 = Math.floor((area.bottom - 1) / CHUNK);
   const drawings = [];
-  for (let y = area.top; y < area.bottom; y++) {
-    for (let x = area.left; x < area.right; x++) {
-      const sprite = standingSprite(x, y);
-      if (sprite) drawings.push({ y: y + 1, draw: (ctx) => put(ctx, sprite, (x + 0.5) * T, (y + 1) * T - 2, view) });
+  for (let by = by0; by <= by1; by++) {
+    for (let bx = bx0; bx <= bx1; bx++) {
+      for (const item of standingBlock(bx, by)) {
+        if (item.x >= area.left && item.x < area.right && item.y >= area.top && item.y < area.bottom) {
+          drawings.push({ y: item.y + 1, draw: (ctx) => put(ctx, item.sprite, (item.x + 0.5) * T, (item.y + 1) * T - 2, view) });
+        }
+      }
     }
   }
   return drawings;
@@ -149,6 +236,33 @@ function treesAndRocks(view) {
 
 function isNear(view, x, y, w, h) {
   return x * T < view.x + view.width + 64 && (x + w) * T > view.x - 64 && y * T < view.y + view.height + 128 && (y + h) * T > view.y - 64;
+}
+
+const HOUSE_CELL = 32;
+const HOUSES_OF_CELL = new Map();
+for (const house of HOUSES) {
+  const sz = houseSize(house);
+  for (let cy = Math.floor(house.y / HOUSE_CELL); cy <= Math.floor((house.y + sz.h) / HOUSE_CELL); cy++) {
+    for (let cx = Math.floor(house.x / HOUSE_CELL); cx <= Math.floor((house.x + sz.w) / HOUSE_CELL); cx++) {
+      const k = cy * 1000 + cx;
+      if (!HOUSES_OF_CELL.has(k)) HOUSES_OF_CELL.set(k, []);
+      HOUSES_OF_CELL.get(k).push(house);
+    }
+  }
+}
+
+function housesNear(view) {
+  const x0 = Math.floor((view.x - 64) / (T * HOUSE_CELL));
+  const y0 = Math.floor((view.y - 64) / (T * HOUSE_CELL));
+  const x1 = Math.floor((view.x + view.width + 64) / (T * HOUSE_CELL));
+  const y1 = Math.floor((view.y + view.height + 128) / (T * HOUSE_CELL));
+  const found = new Set();
+  for (let cy = y0; cy <= y1; cy++) {
+    for (let cx = x0; cx <= x1; cx++) {
+      for (const h of HOUSES_OF_CELL.get(cy * 1000 + cx) || []) found.add(h);
+    }
+  }
+  return [...found];
 }
 
 // The flames on the roofs of a village under attack.
@@ -177,7 +291,7 @@ function isBurning(game, house) {
 
 function burningHouses(game, view) {
   if (!game) return [];
-  return HOUSES.filter((house) => isNear(view, house.x, house.y - 2, house.w, house.h + 2) && isBurning(game, house));
+  return housesNear(view).filter((house) => isNear(view, house.x, house.y - 2, house.w, house.h + 2) && isBurning(game, house));
 }
 
 function houseSpriteOf(house) {
@@ -191,7 +305,9 @@ function houseSpriteOf(house) {
 }
 
 function houses(view, game, time) {
-  return HOUSES.filter((house) => isNear(view, house.x, house.y - 4, houseSize(house).w, houseSize(house).h + 4)).map((house) => {
+  return housesNear(view)
+    .filter((house) => isNear(view, house.x, house.y - 4, houseSize(house).w, houseSize(house).h + 4))
+    .map((house) => {
     const bottom = house.y + houseSize(house).h;
     return {
       y: bottom,
@@ -223,6 +339,13 @@ function propSprite(prop, time, game) {
     logs: () => buildings.logs(),
     wallTorch: () => buildings.wallTorch(flame),
     bed: () => buildings.bed(game ? BED_COLORS[game.home.bed] : BED_COLORS[0]),
+    smallBed: () => buildings.smallBed(prop.color || '#5a9fd6'),
+    toilet: () => buildings.toilet(),
+    basin: () => buildings.basin(),
+    diningTable: () => buildings.diningTable(),
+    barCounter: () => buildings.barCounter(prop.w),
+    tavernTable: () => buildings.tavernTable(),
+    wardrobe: () => buildings.wardrobe(),
     stove: () => buildings.stove(blink),
     storage: () => buildings.storage(),
     window: () => buildings.windowOnWall(),
@@ -258,6 +381,10 @@ function propSprite(prop, time, game) {
   if (prop.kind === 'barrels') return props.barrels();
   if (prop.kind === 'crates') return props.crates();
   if (prop.kind === 'signpost') return props.signpost();
+  if (prop.kind === 'flowerPot') return props.flowerPot(prop.variant || 0);
+  if (prop.kind === 'bench') return props.bench();
+  if (prop.kind === 'topiary') return props.topiary();
+  if (prop.kind === 'banner') return props.bannerPole(prop.color);
   return props.fence();
 }
 
@@ -355,6 +482,21 @@ function personDrawing(look, place, view, time, salt, extra) {
   };
 }
 
+// The people inside the guild hall (logic/guildHall.js): drinkers lift their mugs, servers walk.
+function guildPatronDrawings(game, view, time) {
+  const patrons = game.run.visitHouse && game.run.visitHouse.guild ? game.run.visitHouse.patrons : [];
+  return patrons.map((patron, i) => {
+    if (!patron.drinking) return personDrawing(patron.look, patron, view, time, i);
+    return {
+      y: patron.y,
+      draw: (ctx) => {
+        put(ctx, shadow(), patron.x * T, patron.y * T, view);
+        put(ctx, personSprite(patron.look, patron.dir, 'drink'), patron.x * T, patron.y * T, view);
+      },
+    };
+  });
+}
+
 // Someone knocked out: lying on the ground (the picture turned), with stars over the head.
 function lyingDrawing(look, place, view, time) {
   return {
@@ -392,13 +534,24 @@ function npcDrawings(game, view, time) {
 
 // The people at work in the villages, and the ones lying after a lightning strike.
 function villagerDrawings(game, view, time) {
+  const now = Date.now();
   return visibleVillagers(game)
     .concat(game.run.villagers.filter((villager) => villager.ko && !villager.dead && game.player.carrying?.id !== villager.id))
     .filter((villager) => isNear(view, villager.x - 1, villager.y - 2, 2, 2))
-    .map((villager, i) => (villager.ko ? lyingDrawing(villager.look, villager, view, time) : personDrawing(villager.look, villager, view, time, i)));
+    .map((villager, i) => {
+      if (villager.ko) return lyingDrawing(villager.look, villager, view, time);
+      const age = villager.attackAnimAt ? now - villager.attackAnimAt : 9999;
+      if (age >= 0 && age < 320 && (villager.attackDx || villager.attackDy)) {
+        const len = Math.max(0.1, Math.hypot(villager.attackDx || 0, villager.attackDy || 0));
+        const pulse = Math.sin((age / 320) * Math.PI) * 0.25;
+        const shifted = { ...villager, x: villager.x + ((villager.attackDx || 0) / len) * pulse, y: villager.y + ((villager.attackDy || 0) / len) * pulse };
+        return personDrawing(villager.look, shifted, view, time, i);
+      }
+      return personDrawing(villager.look, villager, view, time, i);
+    });
 }
 
-function animalDrawings(game, view, time) {
+function animalDrawings(game, view) {
   return game.run.animals
     .filter((animal) => isNear(view, animal.x - 1, animal.y - 1, 2, 2))
     .map((animal) => ({
@@ -419,10 +572,28 @@ function boatDrawings(view, time) {
 }
 
 function followerDrawings(game, view, time) {
-  return game.run.followers.map((follower) => {
+  return game.run.followers.map((follower, i) => {
     if (follower.kind === 'person') return personDrawing(npcOf(follower.id).look, follower, view, time, follower.x);
-    const sprite = follower.kind === 'soldier' ? obsidianSoldier(Math.floor(time * 4)) : obsidianCat();
-    return { y: follower.y, draw: (ctx) => put(ctx, sprite, follower.x * T, follower.y * T, view) };
+    if (follower.kind === 'soldier') {
+      const frame = follower.walking ? Math.floor(follower.step * 2) % 2 : Math.floor(time * 2 + i) % 2;
+      const sprite = obsidianSoldier(frame);
+      const march = follower.walking ? -Math.abs(Math.sin(follower.step * 3)) * 2 : Math.sin(time * 2.5 + i) * 0.8;
+      return {
+        y: follower.y,
+        draw: (ctx) => {
+          put(ctx, shadow(), follower.x * T, follower.y * T, view);
+          put(ctx, sprite, follower.x * T, follower.y * T + march, view);
+        },
+      };
+    }
+    const petBob = follower.walking ? -Math.abs(Math.sin(follower.step * 4)) * 2 : 0;
+    return {
+      y: follower.y,
+      draw: (ctx) => {
+        put(ctx, shadow(), follower.x * T, follower.y * T, view);
+        put(ctx, obsidianCat(), follower.x * T, follower.y * T + petBob, view);
+      },
+    };
   });
 }
 
@@ -448,16 +619,23 @@ function isNearTheFight(game, monster) {
 
 function monsterDrawings(game, view, time) {
   const opponent = game.run.fight ? game.run.fight.opponent : null;
+  const now = Date.now();
   return game.run.monsters
     .filter((monster) => monster !== opponent && !isNearTheFight(game, monster) && isNear(view, monster.x - 1, monster.y - 3, 3, 3))
     .map((monster) => ({
       y: monster.y,
       draw: (ctx) => {
+        const hitAge = monster.hitAt ? now - monster.hitAt : 9999;
+        const shake = hitAge >= 0 && hitAge < 180 ? Math.round(Math.sin(hitAge * 0.09) * 2) : 0;
         const sprite = monsterSprite(monster, facingOf(monster, game.player), Math.floor(time * 3 + monster.step) % 2);
-        const x = monster.x * T;
+        const x = monster.x * T + shake;
         const y = monster.y * T;
         put(ctx, shadow(), x, y, view);
-        put(ctx, sprite, x, y, view);
+        if (hitAge >= 0 && hitAge < 120 && Math.floor(hitAge / 35) % 2 === 0 && sprite.white) {
+          put(ctx, { ...sprite, canvas: sprite.white }, x, y, view);
+        } else {
+          put(ctx, sprite, x, y, view);
+        }
         const top = y - sprite.ay - view.y;
         put(ctx, props.typeDiamond(typeOf(monster.category).color), x, y - sprite.ay - 3 + Math.round(Math.sin(time * 5)), view);
         if (monster.tag !== 'normal') put(ctx, props.tagMark(monster.tag), x + 6, y - sprite.ay - 2, view); // Hard ! / Extreme !!
@@ -679,7 +857,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawStorm(art, game, view, time);
   drawTreasureHint(art, game, view, time);
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
-  const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
+  const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
   living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
@@ -704,16 +882,41 @@ export function drawScene(ctx, game, width, height, time) {
   drawAlerts(ctx, game, width, height, time);
 }
 
-// A place of the world, without its people: the background of the start screen (Lexia, slowly passing by),
-// or the small picture of a place on the world map. center: { x, y } in tiles (null = Lexia, moving).
+const landscapeCache = { key: '', canvas: document.createElement('canvas') };
+
+// A place of the world, without its people: the background of the start screen (Eldermoor, slowly passing by),
+// or the small picture of a place on the world map. center: { x, y } in tiles (null = Eldermoor, moving).
 // scale: screen pixels per pixel of the art (null = the usual one).
 export function drawLandscape(ctx, width, height, time, center = null, scale = null) {
   scale = scale || pixelScale(width, height);
+  const w = Math.ceil(width / scale);
+  const h = Math.ceil(height / scale);
+  const centerX = center ? center.x * T : (HOME_DOOR.x + Math.sin(time * 0.04) * 8) * T; // Eldermoor, slowly passing by
+  const centerY = center ? center.y * T : HOME_DOOR.y * T;
+  const vx = Math.round(centerX - w / 2);
+  const vy = Math.round(centerY - h / 2);
+  const waterFrame = Math.floor(time * 2) % 4;
+  const flameFrame = Math.floor(time * 6) % 3;
+  const cacheKey = `${w}x${h}|${vx},${vy}|${waterFrame}|${flameFrame}|${getMapRevision()}`;
+
+  if (landscapeCache.key === cacheKey && landscapeCache.canvas.width === w && landscapeCache.canvas.height === h) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(landscapeCache.canvas, 0, 0, w * scale, h * scale);
+    return;
+  }
+
   const art = prepareBuffer(width, height, scale);
-  const centerX = center ? center.x * T : (107 + Math.sin(time * 0.04) * 8) * T; // Eldermoor, slowly passing by
-  const centerY = center ? center.y * T : 121 * T;
-  const view = { x: Math.round(centerX - buffer.width / 2), y: Math.round(centerY - buffer.height / 2), width: buffer.width, height: buffer.height };
+  const view = { x: vx, y: vy, width: buffer.width, height: buffer.height };
   drawGround(art, null, view, time);
   drawSorted(art, [...treesAndRocks(view), ...houses(view, null, time), ...villageProps(view, time, null), ...chestsAndBarriers(view, null), ...boatDrawings(view, time)]);
+
+  if (landscapeCache.canvas.width !== w || landscapeCache.canvas.height !== h) {
+    landscapeCache.canvas.width = w;
+    landscapeCache.canvas.height = h;
+  }
+  const lctx = landscapeCache.canvas.getContext('2d');
+  lctx.imageSmoothingEnabled = false;
+  lctx.drawImage(buffer, 0, 0);
+  landscapeCache.key = cacheKey;
   showBuffer(ctx, width, height, scale);
 }

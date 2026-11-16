@@ -3,6 +3,7 @@ import { propsAround, TILE, tileAt } from '../world/map';
 import { insideOf } from '../data/zones';
 import { countItem, addItem, removeItem, heal } from './player';
 import { applyDishBoosts } from './camp/recipes';
+import { cureCold } from './weather';
 import { notify, say } from './messages';
 import { cue } from './cues';
 import { floatText } from './particles';
@@ -76,6 +77,9 @@ export function eat(game, itemId) {
   if (item.water) player.thirst = clamp(player.thirst + item.water);
   if (item.heal) heal(player, item.heal);
   applyDishBoosts(game, itemId);
+  if (['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast'].includes(itemId)) {
+    cureCold(game, '🍲 That hot dish warmed you up — your cold is cured!');
+  }
   if (item.raw && Math.random() < 0.35) {
     player.health = Math.max(1, player.health - 10);
     notify(game, '🤢 The raw meat did not agree with you. −10 HP. Cook it next time!', '#ff8a95');

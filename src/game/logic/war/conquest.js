@@ -455,6 +455,7 @@ function fireProjectile(game, kind, from, target, damage, speed, color) {
 
 function strikeMonster(game, monster, damage, color) {
   monster.health -= damage;
+  monster.hitAt = Date.now();
   spawnWarEffect(game, 'hit', monster.x, monster.y, color);
   floatText(game, monster.x, monster.y - 0.3, '-' + damage, color);
   if (monster.health <= 0) {
@@ -470,8 +471,21 @@ function faceToward(entity, target) {
   entity.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
 }
 
+const LAMBDA_TIME_SCALE = 9; // lambda villagers take 9x longer between attacks
+
+function setAttackAnim(villager, now, kind, target) {
+  villager.attackAnimAt = now;
+  villager.attackAnimKind = kind;
+  villager.attackDx = target.x - villager.x;
+  villager.attackDy = target.y - villager.y;
+}
+
 function updateDefender(game, villager, monsters, foremanPos, dt) {
   const now = Date.now();
+  if (!villager._warInited) {
+    villager._warInited = true;
+    villager.attackCd = villager.knight || villager.job === 'foreman' ? Math.random() * 0.5 : 2 + Math.random() * 5;
+  }
   villager.attackCd = Math.max(0, (villager.attackCd || 0) - dt);
   const nearest = closestEntry(monsters, villager);
   if (!nearest) return;
@@ -494,13 +508,15 @@ function updateDefender(game, villager, monsters, foremanPos, dt) {
       faceToward(villager, monster);
     }
     if (nearest.far <= 1.5 && villager.attackCd <= 0) {
-      villager.attackCd = 1.1;
-      strikeMonster(game, monster, 14, '#ffd23f');
+      villager.attackCd = 1.6;
+      setAttackAnim(villager, now, 'foreman', monster);
+      spawnWarEffect(game, 'slash', monster.x, monster.y, '#ffd23f');
+      strikeMonster(game, monster, 12, '#ffd23f');
     }
     return;
   }
 
-  // Knights charge into melee for heavy blows.
+  // Knights keep their full strength, charging into melee with sword and shield.
   if (villager.knight) {
     faceToward(villager, monster);
     if (nearest.far > 1.25) {
@@ -513,27 +529,31 @@ function updateDefender(game, villager, monsters, foremanPos, dt) {
       if (villager.attackCd <= 0) {
         villager.attackCd = 0.95;
         const dmg = Math.round(18 * rallyMul);
+        setAttackAnim(villager, now, 'knight', monster);
+        spawnWarEffect(game, 'slash', monster.x, monster.y, '#ffe066');
         strikeMonster(game, monster, dmg, '#ffe066');
       }
     }
     return;
   }
 
-  // Male villagers fight with pitchforks in melee and throw stones/pitchforks at range.
+  // Lambda villagers/guards: take 9x longer between strikes and deal modest chip damage.
   faceToward(villager, monster);
   if (nearest.far <= 1.55) {
     villager.walking = false;
     if (villager.attackCd <= 0) {
-      villager.attackCd = isRallied ? 0.95 : 1.15;
-      const dmg = Math.round(10 * rallyMul);
+      villager.attackCd = (isRallied ? 0.95 : 1.15) * LAMBDA_TIME_SCALE;
+      const dmg = Math.max(2, Math.round(3 * rallyMul));
+      setAttackAnim(villager, now, 'thrust', monster);
       strikeMonster(game, monster, dmg, '#e8eef7');
     }
   } else if (nearest.far <= THROW_RANGE) {
     villager.walking = false;
     if (villager.attackCd <= 0) {
-      villager.attackCd = isRallied ? 1.15 : 1.5;
+      villager.attackCd = (isRallied ? 1.15 : 1.5) * LAMBDA_TIME_SCALE;
       const throwFork = Math.random() < 0.35;
-      const dmg = Math.round((throwFork ? 12 : 8) * rallyMul);
+      const dmg = Math.max(1, Math.round((throwFork ? 4 : 2) * rallyMul));
+      setAttackAnim(villager, now, 'throw', monster);
       fireProjectile(game, throwFork ? 'pitchfork' : 'stone', villager, monster, dmg, throwFork ? 9.5 : 8.5, throwFork ? '#c9d1e0' : '#94909b');
       cue(game, 'pitchforkThrow');
     }

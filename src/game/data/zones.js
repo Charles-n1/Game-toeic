@@ -84,7 +84,10 @@ function floorSize(dungeon) {
 }
 
 function insidesOf() {
-  const list = [{ id: 'home', name: 'Your home', kind: 'home', theme: 'home', ...slot(0), w: 14, h: 10, safe: true }];
+  const list = [
+    { id: 'home', name: 'Your home', kind: 'home', theme: 'home', ...slot(0), w: 14, h: 10, safe: true },
+    { id: 'visitHouse', name: 'Village House', kind: 'houseVisit', theme: 'home', ...slot(1), w: 22, h: 16, safe: true },
+  ];
   for (const dungeon of DUNGEONS) {
     for (let floor = 1; floor <= dungeon.floors; floor++) {
       list.push({ id: dungeon.id + '-' + floor, name: dungeon.name + (dungeon.floors > 1 ? ' · floor ' + floor : ''), kind: 'floor', dungeon: dungeon.id, floor: floor, theme: dungeon.theme, ...slot(list.length), ...floorSize(dungeon) });
@@ -201,6 +204,18 @@ export function houseOf(villageId, role) {
 // The door of a house: the tile in the middle of its front wall (the left one of a double door).
 export function doorOf(house) {
   return { x: house.x + Math.floor(house.w / 2) - (hasDoubleDoor(house) ? 1 : 0), y: house.y + house.h - 1 };
+}
+
+const HOUSES_BY_DOOR = new Map();
+for (const house of HOUSES) {
+  if (house.style === 'tent' || (house.village === 'lexia' && house.role === 'home')) continue;
+  const door = doorOf(house);
+  HOUSES_BY_DOOR.set(door.x + ',' + door.y, house);
+  if (hasDoubleDoor(house)) HOUSES_BY_DOOR.set(door.x + 1 + ',' + door.y, house);
+}
+
+export function houseAtDoor(x, y) {
+  return HOUSES_BY_DOOR.get(Math.floor(x) + ',' + Math.floor(y)) || null;
 }
 
 // The home of the player and where they wake up: in front of its door.
