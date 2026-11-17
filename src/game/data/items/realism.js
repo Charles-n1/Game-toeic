@@ -18,6 +18,8 @@ export const REALISM_ITEMS = {
   postLetter: { name: 'Courier Seal', icon: '✉️', kind: 'tool', price: 15, sell: 5, text: 'Send gifts or correspondence across kingdoms by carrier pigeon.' },
   tentKit: { name: 'Waxed Field Tent', icon: '⛺', kind: 'tool', price: 90, sell: 35, text: 'Elevated canvas shelter granting 95% sleep quality outdoors.' },
 
+  compost: { name: 'Field Compost', icon: '🌱', kind: 'material', price: 6, sell: 2, text: 'Fertilizer made from spoiled rations. Doubles harvest when planting.' },
+
   // Monster Cores & Rare Finds
   coreShard: { name: 'Lesser Monster Core', icon: '🟣', kind: 'material', price: 45, sell: 22, text: 'Crystallized beast mana. Powers lanterns, scrolls & crystal batteries.' },
   monsterCore: { name: 'Pristine Monster Core', icon: '🔮', kind: 'goods', price: 130, sell: 68, text: 'Dense elemental nucleus harvested by skilled flayers.' },

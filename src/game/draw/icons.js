@@ -228,6 +228,7 @@ const ICONS = {
 
   // ---------- Realism & Almanac items ----------
   codex: [BOOK, { B: '#7a3fd1', b: '#4a208a' }],
+  compost: [SEED, { N: '#5a3a1e', B: '#3f7a36' }],
   salt: [STONES, { G: '#f2f4f8', L: '#ffffff', g: '#c9d1e0' }],
   soap: [CLOTH, { C: '#f8d8e8', L: '#ffffff', c: '#d89ab8' }],
   tallow: [JAR, { Y: '#f2e0a8', W: '#ffffff' }],

@@ -1,7 +1,10 @@
 import { KINGDOMS } from '../../data/kingdoms';
 
-// Canonical saved state schema for all 112 realistic Isekai mechanics (Economy, Mana Physics,
-// Survival/Medical, Dungeon Ecology, Living World, Social Caste/Titles/Factions, Companions, Codex).
+// Canonical saved state schema for Lexia Realism (Parts 4..17 & Build r1..r9).
+// Keeps consequences, world memory, English-first documents, injuries, spoilage,
+// finance, crimes/witnesses, factions, homestead workstations, and Codex tracking.
+
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function defaultFxRates() {
   const rates = {};
@@ -19,6 +22,7 @@ export function defaultCurrencies() {
 
 export function firstRealism() {
   return {
+    mode: 'normal', // 'light' | 'normal' | 'hardcore'
     bank: { balance: 0, lastInterestDay: 1 },
     currencies: defaultCurrencies(),
     fxRates: defaultFxRates(),
@@ -47,14 +51,19 @@ export function firstRealism() {
       pickedLocks: {},
       mimicChecked: {},
       heirloom: null,
+      weaponFights: 0,
       quality: { weapon: 'standard', armor: 'standard', boots: 'standard' },
       gentlemanDuel: false,
+      wakeSleepyTurn: false,
     },
     health: {
       cleanliness: 92,
       morale: 88,
+      cutHours: 0,
       infectionHours: 0,
       sprainHours: 0,
+      brokenArmHours: 0,
+      brokenLegHours: 0,
       dysenteryHours: 0,
       potionCount6h: 0,
       potionCooldownHours: 0,
@@ -65,6 +74,10 @@ export function firstRealism() {
       wellRestedHours: 0,
       watchMateId: null,
       bootWear: 0,
+      sharpenedDay: 0,
+      scars: [],
+      dietRecent: [],
+      dietToday: { meat: false, veg: false, bread: false, day: 1, goodDiet: false },
     },
     skills: {
       flayerXp: 0,
@@ -89,6 +102,8 @@ export function firstRealism() {
       surveyedPct: 0,
       surveyRewardsClaimed: [],
       depletedSpots: {},
+      forestCutCount: {},
+      ecosystem: {},
       rivals: [],
       nemesis: {},
       lairDays: {},
@@ -98,9 +113,20 @@ export function firstRealism() {
       shrineBlessing: { id: null, untilDay: 0 },
       news: [],
       lastNewsDay: 0,
+      boardNotices: [],
+      lastNoticeDay: 0,
+      noticesRead: {},
+      closedShops: {},
       miasmaHours: 0,
       lastDeathPos: null,
+      lastDeathBag: null,
+      lastDeathDay: 0,
+      graves: [],
       marketBoom: null,
+      wantedUntilDay: 0,
+      wantedReason: '',
+      taxesDueDay: 7,
+      repQueue: [],
     },
     social: {
       caste: 'vagrant',
@@ -114,6 +140,9 @@ export function firstRealism() {
       insuranceUntilDay: 0,
       freedSettlers: 0,
       companionMood: {},
+      npcMemories: {},
+      promisedQuests: {},
+      inbox: [],
     },
     codex: {
       monsters: {},
@@ -123,6 +152,7 @@ export function firstRealism() {
       trapsFound: 0,
       pearlsFound: 0,
       bathsTaken: 0,
+      dreamsDone: 0,
     },
   };
 }
@@ -144,4 +174,29 @@ export function ensureRealism(game) {
   }
   mergeMissing(game.realism, firstRealism());
   return game.realism;
+}
+
+export function realismMode(game) {
+  return ensureRealism(game).mode || 'normal';
+}
+
+// Priority gate matching REALISM.txt Part 3:
+// 'light' runs English docs + core survival only; 'normal' runs (A)+(B); 'hardcore' runs (A)+(B)+(C).
+export function isTierEnabled(game, priority = 'A') {
+  const mode = realismMode(game);
+  if (mode === 'light') return false;
+  if (mode === 'normal') return priority === 'A' || priority === 'B';
+  return true;
+}
+
+export function weekdayName(day = 1) {
+  return WEEKDAYS[(Math.max(1, day) - 1) % 7];
+}
+
+export function isMarketDay(day = 1) {
+  return ((Math.max(1, day) - 1) % 7) === 5; // Sat = Market Day
+}
+
+export function isTempleDay(day = 1) {
+  return ((Math.max(1, day) - 1) % 7) === 0; // Sun = Temple Day
 }

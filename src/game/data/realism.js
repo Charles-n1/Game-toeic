@@ -17,6 +17,13 @@ export const PERISHABLE_ITEMS = {
   milk: 2,
   egg: 4,
   mushroom: 4,
+  bread: 5,
+  roastMeat: 3,
+  roastedFish: 3,
+  herbStew: 3,
+  spicedStew: 3,
+  heartySoup: 3,
+  mushroomSoup: 3,
 };
 
 export const EARTH_ROYALTIES = {
