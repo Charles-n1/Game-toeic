@@ -238,9 +238,9 @@ export function iceCrystal() {
 
 // ---------- Houses ----------
 
-const PLASTER_RAMP = ['#bfa57a', '#d4bd93', '#e6d3ad', '#f2e4c6', '#faf0dc'];
-const GLASS_RAMP = ['#2f5f8f', '#3f7fb5', '#5a9fd6', '#8cc5ee', '#d6f1ff'];
-const IRON = { base: '#3a3442', light: '#5a5266' };
+const PLASTER_RAMP = ['#9b825d', '#b89f76', '#d6c096', '#ead8b6', '#f7ebd4'];
+const GLASS_RAMP = ['#263e6c', '#355f98', '#4f88c2', '#82bce8', '#ffe49e'];
+const IRON = { base: '#2c2738', light: '#545068' };
 
 // A beam of wood, lit on its top-left.
 export function paintBeam(grid, x, y, w, h) {

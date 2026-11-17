@@ -1,45 +1,48 @@
-// The colors of the game: a warm 16-bit palette (bright greens, warm browns, deep navy for the night).
+// Unified Dark-Fantasy HD-2D 16-bit palette:
+// Deep violet-obsidian ink outlines, hue-shifted cool indigo shadows, rich natural midtones,
+// and warm champagne-gold sun highlights (inspired by Octopath / Ronan & Luna reference styling).
 
-export const OUTLINE = '#1c1726'; // the dark edge around every sprite
+export const OUTLINE = '#140f1e';
 
-export const GRASS = { base: '#5db84b', dark: '#46a043', deep: '#2f7d3a', light: '#8ad35a', edge: '#3a8f3e' };
-export const DIRT = { base: '#c99f66', dark: '#a9814f', light: '#ddbd88', pebble: '#8f6a43' };
-export const COBBLE = { mortar: '#7a7066', stone: '#b5ac9e', light: '#d4ccbf', dark: '#948a7c' };
-export const SAND = { base: '#ead49a', dark: '#d6bb7a', light: '#f6e6b8' };
-export const WATER = { base: '#3b8fe0', dark: '#2f78c8', light: '#7cc4f5', foam: '#e2f4ff', deep: '#2a66b3' };
-export const SNOW = { base: '#eef3fa', shade: '#d3deee', dark: '#b4c6e0', light: '#ffffff' };
-export const ASH = { base: '#55424f', dark: '#433440', light: '#6b5664', crack: '#2e2330' };
-export const LAVA = { base: '#e8541c', light: '#ffa62b', bright: '#ffe066', crust: '#8a2c14' };
-export const FLOOR = { base: '#6c6580', dark: '#575069', light: '#7f7894' };
-export const WALL = { top: '#4b4466', rim: '#6d6690', face: '#3e3756', brick: '#4a4366', mortar: '#2f2944' };
-export const SOIL = { base: '#7a4f2c', furrow: '#5f3b1f', light: '#94643a' };
-export const WOOD = { base: '#a0683a', dark: '#784824', light: '#c48c52', deep: '#4f2e17' };
+export const GRASS = { base: '#358034', dark: '#27632d', deep: '#1d4628', light: '#6cbd4b', edge: '#2d7231' };
+export const DIRT = { base: '#8b5c3b', dark: '#6e472d', light: '#aa764d', pebble: '#523522' };
+export const COBBLE = { mortar: '#342e3b', stone: '#6e6c82', light: '#9190a6', dark: '#525064' };
+export const SAND = { base: '#cc9b5a', dark: '#af7e45', light: '#e3b975' };
+export const WATER = { base: '#22589c', dark: '#183d78', light: '#52a3d8', foam: '#d9f4ff', deep: '#112858' };
+export const SNOW = { base: '#dde8f5', shade: '#b8cce6', dark: '#91a8cf', light: '#f7fbff' };
+export const ASH = { base: '#332734', dark: '#241b26', light: '#453643', crack: '#18121b' };
+export const LAVA = { base: '#e84818', light: '#ff9c28', bright: '#ffe670', crust: '#782214' };
+export const FLOOR = { base: '#4b4662', dark: '#36314a', light: '#625c7c' };
+export const WALL = { top: '#35304c', rim: '#746e98', face: '#2c2740', brick: '#3c3654', mortar: '#1c182c' };
+export const SOIL = { base: '#5f3b22', furrow: '#452815', light: '#7a4d2e' };
+export const WOOD = { base: '#7c4e2a', dark: '#543219', light: '#a67042', deep: '#341e0f' };
 
-// ---------- Tone ramps: the same material from its darkest shade to its lightest (for the shading) ----------
-export const GRASS_RAMP = ['#2c6826', '#37812e', '#449634', '#52a73a', '#66ba45', '#86d058'];
-export const DIRT_RAMP = ['#7c5634', '#94673d', '#ab7c4b', '#c19460', '#d4ab78', '#e2c393'];
-export const STONE_RAMP = ['#47434d', '#5f5a66', '#78737f', '#94909b', '#b3aeb8', '#d4d0d8'];
-export const WATER_RAMP = ['#1b4a94', '#225db0', '#2b72c8', '#3f8bdb', '#64aaec', '#a4d6fa'];
-export const SNOW_RAMP = ['#9fb4d6', '#bccbe3', '#d6e1f0', '#e9eff8', '#ffffff'];
-export const SAND_RAMP = ['#b58f4c', '#c9a35e', '#d9b671', '#e7c98a', '#f3dda6'];
-export const ASH_RAMP = ['#251b23', '#342731', '#44363f', '#56464f', '#6a5964'];
-export const LEAF_RAMP = ['#0f2418', '#163a20', '#1e5026', '#29682d', '#388434', '#4fa03c', '#70bc4c', '#97d65e'];
-export const LIGHT_LEAF_RAMP = ['#16391f', '#205227', '#2c6b2e', '#3b8835', '#52a43e', '#74c04d', '#9cd95f', '#c2ec7c'];
-export const PINE_RAMP = ['#0c2620', '#123a2c', '#1a5038', '#246745', '#337f52', '#47995f'];
-export const WOOD_RAMP = ['#3b2414', '#55331b', '#704423', '#8c582d', '#a86e3b', '#c28a52'];
-export const THATCH_RAMP = ['#4d3819', '#6e5225', '#8f6d34', '#b08b47', '#cca760', '#e2c27c'];
+// ---------- Hue-Shifted Multi-Tone Ramps (Cool Deep Shadow -> Warm Rim Highlight) ----------
+export const GRASS_RAMP = ['#1d4628', '#27632d', '#358034', '#499c3c', '#6cbd4b', '#98da66'];
+export const DIRT_RAMP = ['#523522', '#6e472d', '#8b5c3b', '#aa764d', '#c69265', '#dfb384'];
+export const STONE_RAMP = ['#2b2938', '#3c3a4c', '#525064', '#6e6c82', '#9190a6', '#babbc9'];
+export const WATER_RAMP = ['#112858', '#183d78', '#22589c', '#2f78be', '#52a3d8', '#9de2fa'];
+export const SNOW_RAMP = ['#6d84ae', '#91a8cf', '#b8cce6', '#dde8f5', '#f7fbff'];
+export const SAND_RAMP = ['#8f6232', '#af7e45', '#cc9b5a', '#e3b975', '#f4d599'];
+export const ASH_RAMP = ['#18121b', '#241b26', '#332734', '#453643', '#5a4957'];
+export const LEAF_RAMP = ['#101f22', '#173328', '#204a2c', '#2b6632', '#3c8339', '#56a143', '#78be52', '#a8db6a'];
+export const LIGHT_LEAF_RAMP = ['#142824', '#1d4029', '#295b30', '#397938', '#4f9942', '#70ba4f', '#98d661', '#c6ed84'];
+export const PINE_RAMP = ['#0e1e26', '#143030', '#1c463c', '#266047', '#357b55', '#4c9967'];
+export const WOOD_RAMP = ['#2b1910', '#442818', '#5e3920', '#7c4e2a', '#9c683c', '#bc8756'];
+export const THATCH_RAMP = ['#432f18', '#5f4523', '#7d5f31', '#9c7b42', '#bc9a59', '#dab976'];
+export const GOLD_RAMP = ['#5c3410', '#8c5414', '#bf801c', '#e6b234', '#ffe478'];
+export const STEEL_RAMP = ['#242636', '#3c4054', '#5c647c', '#8892ac', '#c8d2e6'];
+
 export const ROOF_RAMPS = {
-  red: ['#5e1a12', '#80271b', '#a33524', '#c2472e', '#d9613f', '#ea8259'],
-  blue: ['#1a2c5e', '#233d80', '#2f50a0', '#3f66bd', '#5a82d4', '#7fa2e6'],
-  purple: ['#2a1a4e', '#3a2468', '#4e3288', '#6442a8', '#7d5cc4', '#9c80dc'], // the arcane buildings
-  green: ['#184220', '#235b2c', '#2f7839', '#41964a', '#5db663', '#82d484'],
-  sand: ['#6a4620', '#8c5f2c', '#ad793c', '#cb9550', '#e3b26c', '#f4d08f'],
-  grey: ['#353842', '#494e5a', '#606674', '#7b8291', '#99a0af', '#bac1cf'],
-  dark: ['#16131f', '#221d2e', '#302940', '#413855', '#554a6c', '#6e6288'],
+  red: ['#4a1418', '#681e22', '#8a2a2c', '#aa3a38', '#c65448', '#de7864'],
+  blue: ['#152048', '#1e3068', '#2a458a', '#3b5dac', '#557ac6', '#7ba0dc'],
+  purple: ['#21153e', '#311f58', '#442c78', '#5a3d98', '#7557b8', '#987ad6'],
+  green: ['#143420', '#1d4d2c', '#286838', '#398648', '#54a65e', '#7ac47e'],
+  sand: ['#57371a', '#764d25', '#966634', '#b68347', '#d2a262', '#e8c186'],
+  grey: ['#292c38', '#3a3e4d', '#4e5466', '#666d82', '#848ca2', '#a6aebf'],
+  dark: ['#120f1c', '#1c1728', '#29223a', '#3a3050', '#4d4168', '#645784'],
 };
 
-// The color of a type, in the night of a raid... and everything else: mix two colors.
-// amount: 0 = color, 1 = other.
 export function mix(color, other, amount) {
   const a = parseInt(color.slice(1, 7), 16);
   const b = parseInt(other.slice(1, 7), 16);
@@ -49,14 +52,13 @@ export function mix(color, other, amount) {
 }
 
 export function darker(color, amount = 0.28) {
-  return mix(color, '#14101e', amount);
+  return mix(color, '#140f1e', amount);
 }
 
 export function lighter(color, amount = 0.35) {
-  return mix(color, '#ffffff', amount);
+  return mix(color, '#fff6df', amount);
 }
 
-// A color, from its darkest shade to its lightest (6 tones).
 export function rampOf(color) {
-  return [darker(color, 0.55), darker(color, 0.36), darker(color, 0.16), color, lighter(color, 0.25), lighter(color, 0.5)];
+  return [darker(color, 0.56), darker(color, 0.35), darker(color, 0.16), color, lighter(color, 0.24), lighter(color, 0.48)];
 }

@@ -84,8 +84,8 @@ const styles = {
     height: 130,
     flexShrink: 0,
     borderRadius: 6,
-    background: 'linear-gradient(#5db84b, #3f9a41)',
-    border: '2px solid #0e1430',
+    background: 'linear-gradient(#358034, #1d4628)',
+    border: '2px solid #c99a52',
   },
   label: {
     marginTop: 8,

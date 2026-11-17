@@ -197,19 +197,37 @@ function drawCentered(ctx, canvas, x, y) {
 // ---------- The effects ----------
 
 const BLUE_ARC = ['#1f4fd8', '#3a8cff', '#8fd0ff', '#ffffff'];
-const GOLD_ARC = ['#c46a00', '#ff9d1a', '#ffd84a', '#ffffff'];
+const GOLD_ARC = ['#9a4800', '#ff8c1a', '#ffd84a', '#ffffff'];
+const CRIMSON_ARC = ['#5e0f1c', '#d42038', '#ff6470', '#fff0f2'];
 const OBSIDIAN_ARC = ['#2b1a42', '#7a3fd1', '#c9a8ff', '#ffffff'];
 
-// A crescent of light: the trace of the sword. The arc goes from the angle `from` to `to` (radians, 0 = forward),
-// thick in its middle and thin at its ends; its outer edge is the brightest. colors: from dark to bright.
+// Glowing geometric pixelated magic circle under feet during casts & Aether skills (Ronan / Luna style)
+function drawMagicCircle(ctx, cx, cy, radius, color, phase) {
+  ctx.save();
+  ctx.fillStyle = color;
+  for (let i = 0; i < 20; i++) {
+    const a = phase + (i * Math.PI * 2) / 20;
+    const rx = Math.round(cx + Math.cos(a) * radius);
+    const ry = Math.round(cy + Math.sin(a) * (radius * 0.42));
+    ctx.fillRect(rx, ry, 2, 1);
+    if (i % 5 === 0) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(Math.round(cx + Math.cos(a) * (radius * 0.65)), Math.round(cy + Math.sin(a) * (radius * 0.27)), 2, 2);
+      ctx.fillStyle = color;
+    }
+  }
+  ctx.restore();
+}
+
+// A crescent of light: the trace of the sword.
 function drawCrescent(ctx, cx, cy, radius, thickness, from, to, colors) {
   for (let y = -radius; y <= radius; y++) {
     for (let x = -radius; x <= radius; x++) {
       const distance = Math.hypot(x, y);
-      const along = (Math.atan2(y, x) - from) / (to - from); // 0 at the start of the arc, 1 at its end
+      const along = (Math.atan2(y, x) - from) / (to - from);
       if (along < 0 || along > 1 || distance > radius) continue;
       const thick = thickness * Math.sin(along * Math.PI);
-      const depth = (radius - distance) / thick; // 0 on the outer edge
+      const depth = (radius - distance) / thick;
       if (depth > 1) continue;
       ctx.fillStyle = colors[Math.min(colors.length - 1, Math.floor((1 - depth) * colors.length))];
       ctx.fillRect(Math.round(cx + x), Math.round(cy + y), 1, 1);
@@ -217,19 +235,32 @@ function drawCrescent(ctx, cx, cy, radius, thickness, from, to, colors) {
   }
 }
 
-// The slash of the sword: the crescent grows from the top to the bottom, then its tail catches up.
-function drawSlash(ctx, shoulder, age, last, obsidian = false) {
+// The slash of the sword: sweeping crescent + trailing sparks + Aether Slash light pillar on critical/special!
+function drawSlash(ctx, shoulder, target, age, last, obsidian = false, weapon = null) {
   const start = WIND_UP + DASH - 20;
   const progress = (age - start) / (SLASH + 20);
   if (progress < 0 || progress > 1) return;
-  const top = (-100 * Math.PI) / 180;
-  const sweep = (170 * Math.PI) / 180;
-  const head = top + sweep * Math.min(1, progress * 1.7);
-  const tail = top + sweep * Math.max(0, (progress - 0.45) / 0.55);
+  const top = (-115 * Math.PI) / 180;
+  const sweep = (195 * Math.PI) / 180;
+  const head = top + sweep * Math.min(1, progress * 1.75);
+  const tail = top + sweep * Math.max(0, (progress - 0.42) / 0.58);
   if (head - tail < 0.05) return;
-  const big = last.critical || obsidian ? 1.3 : 1;
-  const colors = last.critical || last.special === 'Holy Sword' ? GOLD_ARC : obsidian ? OBSIDIAN_ARC : BLUE_ARC;
-  drawCrescent(ctx, shoulder.x, shoulder.y, Math.round(20 * big), 6 * big, tail, head, colors);
+  const big = last.critical || obsidian || last.special ? 1.38 : 1.1;
+  const colors = last.critical || last.special ? CRIMSON_ARC : obsidian ? OBSIDIAN_ARC : weapon === 'mithrilSword' ? BLUE_ARC : GOLD_ARC;
+  drawCrescent(ctx, shoulder.x, shoulder.y, Math.round(21 * big), 6.5 * big, tail, head, colors);
+  if (last.critical || last.special) {
+    // Intersecting Aether Slash cross arc + ground rune burst
+    drawCrescent(ctx, shoulder.x + 2, shoulder.y - 2, Math.round(16 * big), 4.5 * big, tail * 0.5, head * 0.7, GOLD_ARC);
+    drawMagicCircle(ctx, target.x, target.y + 10, 18, last.critical ? '#ff5268' : '#ffd86b', age * 0.012);
+    if (progress > 0.25 && progress < 0.9) {
+      ctx.globalAlpha = (1 - progress) * 0.8;
+      ctx.fillStyle = colors[2];
+      ctx.fillRect(Math.round(target.x - 2), Math.round(target.y - 38), 4, 48);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(Math.round(target.x - 1), Math.round(target.y - 36), 2, 46);
+      ctx.globalAlpha = 1;
+    }
+  }
 }
 
 function drawStatusOrbit(ctx, statuses, cx, cy, time) {
@@ -245,39 +276,40 @@ function drawStatusOrbit(ctx, statuses, cx, cy, time) {
   });
 }
 
-// A spell: the hero glows with the color of the spell, then a ball of light flies to the opponent.
+// A spell: arcane rune circle beneath feet + vertical pillar aura + streaking meteor / ice-crystal projectile!
 function drawCast(ctx, hero, target, age, color) {
   if (age >= 0 && age < CAST_TIME) {
-    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(age / 40);
+    drawMagicCircle(ctx, hero.x, hero.y - 1, 15, color, age * 0.015);
+    ctx.globalAlpha = 0.28 + 0.18 * Math.sin(age / 35);
     ctx.fillStyle = color;
-    for (let y = -20; y <= 2; y++) {
-      for (let x = -12; x <= 12; x++) {
-        const ring = (x * x) / 144 + ((y + 9) * (y + 9)) / 144;
-        if (ring > 0.75 && ring <= 1 && (x + y) % 2 === 0) ctx.fillRect(Math.round(hero.x + x), Math.round(hero.y + y), 1, 1);
-      }
-    }
+    ctx.fillRect(Math.round(hero.x - 8), Math.round(hero.y - 30), 16, 28);
     ctx.globalAlpha = 1;
-    for (let i = 0; i < 6; i++) {
-      const rise = (age / 6 + i * 17) % 24; // sparks going up
+    for (let i = 0; i < 8; i++) {
+      const rise = (age / 5 + i * 13) % 28;
       ctx.fillStyle = i % 2 ? '#ffffff' : color;
-      ctx.fillRect(Math.round(hero.x - 10 + i * 4), Math.round(hero.y - rise), 1, 2);
+      ctx.fillRect(Math.round(hero.x - 11 + i * 3), Math.round(hero.y - rise), 1, 3);
     }
   }
   const progress = (age - SPELL_START) / SPELL_FLIGHT;
   if (progress < 0 || progress > 1) return;
   const from = { x: hero.x + 10, y: hero.y - 16 };
-  const at = (t) => ({ x: from.x + (target.x - from.x) * t, y: from.y + (target.y - from.y) * t - Math.sin(t * Math.PI) * 10 });
-  [0.12, 0.07].forEach((back, i) => {
+  const at = (t) => ({ x: from.x + (target.x - from.x) * t, y: from.y + (target.y - from.y) * t - Math.sin(t * Math.PI) * 12 });
+  [0.18, 0.12, 0.06].forEach((back, i) => {
     const trail = at(Math.max(0, progress - back));
     ctx.fillStyle = color;
-    ctx.fillRect(Math.round(trail.x) - 1 + i, Math.round(trail.y) - 1 + i, 3 - i, 3 - i);
+    ctx.globalAlpha = 0.45 + i * 0.2;
+    ctx.fillRect(Math.round(trail.x) - 1, Math.round(trail.y) - 1, 2 + Math.floor(i / 2), 2 + Math.floor(i / 2));
   });
+  ctx.globalAlpha = 1;
   const ball = at(progress);
   ctx.fillStyle = color;
-  ctx.fillRect(Math.round(ball.x) - 3, Math.round(ball.y) - 2, 6, 4);
-  ctx.fillRect(Math.round(ball.x) - 2, Math.round(ball.y) - 3, 4, 6);
+  ctx.fillRect(Math.round(ball.x) - 4, Math.round(ball.y) - 2, 8, 4);
+  ctx.fillRect(Math.round(ball.x) - 2, Math.round(ball.y) - 4, 4, 8);
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(Math.round(ball.x) - 1, Math.round(ball.y) - 1, 2, 2);
+  ctx.fillRect(Math.round(ball.x) - 1, Math.round(ball.y) - 1, 3, 3);
+  if (progress > 0.82) {
+    drawMagicCircle(ctx, target.x, target.y + 8, 16, color, progress * 6);
+  }
 }
 
 // A star of light where a blow lands.
@@ -323,17 +355,20 @@ function drawGhost(ctx, x, y, hitAge) {
   ctx.globalAlpha = 1;
 }
 
-// The red bar above the opponent (its health). width: in pixels of the art.
+// Etched gold-trimmed obsidian health bar above the opponent.
 function drawHealthBar(ctx, x, y, width, value, max) {
   const left = Math.round(x - width / 2);
-  ctx.fillStyle = '#1c1726';
+  ctx.fillStyle = '#140f1e';
+  ctx.fillRect(left - 2, y - 2, width + 4, 7);
+  ctx.fillStyle = '#c89b4b';
   ctx.fillRect(left - 1, y - 1, width + 2, 5);
-  ctx.fillStyle = '#5a1620';
+  ctx.fillStyle = '#380e16';
   ctx.fillRect(left, y, width, 3);
-  ctx.fillStyle = '#ff3b4f';
-  ctx.fillRect(left, y, Math.round((width * Math.max(0, value)) / max), 3);
+  const fillW = Math.round((width * Math.max(0, value)) / max);
+  ctx.fillStyle = '#e02f46';
+  ctx.fillRect(left, y, fillW, 3);
   ctx.fillStyle = '#ff8a95';
-  ctx.fillRect(left, y, Math.round((width * Math.max(0, value)) / max), 1);
+  ctx.fillRect(left, y, fillW, 1);
 }
 
 // A small yellow arrow over the monster targeted by the question (in a duo or a trio).
@@ -506,7 +541,7 @@ export function drawBattle(ctx, game, camera, time) {
     if (fight.opponents.length > 1 && fight.opponent.health > 0) drawTargetArrow(ctx, foeHome.x, foeHome.y - foeLook.ay - 10, time);
   }
 
-  if (last && last.damage > 0 && last.mode === 'strike') drawSlash(ctx, { x: hero.x + 3, y: hero.y - 13 }, ages.hero, last, game.player.obsidianBlade > 0);
+  if (last && last.damage > 0 && last.mode === 'strike') drawSlash(ctx, { x: hero.x + 3, y: hero.y - 13 }, middle, ages.hero, last, game.player.obsidianBlade > 0, game.player.weapon);
   if (game.player.obsidianBlade > 0 || game.player.soldiers > 0) {
     for (let s = 0; s < 3; s++) {
       const a = time * 3.8 + (s * Math.PI * 2) / 3;

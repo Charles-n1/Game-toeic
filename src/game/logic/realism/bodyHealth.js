@@ -2,7 +2,7 @@ import { ITEMS } from '../../data/items';
 import { zoneAt } from '../../data/zones';
 import { ensureRealism, isTierEnabled } from './state';
 import { isOutdoors, isRaining, isCold, cureCold } from '../weather';
-import { addItem, removeItem, countItem, heal, maxMana, restoreMana } from '../player';
+import { removeItem, countItem, heal, maxMana, restoreMana } from '../player';
 import { notify } from '../messages';
 import { cue } from '../cues';
 import { burst, floatText } from '../particles';

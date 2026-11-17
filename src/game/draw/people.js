@@ -1,483 +1,1005 @@
-import { makeGrid, dot, fillRect, fillBall, toneOf, drawLine, drawPicture, addOutline, mirrored, toCanvas, once, paintCloth, fillTriangle, colorAt } from './pixels';
-import { OUTLINE, mix, darker, lighter, rampOf } from './palette';
+import { addOutline, colorAt, drawLine, drawPicture, dot, fillRect, makeGrid, mirrored, once, padded, toCanvas } from './pixels';
+import { OUTLINE, GOLD_RAMP, STEEL_RAMP, darker, lighter, mix } from './palette';
 import { usesHeroArt } from '../data/hero';
 import { isHeroArtReady, heroArtSprite } from './heroArt';
 import { isCharacterArtReady, hasCharacterArt, characterSprite } from './characterArt';
 
-// The people of the world, in pixel art, drawn with shapes: a shaded head, big anime eyes, a hair style,
-// a tunic, arms, legs and boots. The light comes from the top-left.
-// A "look": { skin, hair, style, eyes, outfit, trim, pants?, boots?, small?, ears?, horns?, beard?, skirt?, scarf?, sword?,
-//   sheet? } (sheet: the person has real pictures, cut from a sprite sheet: see characterArt.js)
-// style: 'short' | 'long' | 'twin' | 'pony' | 'bun' | 'bald' | 'spiky'
-// The hero also has a cape (scarf: true) of the color of the trim.
+// HD-2D JRPG Pixel Sprite Engine matched 1:1 to Hero (38px) & Luna (40px):
+// Rounded/spiky high hair crown (y=2..13) with bangs overlapping down onto top of eyes (y=13..15),
+// chin seated directly into collar/scarf (y=18), tailored 12px torso/robe, and 10px boots to y=39.
 
-const W = 36;
-const H = 40;
-const CX = 18; // the middle of the body
-const FEET = 34; // the row of the soles
+const W = 38;
+const H = 44;
+const CX = 19;
+const FEET = 40;
 
-// ---------- Colors ----------
+const WALK = ['walk0', 'walk1', 'walk2', 'walk3'];
 
-// The skin gets warm shadows (a bit of red), not grey ones.
-function skinRampOf(skin) {
-  return [mix(skin, '#5e2a26', 0.5), mix(skin, '#7a3a32', 0.32), mix(skin, '#8a4a3a', 0.14), skin, lighter(skin, 0.3)];
+const POSES = {
+  stand: { lift: 0, lean: 0, gait: 'stand', arm: 'rest', cape: 0 },
+  breath: { lift: 1, lean: 0, gait: 'stand', arm: 'rest', cape: 0 },
+  walk0: { lift: 0, lean: 1, gait: 'strideA', arm: 'swingA', cape: 1 },
+  walk1: { lift: -1, lean: 1, gait: 'pass', arm: 'rest', cape: 2 },
+  walk2: { lift: 0, lean: 1, gait: 'strideB', arm: 'swingB', cape: 1 },
+  walk3: { lift: -1, lean: 1, gait: 'pass', arm: 'rest', cape: 2 },
+  drink: { lift: 0, lean: 0, gait: 'stand', arm: 'drink', cape: 0 },
+  sleep: { lift: 1, lean: 0, gait: 'stand', arm: 'rest', cape: 0, eyes: 'closed' },
+  dead: { lift: 0, lean: 0, gait: 'stand', arm: 'rest', cape: 0, eyes: 'closed' },
+  ready0: { lift: 1, lean: 1, gait: 'stance', arm: 'ready', cape: 1, sword: -40 },
+  ready1: { lift: 0, lean: 1, gait: 'stance', arm: 'ready', cape: 2, sword: -35 },
+  windup: { lift: 0, lean: -1, gait: 'stance', arm: 'raised', cape: 1, eyes: 'focus', sword: -125 },
+  slash: { lift: 1, lean: 2, gait: 'lunge', arm: 'forward', cape: 3, eyes: 'focus', sword: 30 },
+  cast: { lift: 0, lean: 1, gait: 'stance', arm: 'forward', cape: 3, eyes: 'focus', sword: -15 },
+  hurt: { lift: 0, lean: -2, gait: 'stance', arm: 'hurt', cape: 0, eyes: 'wince', sword: 120 },
+  victory: { lift: -1, lean: 0, gait: 'stand', arm: 'victory', cape: 2, eyes: 'happy', sword: -90 },
+  ko: { lift: 0, lean: 0, gait: 'stand', arm: 'rest', cape: 0, eyes: 'closed' },
+};
+
+const SAME_AS = {
+  run0: 'walk0', run1: 'walk1', run2: 'walk2', run3: 'walk3',
+  swing: 'slash', cast0: 'cast', cast1: 'cast',
+  fall: 'hurt', roll: 'hurt', cheer: 'victory', guard: 'ready0',
+  windupJump: 'windup', windupCombo: 'windup',
+  dash: 'walk1', dashJump: 'walk1', dashCombo: 'walk1',
+  slashJump: 'slash', slashCombo: 'slash',
+};
+
+// ---------- Shading Ramps ----------
+
+function hexOf(val, fallback) {
+  return typeof val === 'string' && val.startsWith('#') ? val : fallback;
 }
 
 function colorsOf(look) {
+  const skin = hexOf(look.skin, '#f3d2b3');
+  const hair = hexOf(look.hair, '#5a3a1e');
+  const outfit = hexOf(look.outfit, '#4a628a');
+  const trim = hexOf(look.trim, GOLD_RAMP[3]);
+  const pants = hexOf(look.pants, '#2e3044');
+  const boots = hexOf(look.boots, '#4a2b1c');
+  const eyes = hexOf(look.eyes, '#3a6fd8');
+  const scarf = hexOf(look.scarf, look.scarf ? trim : '#b42838');
   return {
-    hair: rampOf(look.hair),
-    skin: skinRampOf(look.skin),
-    outfit: rampOf(look.outfit),
-    trim: rampOf(look.trim),
-    pants: rampOf(look.pants || '#3b3652'),
-    boots: rampOf(look.boots || '#5a3a22'),
-    eyes: look.eyes,
+    S: mix(skin, '#4f1e22', 0.48),
+    s: mix(skin, '#843836', 0.24),
+    k: skin,
+    l: lighter(skin, 0.22),
+    r: mix(skin, '#ec707c', 0.40),
+    E: OUTLINE,
+    W: '#ffffff',
+    I: eyes,
+    i: darker(eyes, 0.36),
+    0: mix(hair, '#0d0818', 0.72),
+    1: mix(darker(hair, 0.38), '#1c122e', 0.25),
+    2: hair,
+    3: lighter(hair, 0.36),
+    o: mix(outfit, '#120d1e', 0.52),
+    O: darker(outfit, 0.26),
+    u: outfit,
+    U: lighter(outfit, 0.24),
+    t: darker(trim, 0.32),
+    T: trim,
+    y: lighter(trim, 0.36),
+    b: '#2b1e20',
+    B: '#4f352e',
+    g: GOLD_RAMP[2],
+    G: GOLD_RAMP[4],
+    p: darker(pants, 0.28),
+    P: pants,
+    f: darker(boots, 0.36),
+    F: boots,
+    h: lighter(boots, 0.28),
+    m: STEEL_RAMP[1],
+    M: STEEL_RAMP[2],
+    n: STEEL_RAMP[3],
+    N: STEEL_RAMP[4],
+    c: darker(scarf, 0.34),
+    C: scarf,
+    R: lighter(scarf, 0.28),
+    H: '#2a1c38',
+    v: '#5d3b72',
+    w: '#ffe8ed',
   };
 }
 
-// The light of a pixel inside a ball (0 to 1), or -1 if it is outside. Lit on the top-left.
-function ballLight(ball, x, y) {
-  const nx = (x + 0.5 - ball.cx) / ball.rx;
-  const ny = (y + 0.5 - ball.cy) / ball.ry;
-  const flat = nx * nx + ny * ny;
-  if (flat > 1) return -1;
-  return 0.15 + 0.85 * Math.max(0, -0.5 * nx - 0.65 * ny + 0.58 * Math.sqrt(1 - flat));
+function stamp(grid, rows, colors, x, y) {
+  drawPicture(grid, rows, colors, Math.round(x), Math.round(y));
 }
 
-// Paints the pixels of a ball that pass `keep(x, y)` (a part of the hair, the face...).
-function paintBallPart(grid, ball, ramp, keep = () => true, brightness = 1) {
-  for (let y = Math.floor(ball.cy - ball.ry); y <= ball.cy + ball.ry; y++) {
-    for (let x = Math.floor(ball.cx - ball.rx); x <= ball.cx + ball.rx; x++) {
-      const light = ballLight(ball, x, y);
-      if (light >= 0 && keep(x, y)) dot(grid, x, y, toneOf(ramp, light * brightness, x, y));
-    }
-  }
-}
+// ---------- Compact JRPG Face (14w x 8h, big 2x3 anime eyes directly under bangs) ----------
 
-// ---------- Poses: the pictures of the animations ----------
-
-// One picture of an animation.
-// lift: the body goes up (+) or down (−), in pixels. lean: the upper body moves forward (+) or back (−) (side view).
-// legs: 'together' | 'walkA' | 'walkB' | 'stance' | 'lunge'. arms: see ARM_ENDS. cape: how far the cape flies (0 to 3).
-// face: 'normal' | 'shout' | 'hurt' | 'happy'.
-// sword: in a fight, the angle of the sword in the hand (degrees: 0 = forward, −90 = up), drawn by battle.js.
-// No angle: the sword stays on the back (or at the hip).
-const POSES = {
-  stand: { lift: 0, legs: 'together', arms: 'down', cape: 0 },
-  breath: { lift: -1, legs: 'together', arms: 'down', cape: 1 },
-  walk0: { lift: 0, legs: 'walkA', arms: 'swingA', cape: 1 },
-  walk1: { lift: 1, legs: 'together', arms: 'down', cape: 2 },
-  walk2: { lift: 0, legs: 'walkB', arms: 'swingB', cape: 1 },
-  walk3: { lift: 1, legs: 'together', arms: 'down', cape: 2 },
-  ready0: { lift: -1, lean: 1, legs: 'stance', arms: 'ready', cape: 1, sword: -40 },
-  ready1: { lift: -2, lean: 1, legs: 'stance', arms: 'ready', cape: 2, sword: -35 },
-  windup: { lift: 0, lean: -2, legs: 'stance', arms: 'raised', cape: 1, face: 'shout', sword: -125 },
-  slash: { lift: -2, lean: 3, legs: 'lunge', arms: 'forward', cape: 3, face: 'shout', sword: 30 },
-  cast: { lift: 0, lean: 1, legs: 'stance', arms: 'forward', cape: 3, face: 'shout', sword: -15 },
-  hurt: { lift: 0, lean: -3, legs: 'stance', arms: 'flail', cape: 0, face: 'hurt', sword: 120 },
-  victory: { lift: 1, legs: 'together', arms: 'victory', cape: 2, face: 'happy', sword: -90 },
-  drink: { lift: 0, legs: 'together', arms: 'drink', cape: 1, face: 'happy' },
+const FACE_DOWN = {
+  normal: [
+    'skllllllllllks',
+    'skEEkkkkkkEEks',
+    'kEWEkkkkkkEWEk',
+    'kIIikkkkkkiIIk',
+    'skrrkkkkkkrrks',
+    '.sskkkkkkkkss.',
+    '..sskkllkkss..',
+    '....SSkkSS....',
+  ],
+  focus: [
+    's0llllllllll0s',
+    'skEEkkkkkkEEks',
+    'kEWEkkkkkkEWEk',
+    'kIIikkkkkkiIIk',
+    'skrrkkkkkkrrks',
+    '.sskkkkkkkkss.',
+    '..sskkllkkss..',
+    '....SSkkSS....',
+  ],
+  happy: [
+    'skllllllllllks',
+    'skEEkkkkkkEEks',
+    'kEkkEkkkkEkkEk',
+    'skrrkkkkkkrrks',
+    '.sskkkkkkkkss.',
+    '..sskkllkkss..',
+    '...sSSkkSSs...',
+    '....SSSSSS....',
+  ],
+  wince: [
+    'skllllllllllks',
+    'skEkkkkkkkkEks',
+    'kkEkkkkkkkkEkk',
+    'skrrkkkkkkrrks',
+    '.sskkkkkkkkss.',
+    '..sskkllkkss..',
+    '....SSkkSS....',
+    '.....SSSS.....',
+  ],
+  closed: [
+    'skllllllllllks',
+    'skllllllllllks',
+    'kEEkkkkkkkkEEk',
+    'skrrkkkkkkrrks',
+    '.sskkkkkkkkss.',
+    '..sskkllkkss..',
+    '....SSkkSS....',
+    '.....SSSS.....',
+  ],
 };
 
-// Where the hand is, from the shoulder (side view, looking right), for each way of holding the arm.
-const ARM_ENDS = {
-  down: [0, 7],
-  swingA: [2, 6],
-  swingB: [-2, 6],
-  ready: [6, 3],
-  raised: [2, -9],
-  forward: [8, 1],
-  flail: [-5, 3],
-  victory: [3, -10],
-  drink: [5, -3],
+const FACE_SIDE = {
+  normal: [
+    '.skllllllllk.',
+    '.skEEkkkEEkk.',
+    '.skWEkkkWEkk.',
+    '.skIIkkkIIkl.',
+    '.skrrkkkrrkk.',
+    '..sskkkkkkss.',
+    '...sskkkss...',
+    '....SSkkSS...',
+  ],
+  focus: [
+    '.s0llllllll0.',
+    '.skEEkkkEEkk.',
+    '.skWEkkkWEkk.',
+    '.skIIkkkIIkl.',
+    '.skrrkkkrrkk.',
+    '..sskkkkkkss.',
+    '...sskkkss...',
+    '....SSkkSS...',
+  ],
+  happy: [
+    '.skllllllllk.',
+    '.skEEkkkEEkk.',
+    '.skrkkkkrrkl.',
+    '.skrrkkkrrkk.',
+    '..sskkkkkkss.',
+    '...sskkkss...',
+    '....SSkkSS...',
+    '.....SSSS....',
+  ],
+  wince: [
+    '.skllllllllk.',
+    '.skEkkkkEkkk.',
+    '.skkEkkEkkkl.',
+    '.skrrkkkrrkk.',
+    '..sskkkkkkss.',
+    '...sskkkss...',
+    '....SSkkSS...',
+    '.....SSSS....',
+  ],
+  closed: [
+    '.skllllllllk.',
+    '.skllllllllk.',
+    '.skEEkkkEEkk.',
+    '.skrrkkkrrkk.',
+    '..sskkkkkkss.',
+    '...sskkkss...',
+    '....SSkkSS...',
+    '.....SSSS....',
+  ],
 };
 
-// The poses of the fight that the drawn hero shows like another one (the hero of the sprite sheet has them all).
-const SAME_AS = {
-  dash: 'slash',
-  windupCombo: 'windup',
-  dashCombo: 'slash',
-  slashCombo: 'slash',
-  windupJump: 'windup',
-  dashJump: 'slash',
-  slashJump: 'slash',
-  guard: 'hurt',
-  fall: 'hurt',
-  cheer: 'drink',
-  roll: 'hurt',
+const FACE_BACK = [
+  '....SSSSSS....',
+  '....sSSSSs....',
+];
+
+const BEARD_DOWN = [
+  '.012222222210.',
+  '.012222222210.',
+  '..0122222210..',
+  '...01222210...',
+  '....012210....',
+  '.....0110.....',
+];
+
+const BEARD_SIDE = [
+  '..012222210.',
+  '...01222210.',
+  '....012210..',
+  '.....0110...',
+];
+
+// ---------- Organic Rounded/Spiky Hair (Crown starts at headY-9 = y 2; bangs drape to headY+1 = y 12!) ----------
+
+const HAIR_DOWN = {
+  short: {
+    back: [
+      '..01111111111110..',
+      '.0122222222222210.',
+    ],
+    front: [
+      '......12222221......',
+      '....122233332221....',
+      '..0122333333332210..',
+      '.012222222222222210.',
+      '.012222222222222210.',
+      '01222022220222022210',
+      '01220122201222012210',
+      '0120.0120..120.02110',
+      '010...00....0....010',
+      '.0................0.',
+    ],
+  },
+  spiky: {
+    back: [
+      '.011............110.',
+      '0121............1210',
+    ],
+    front: [
+      '......2..2222..2....',
+      '....12322333322321..',
+      '..21223333333332212.',
+      '.1222222222222222221',
+      '01222222222222222210',
+      '01222022202220220221',
+      '01220221012202102210',
+      '1210.120.012010.0120',
+      '010...0...00.0...00.',
+    ],
+  },
+  long: {
+    back: [
+      '..01111111111110..',
+      '.0122222222222210.',
+      '012222222222222210',
+      '012222111111222210',
+      '0122210....0122210',
+      '0122210....0122210',
+      '012210......012210',
+      '012210......012210',
+      '.0110........0110.',
+      '..00..........00..',
+    ],
+    front: [
+      '......12222221......',
+      '....122233332221....',
+      '..0122333333332210..',
+      '.012222222222222210.',
+      '.012222222222222210.',
+      '01222202220222022210',
+      '01221012201220112210',
+      '012210010..10.012210',
+      '012210.........02210',
+      '.0110...........011.',
+    ],
+  },
+  pony: {
+    back: [
+      '..01111111111110..',
+      '...0122T2222T210..',
+      '....01222222210...',
+      '.....012222210....',
+      '......0122210.....',
+    ],
+    front: [
+      '......12222221......',
+      '....122233332221....',
+      '..0122333333332210..',
+      '.012222222222222210.',
+      '.012222222222222210.',
+      '01222022202202220210',
+      '01220122012201220210',
+      '0120.010..00..010.10',
+      '.010.............01.',
+    ],
+  },
+  twin: {
+    back: [
+      'tT1221........1221Tt',
+      '0122221......1222210',
+      '0122210......0122210',
+      '012210........012210',
+      '.0110..........0110.',
+      '..00............00..',
+    ],
+    front: [
+      '......12222221......',
+      '....122233332221....',
+      '..0122333333332210..',
+      '.012222222222222210.',
+      '.012222222222222210.',
+      '01222022202202220210',
+      '01220122012201220210',
+      '0120.010..00..010.10',
+      '.01................0',
+    ],
+  },
+  bun: {
+    back: [
+      '.....012222210......',
+      '....01233333210.....',
+      '.....tTTTTTTTt......',
+    ],
+    front: [
+      '......12222221......',
+      '....122233332221....',
+      '..0122333333332210..',
+      '.012222222222222210.',
+      '.012222222222222210.',
+      '01222022202202220210',
+      '01220122012201220210',
+      '.010..00......00.010',
+    ],
+  },
+  bald: {
+    back: [
+      '..122111111111221...',
+    ],
+    front: [
+      '......skllllks......',
+      '....skllllllllks....',
+      '...skllllllllllks...',
+      '..skllllllllllllks..',
+      '..skllllllllllllks..',
+      '..1kllllllllllllk1..',
+      '..01............10..',
+      '..01............10..',
+    ],
+  },
 };
 
-// A raised arm is painted over the head (else the head would hide it).
-const ARMS_IN_FRONT = ['raised', 'victory', 'drink'];
-
-// Where each foot is, from the hip (side view): the far leg and the near leg.
-const SIDE_FEET = {
-  together: { far: 0, near: 0 },
-  walkA: { far: -3, near: 3 },
-  walkB: { far: 3, near: -3 },
-  stance: { far: -4, near: 4 },
-  lunge: { far: -8, near: 6 },
+const HAIR_SIDE = {
+  short: {
+    back: [
+      '.01111........',
+      '012221........',
+      '012210........',
+      '.0110.........',
+    ],
+    front: [
+      '....12222221....',
+      '..122233332221..',
+      '.01223333332210.',
+      '0122222222222210',
+      '0122222222222210',
+      '0122022022022010',
+      '0120120120.10.0.',
+      '0110.0..........',
+    ],
+  },
+  spiky: {
+    back: [
+      '0111..........',
+      '02221.........',
+      '.01110........',
+    ],
+    front: [
+      '....2..2222..2..',
+      '..1232233332231.',
+      '.122233333332221',
+      '0122222222222220',
+      '0122222222222220',
+      '0122022022022010',
+      '0120120.10.10..0',
+      '010..0..........',
+    ],
+  },
+  long: {
+    back: [
+      '.011111.......',
+      '01222221......',
+      '01222221......',
+      '01222210......',
+      '0122210.......',
+      '012210........',
+      '.0110.........',
+    ],
+    front: [
+      '....12222221....',
+      '..122233332221..',
+      '.01223333332210.',
+      '0122222222222210',
+      '0122222222222210',
+      '0122022022022010',
+      '0120120120.10...',
+      '01210...........',
+      '.010............',
+    ],
+  },
+  pony: {
+    back: [
+      '01T...........',
+      '02221.........',
+      '012221........',
+      '.0122210......',
+      '..012210......',
+      '...0110.......',
+    ],
+    front: [
+      '....12222221....',
+      '..122233332221..',
+      '.01223333332210.',
+      '0122222222222210',
+      '0122222222222210',
+      '0122022022022010',
+      '0120120.10.10...',
+      '.010............',
+    ],
+  },
+  twin: {
+    back: [
+      '.T1221........',
+      '0122221.......',
+      '0122210.......',
+      '012210........',
+      '.0110.........',
+    ],
+    front: [
+      '....12222221....',
+      '..122233332221..',
+      '.01223333332210.',
+      '0122222222222210',
+      '0122222222222210',
+      '0122022022022010',
+      '0120120120.10...',
+      '.010............',
+    ],
+  },
+  bun: {
+    back: [
+      '.012221.......',
+      '0123332T......',
+      '.011110.......',
+    ],
+    front: [
+      '....12222221....',
+      '..122233332221..',
+      '.01223333332210.',
+      '0122222222222210',
+      '0122222222222210',
+      '0122022022022010',
+      '01210...........',
+      '.010............',
+    ],
+  },
+  bald: {
+    front: [
+      '....sklllllk....',
+      '...skllllllls...',
+      '..skllllllllks..',
+      '..skllllllllks..',
+      '..skllllllllks..',
+      '..121.......kk..',
+      '..010...........',
+    ],
+  },
 };
 
-// The walk, the breath and the fight, picture after picture.
-const WALK = ['walk0', 'walk1', 'walk2', 'walk3'];
+const HAIR_UP = {
+  short: [
+    '......12222221......',
+    '....122233332221....',
+    '..0122333333332210..',
+    '.012222222222222210.',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '.012222222222222210.',
+    '..0111222222221110..',
+    '...00112222221100...',
+    '....000111111000....',
+  ],
+  spiky: [
+    '......2..2222..2....',
+    '....12322333322321..',
+    '..21223333333332212.',
+    '.0122222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '.012222222222222210.',
+    '..0112222222222110..',
+    '...00122222222100...',
+    '....0.01111110.0....',
+  ],
+  long: [
+    '......12222221......',
+    '....122233332221....',
+    '..0122333333332210..',
+    '.012222222222222210.',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222211111111222210',
+    '0122210......0122210',
+    '012210........012210',
+    '.0110..........0110.',
+  ],
+  pony: [
+    '......12222221......',
+    '....122233332221....',
+    '..0122333333332210..',
+    '.012222222222222210.',
+    '01222222222222222210',
+    '0122222T2222T2222210',
+    '01222212222221222210',
+    '.012210122221012210.',
+    '......12222221......',
+    '.....1222222221.....',
+    '.....0122222210.....',
+    '......01111110......',
+  ],
+  twin: [
+    '......12222221......',
+    '....122233332221....',
+    '..0122333333332210..',
+    '.012222222222222210.',
+    '01222222222222222210',
+    'tT1222222222222221Tt',
+    '01221122222222112210',
+    '01220.01111110.02210',
+    '01210..........01210',
+    '.010............010.',
+  ],
+  bun: [
+    '.....0123333210.....',
+    '....012233332210....',
+    '.....tTT2222TTt.....',
+    '..0122222222222210..',
+    '.012222222222222210.',
+    '01222222222222222210',
+    '01222222222222222210',
+    '01222222222222222210',
+    '.012222222222222210.',
+    '..0111222222221110..',
+    '...00011111111000...',
+  ],
+  bald: [
+    '......skllllks......',
+    '....skllllllllks....',
+    '...skllllllllllks...',
+    '..skllllllllllllks..',
+    '..skkkkkkkkkkkkkks..',
+    '..skkkkkkkkkkkkkks..',
+    '..11kkkkkkkkkkkk11..',
+    '..0122222222222210..',
+    '..0011222222221100..',
+    '...00111111111100...',
+    '....000000000000....',
+  ],
+};
 
-// ---------- The body ----------
+// ---------- Torso / Armor / Cloaks (y = 18..31 -> 12-13px tall) ----------
 
-// Where the parts of the body are. A child has a shorter body (the same big head). lift: up (+) or down (−).
-function bodyOf(look, lift) {
-  const short = look.small ? 3 : 0;
-  const top = 4 + short - lift; // the top of the head
-  return {
-    head: { cx: CX, cy: top + 8, rx: 8.5, ry: 7.8 },
-    torsoTop: top + 15,
-    torsoBottom: top + 23 - short,
-    legTop: top + 24 - short,
-    bootTop: FEET - 2,
-  };
-}
+function drawTorsoDown(grid, c, look, bx, by, up) {
+  const sw = look.sword;
+  const skirt = look.skirt;
+  const burly = look.burly;
 
-// A thick line of cloth (an arm, a leg seen from the side), lit on its left.
-function paintStroke(grid, [x0, y0], [x1, y1], width, ramp) {
-  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
-  for (let i = 0; i <= steps; i++) {
-    const cx = x0 + ((x1 - x0) * i) / steps;
-    const cy = y0 + ((y1 - y0) * i) / steps;
-    for (let dy = 0; dy < width; dy++) {
-      for (let dx = 0; dx < width; dx++) {
-        const x = Math.round(cx - width / 2 + dx);
-        const y = Math.round(cy - width / 2 + dy);
-        dot(grid, x, y, toneOf(ramp, 0.75 - (dx / width) * 0.35, x, y));
-      }
-    }
-  }
-}
-
-// The same ramp, one tone darker (the leg that is farther, in the shade of the body).
-function shadedRamp(ramp) {
-  return [ramp[0], ...ramp.slice(0, -1)];
-}
-
-// The legs and the boots, seen from the side. The far leg is darker.
-function paintSideLegs(grid, colors, legs, body, lean) {
-  const hip = 17.5 + Math.round(lean / 2);
-  const feet = SIDE_FEET[legs];
-  [
-    [feet.far, shadedRamp(colors.pants), shadedRamp(colors.boots)],
-    [feet.near, colors.pants, colors.boots],
-  ].forEach(([foot, pants, boots]) => {
-    paintStroke(grid, [hip, body.legTop + 1], [17.5 + foot, body.bootTop - 1], 4, pants);
-    paintCloth(grid, Math.round(15.5 + foot), body.bootTop, Math.round(20.5 + foot), FEET, boots); // the toes point forward
-  });
-}
-
-// The legs and the boots, seen from the front or the back: one foot forward (lower) while walking.
-function paintFrontLegs(grid, colors, legs, body) {
-  const forward = { walkA: 1, walkB: -1 }[legs] || 0;
-  const legBottom = body.bootTop - 1;
-  paintCloth(grid, 13, body.legTop, 16, legBottom + forward, colors.pants);
-  paintCloth(grid, 19, body.legTop, 22, legBottom - forward, colors.pants);
-  paintCloth(grid, 12, body.bootTop + forward, 16, FEET + forward, colors.boots);
-  paintCloth(grid, 19, body.bootTop - forward, 23, FEET - forward, colors.boots);
-}
-
-function paintTorso(grid, look, colors, view, body) {
-  const [left, right] = view === 'side' ? [14, 22] : [12, 23];
-  paintCloth(grid, left, body.torsoTop, right, body.torsoBottom, colors.outfit);
-  fillRect(grid, left, body.torsoTop, 1, 1, null); // round shoulders
-  fillRect(grid, right, body.torsoTop, 1, 1, null);
-  const belt = body.torsoBottom - 2;
-  paintCloth(grid, left, belt, right, belt, colors.trim);
-  if (look.skirt) paintCloth(grid, left - 1, belt + 1, right + 1, body.torsoBottom + 3, colors.outfit);
-  else paintCloth(grid, left - 1, belt + 1, right + 1, body.torsoBottom, colors.outfit); // the bottom of the tunic
-}
-
-// The arm seen from the side: the sleeve and the hand. Returns where the hand is.
-function paintSideArm(grid, colors, arms, body) {
-  const shoulder = [CX, body.torsoTop + 1];
-  const [dx, dy] = ARM_ENDS[arms];
-  const hand = [shoulder[0] + dx, shoulder[1] + dy];
-  paintStroke(grid, shoulder, [shoulder[0] + dx * 0.75, shoulder[1] + dy * 0.75], 3, colors.outfit);
-  paintCloth(grid, hand[0] - 1, hand[1] - 1, hand[0], hand[1], colors.skin);
-  if (arms === 'drink') paintPotion(grid, hand);
-  return hand;
-}
-
-// A small blue potion in the hand (the hero drinks).
-function paintPotion(grid, [x, y]) {
-  fillRect(grid, x + 1, y - 4, 2, 4, '#3a7bff');
-  dot(grid, x + 1, y - 3, '#bfe0ff');
-  fillRect(grid, x + 1, y - 5, 2, 1, '#8a5a2e');
-}
-
-// The two arms seen from the front or the back. swing: −1, 0 or 1 (they move while walking).
-function paintFrontArms(grid, colors, arms, body) {
-  const swing = { swingA: 1, swingB: -1 }[arms] || 0;
-  const top = body.torsoTop + 1;
-  const bottom = body.torsoBottom - 2;
-  paintCloth(grid, 10, top - swing, 11, bottom - swing, colors.outfit);
-  paintCloth(grid, 10, bottom + 1 - swing, 11, bottom + 2 - swing, colors.skin);
-  paintCloth(grid, 24, top + swing, 25, bottom + swing, colors.outfit);
-  paintCloth(grid, 24, bottom + 1 + swing, 25, bottom + 2 + swing, colors.skin);
-}
-
-// ---------- The hero's cape, scarf and sword ----------
-
-// The cape seen from the side: it flies behind, higher when the hero runs or strikes (flutter: 0 to 3).
-function paintSideCape(grid, colors, body, flutter) {
-  const top = body.torsoTop;
-  const bottom = body.torsoBottom + 4;
-  const tip = [9 - flutter * 2, bottom - flutter * 2];
-  fillTriangle(grid, [16, top], tip, [17, bottom], (x, y) => toneOf(colors.trim, 0.72 - (17 - x) * 0.04, x, y));
-  drawLine(grid, 15, top + 3, Math.round((tip[0] + 17) / 2), Math.round((tip[1] + bottom) / 2), colors.trim[1]); // a fold
-}
-
-// The cape seen from the front (behind the body) or the back (over it). sway: its bottom moves while walking.
-function paintFlatCape(grid, colors, view, body, sway) {
-  const [left, right] = view === 'up' ? [11, 24] : [9, 26];
-  const top = body.torsoTop;
-  const bottom = body.torsoBottom + 4;
-  for (let y = top; y <= bottom; y++) {
-    const shift = Math.round((sway * (y - top)) / (bottom - top));
-    for (let x = left + shift; x <= right + shift; x++) {
-      dot(grid, x, y, toneOf(colors.trim, 0.75 - ((x - left - shift) / (right - left)) * 0.4 - ((y - top) / (bottom - top)) * 0.15, x, y));
-    }
-  }
-}
-
-function paintScarf(grid, colors, view, body) {
-  const y = body.torsoTop - 1;
-  if (view === 'side') {
-    paintCloth(grid, 15, y, 22, y + 1, colors.trim);
-    paintCloth(grid, 12, y + 1, 15, y + 3, colors.trim); // its tail flies behind
-    return;
-  }
-  paintCloth(grid, 13, y, 22, y + 1, colors.trim);
-}
-
-const BLADE = ['#6d7686', '#c9d1e0', '#eef3fa'];
-
-// The sword when it is not in the hand: its handle over the shoulder, across the back, or at the hip.
-function paintSheathedSword(grid, view, body) {
-  if (view === 'down') {
-    fillRect(grid, 25, body.torsoTop - 4, 2, 4, '#6b4423');
-    fillRect(grid, 24, body.torsoTop - 1, 4, 1, '#e8b83a');
-  }
-  if (view === 'up') drawLine(grid, 11, body.torsoBottom + 2, 24, body.torsoTop - 3, BLADE[1]);
-  if (view === 'side') fillRect(grid, 12, body.torsoBottom - 2, 4, 1, '#6b4423');
-}
-
-// ---------- The head ----------
-
-// How far a lock of the fringe falls on the forehead, for the column x (0 to 3 pixels).
-function lockDepth(x) {
-  return [3, 1, 0, 2, 3, 0, 2][(x * 3) % 7];
-}
-
-const EYE_ROWS = ['DDD', 'WEE', 'EEE', 'dEd'];
-const MOUTH = '#5a1a22';
-
-// The eye and the mouth seen from the side, with the feeling of the pose.
-function paintSideFace(grid, colors, eye, eyeTop, face) {
-  if (face === 'happy') {
-    // closed eyes, like a ^
-    dot(grid, 22, eyeTop + 2, eye.D);
-    dot(grid, 23, eyeTop + 1, eye.D);
-    dot(grid, 24, eyeTop + 2, eye.D);
-  } else if (face === 'hurt') {
-    // eyes shut tight, like a >
-    dot(grid, 22, eyeTop, eye.D);
-    dot(grid, 23, eyeTop + 1, eye.D);
-    dot(grid, 24, eyeTop + 2, eye.D);
-    dot(grid, 23, eyeTop + 3, eye.D);
-    dot(grid, 22, eyeTop + 4, eye.D);
-  } else {
-    drawPicture(grid, EYE_ROWS, eye, 22, eyeTop);
-  }
-  if (face === 'shout') drawLine(grid, 22, eyeTop - 1, 25, eyeTop, eye.D); // a frowning brow
-  dot(grid, 27, eyeTop + 2, colors.skin[3]); // the nose
-  if (face === 'normal') dot(grid, 24, eyeTop + 5, colors.skin[1]);
-  else fillRect(grid, 24, eyeTop + 5, 2, face === 'happy' ? 1 : 2, MOUTH); // an open mouth
-  dot(grid, 23, eyeTop + 4, '#f0908f'); // the blush
-}
-
-function paintFace(grid, colors, view, body, face) {
-  const eyeTop = Math.round(body.head.cy);
-  const eye = { D: '#1c1726', W: '#ffffff', E: colors.eyes, d: darker(colors.eyes, 0.45) };
-  if (view === 'side') {
-    paintSideFace(grid, colors, eye, eyeTop, face);
-    return;
-  }
-  drawPicture(grid, EYE_ROWS, eye, 12, eyeTop);
-  drawPicture(grid, EYE_ROWS, eye, 21, eyeTop);
-  fillRect(grid, 17, eyeTop + 5, 2, 1, colors.skin[1]); // the mouth
-  dot(grid, 11, eyeTop + 4, '#f0908f'); // the blush
-  dot(grid, 24, eyeTop + 4, '#f0908f');
-}
-
-// The hair that is behind the head and the body (long hair, tails, bun).
-function paintHairBack(grid, look, colors, view, body) {
-  const head = body.head;
-  const hair = colors.hair;
-  if (look.style === 'long' && view === 'side') paintBallPart(grid, { cx: head.cx - 4, cy: head.cy + 7, rx: 6, ry: 10 }, hair, () => true, 0.85);
-  else if (look.style === 'long') paintBallPart(grid, { cx: head.cx, cy: head.cy + 8, rx: 10.5, ry: 11 }, hair, () => true, 0.85);
-  if (look.style === 'twin') {
-    const sides = view === 'side' ? [head.cx - 10] : [head.cx - 11.5, head.cx + 11.5];
-    sides.forEach((x) => paintBallPart(grid, { cx: x, cy: head.cy + 5, rx: 3.2, ry: 7 }, hair));
-  }
-  if (look.style === 'pony') {
-    const tail = { down: { cx: head.cx + 10, cy: head.cy + 2 }, up: { cx: head.cx, cy: head.cy + 11 }, side: { cx: head.cx - 10, cy: head.cy + 1 } }[view];
-    paintBallPart(grid, { ...tail, rx: 3, ry: 6.5 }, hair);
-  }
-  if (look.style === 'bun') paintBallPart(grid, { cx: view === 'side' ? head.cx - 5 : head.cx, cy: head.cy - 8.5, rx: 4.2, ry: 3.4 }, hair);
-}
-
-// The skin of the head and the hair on it. (The face is painted between the two.)
-function paintHead(grid, colors, view, body) {
-  const head = body.head;
-  paintBallPart(grid, head, colors.skin);
-  if (view === 'side') dot(grid, 27, Math.round(head.cy) + 2, colors.skin[3]);
-}
-
-// The hair over the head: a cap with a fringe of locks; seen from the back, it covers the whole head.
-function paintHairCap(grid, look, colors, view, body) {
-  const head = body.head;
-  const cap = { cx: head.cx - (view === 'side' ? 1 : 0), cy: head.cy - 1.5, rx: head.rx + 1.3, ry: head.ry + 0.2 };
-  const fringe = (x) => head.cy - 2.5 + lockDepth(x);
-  let keep;
-  if (look.style === 'bald') keep = (x, y) => y > head.cy - 4 && y < head.cy + 3 && Math.abs(x + 0.5 - head.cx) > 6.5; // only on the sides
-  else if (view === 'up') keep = (x, y) => y < head.cy + 6.5;
-  else if (view === 'side') keep = (x, y) => y < fringe(x) || (x < head.cx - 1 && y < head.cy + 6);
-  else keep = (x, y) => y < fringe(x) || (Math.abs(x + 0.5 - head.cx) > 6.5 && y < head.cy + 6);
-  paintBallPart(grid, cap, colors.hair, keep);
-  if (look.style === 'spiky') paintSpikes(grid, colors, view, head);
-}
-
-function paintSpikes(grid, colors, view, head) {
-  const top = head.cy - head.ry;
-  const spikes =
-    view === 'side'
-      ? [
-          [10, 5, 6],
-          [13, 1, 7],
-          [17, 0, 6],
-          [7, 9, 4],
-        ]
-      : [
-          [10, 4, 5],
-          [14, 0, 5],
-          [19, 0, 5],
-          [24, 3, 5],
-          [27, 7, 4],
-          [8, 7, 4],
-        ];
-  for (const [x, y, size] of spikes) {
-    fillTriangle(grid, [x - size / 2, top + 6], [x + size / 2, top + 6], [x + (x < head.cx ? -1 : 1), top + y - 4], (px, py) => toneOf(colors.hair, 0.85 - (py - top) * 0.04, px, py));
-  }
-}
-
-// Fox ears, horns, a beard.
-function paintExtras(grid, look, colors, view, body) {
-  const head = body.head;
-  const top = Math.round(head.cy - head.ry);
-  if (look.ears) {
-    [
-      [head.cx - 6, -1],
-      [head.cx + 6, 1],
-    ].forEach(([x, side]) => {
-      fillTriangle(grid, [x - 3, top + 4], [x + 3, top + 4], [x + side * 2, top - 4], (px, py) => toneOf(colors.hair, 0.8, px, py));
-      fillTriangle(grid, [x - 1.5, top + 3], [x + 1.5, top + 3], [x + side * 1.5, top - 1], () => '#ffb3c8');
-    });
-  }
-  if (look.horns) {
-    [
-      [head.cx - 5, -1],
-      [head.cx + 5, 1],
-    ].forEach(([x, side]) => fillTriangle(grid, [x - 2, top + 3], [x + 2, top + 3], [x + side * 4, top - 5], (px, py) => toneOf(['#1c1420', '#3a2c3e', '#5a4860'], 0.6, px, py)));
-  }
-  if (look.elfEars) {
-    if (view === 'side') {
-      fillTriangle(grid, [head.cx - 4, head.cy - 1], [head.cx - 4, head.cy + 2], [head.cx - 11, head.cy - 3], (px, py) => toneOf(colors.skin, 0.78, px, py));
+  if (up) {
+    if (sw || burly) {
+      stamp(grid, [
+        '..ooTTUUUUUUUUTToo..',
+        '.mNNmOOOOOOOOOOmNNm.',
+        '.mMNOOOOOOOOOOOONMm.',
+        '..oOOoUUUUUUUUoOOo..',
+        '..oOOoUUUUUUUUoOOo..',
+        '..oOOoUUUUUUUUoOOo..',
+        '..oObbbbbbbbbbbbOo..',
+        '..oOOOOOOOOOOOOOOo..',
+        '..oOOo........oOOo..',
+      ], c, bx - 10, by);
+    } else if (skirt) {
+      stamp(grid, [
+        '..ooTTUUUUUUUUTToo..',
+        '.oOOUUUUUUUUUUUUOOo.',
+        '.oOOuOOOOOOOOOOuOOo.',
+        '..oOOuOOOOOOOOuOOo..',
+        '..oObbbbbbbbbbbbOo..',
+        '.oOOuUUUUUUUUUUuOOo.',
+        '.oOOuOOuUUUUuOOuOOo.',
+        'oOOuOOuUUUUUUuOOuOOo',
+        'oOOuOOuUUUUUUuOOuOOo',
+        'oOOuOOuOOOOOOuOOuOOo',
+        'otTTTTTTTTTTTTTTTTto',
+      ], c, bx - 10, by);
     } else {
-      [-1, 1].forEach((side) => {
-        const bx = head.cx + side * 6;
-        fillTriangle(grid, [bx, head.cy - 1], [bx, head.cy + 2], [bx + side * 5, head.cy - 3], (px, py) => toneOf(colors.skin, 0.8, px, py));
-      });
+      stamp(grid, [
+        '..ooTTUUUUUUUUTToo..',
+        '.oOOUUUUUUUUUUUUOOo.',
+        '.oOOuOOOOOOOOOOuOOo.',
+        '..oOOuOOOOOOOOuOOo..',
+        '..oObbbbbbbbbbbbOo..',
+        '..oOOuUUUUUUUUuOOo..',
+        '..oOOuUUUUUUUUuOOo..',
+        '..oOOuOOOOOOOOuOOo..',
+      ], c, bx - 10, by);
     }
+    return;
   }
-  if (look.dwarfBrow && view !== 'up') {
-    const lx = view === 'side' ? head.cx - 2 : head.cx - 6;
-    const rx = view === 'side' ? head.cx + 6 : head.cx + 6;
-    fillRect(grid, lx, Math.round(head.cy - 3), rx - lx + 1, 2, '#c9883a');
-    dot(grid, Math.round((lx + rx) / 2), Math.round(head.cy - 3), '#ffd23f');
-  }
-  if (look.beard && view !== 'up') {
-    const cx = view === 'side' ? head.cx + 4 : head.cx;
-    const rx = look.burly ? (view === 'side' ? 6 : 7.5) : view === 'side' ? 5 : 6.5;
-    paintBallPart(grid, { cx: cx, cy: head.cy + 6.5, rx: rx, ry: look.burly ? 4.4 : 3.6 }, colors.hair);
+
+  if (sw) {
+    stamp(grid, [
+      '..mmTTTTTTTTTTTTmm..',
+      '.mNNoUubuuuuUboNNm..',
+      '.MNnoOOubuuuOOnNNM..',
+      '..mOoOOubuuuOOoMm...',
+      '..oOOoOubuuuOoOOo...',
+      '..oOOoOubuuuOoOOo...',
+      '...oobbbGgggbbbo....',
+      '...oOOuTTTTTTuOOo...',
+      '..mOoTuOooOooTuOom..',
+      '..oOOo........oOOo..',
+    ], c, bx - 10, by);
+  } else if (skirt) {
+    stamp(grid, [
+      '..ooTTllGGGGllTToo..',
+      '.oUUtTTuTTTTuTTtuUo.',
+      '.oOOuuTuGGGGuTuuOOo.',
+      '..oOOuuTTTTTTuuOOo..',
+      '..oOuuUUUUUUUUuuOo..',
+      '..oOuuUUUUUUUUuuOo..',
+      '.oOOuuOuUUUUuOuuOOo.',
+      '.oOOuOOuUUUUuOOuOOo.',
+      'oOOuuOOuUUUUuOOuuOOo',
+      'oOOuOOuuUUUUuuOOuOOo',
+      'oOOuOOuOOOOOOuOOuOOo',
+      'otTTTTTTTTTTTTTTTTto',
+    ], c, bx - 10, by);
+  } else if (burly) {
+    stamp(grid, [
+      '.ooUUTllGGGGllTUUoo.',
+      'oOOUUbbbbbbbbbbUUOOo',
+      'oOOObBBBBBBBBBBbOOOo',
+      '.oOObBBBBBBBBBBbOOo.',
+      '.oOObBBBBBBBBBBbOOo.',
+      '.oOObBBBBBBBBBBbOOo.',
+      '..obbbGggggggGbbbo..',
+      '..oOobbbBBBBbbboOo..',
+    ], c, bx - 10, by);
+  } else {
+    stamp(grid, [
+      '..ooTTTllllllTTToo..',
+      '.oOUUUuTTTTTTuUUUOo.',
+      '.oOOuuuOuuuuOuuuOOo.',
+      '..oOOuuuOuuOuuuOOo..',
+      '..oOOuuuuOOuuuuOOo..',
+      '..oOOuuuuOOuuuuOOo..',
+      '..oobbbGggggGbbooo..',
+      '..oOOuuUUUUUUuuOOo..',
+      '.oOOuuOooooooOuuOOo.',
+    ], c, bx - 10, by);
   }
 }
 
-// ---------- The person ----------
-
-// Copies the painted cells of `source` onto `target`, moved by dx pixels.
-function stamp(target, source, dx) {
-  for (let y = 0; y < source.height; y++) {
-    for (let x = 0; x < source.width; x++) {
-      const color = colorAt(source, x, y);
-      if (color) dot(target, x + dx, y, color);
-    }
+function drawTorsoSide(grid, c, look, bx, by) {
+  if (look.sword) {
+    stamp(grid, [
+      '..ooTTTTTTTTToo....',
+      '.mNNoUubuuuUOo.....',
+      '.MNnObuuuuuOOo.....',
+      '..mOubuuuuuOOo.....',
+      '..oOubuuuuuOOo.....',
+      '..oOubuuuuuOOo.....',
+      '..obbbGgggboo......',
+      '..oOOuTTTuOo.......',
+      '..mOoTuToO.........',
+    ], c, bx - 9, by);
+  } else if (look.skirt) {
+    stamp(grid, [
+      '..ooTTTllTTToo.....',
+      '.oUUtTTuTTuUOo.....',
+      '.oOOuuTGGuuOOo.....',
+      '..oOOuTTTTuOOo.....',
+      '.oOOuuUUUUuuOOo....',
+      '.oOOuuUUUUuuOOo....',
+      '.oOOuuOuUUuOOOo....',
+      'oOOuuOOuUUuuOOOo...',
+      'oOOuuOOuUUuuOOOo...',
+      'oOOuOOuuUUuOOOOo...',
+      'otTTTTTTTTTTTTto...',
+    ], c, bx - 9, by);
+  } else if (look.burly) {
+    stamp(grid, [
+      '.ooUUTTllTUUo......',
+      'oOOUUbbbbbbUUo.....',
+      'oOOObBBBBBBbOOo....',
+      '.oOObBBBBBBbOOo....',
+      '.oOObBBBBBBbOOo....',
+      '.oOObBBBBBBbOOo....',
+      '..obbbGgggboo......',
+      '..oOobbbbbOo.......',
+    ], c, bx - 9, by);
+  } else {
+    stamp(grid, [
+      '..ooTTTllTTTo......',
+      '.oOUUUuTTuUUOo.....',
+      '.oOOuuuOOuuOOo.....',
+      '..oOOuuuuuuOOo.....',
+      '..oOOuuuuuuOOo.....',
+      '..oOOuuuuuuOOo.....',
+      '..oobbbGgggboo.....',
+      '..oOOuuUUuuOOo.....',
+      '.oOOuuOoooOuOOo....',
+    ], c, bx - 9, by);
   }
 }
 
-// One picture of a person. view: 'down' | 'up' | 'side' (looking right). pose: a name of POSES.
-// The body is painted in 3 layers: what is behind (cape, long hair), the legs, and the upper body
-// (which leans forward or back with the pose). Returns { grid, hand } (hand: where the sword is held, side view).
-function personGrid(look, view, poseName) {
-  const pose = POSES[poseName] || POSES[SAME_AS[poseName]];
-  const colors = colorsOf(look);
-  const body = bodyOf(look, pose.lift);
-  const lean = view === 'side' ? pose.lean || 0 : 0;
-  const face = pose.face || 'normal';
-  const sway = { walkA: 1, walkB: -1 }[pose.legs] || 0;
+// ---------- Tall 9-10px Articulated Legs & Boots (Reaching y=39!) ----------
 
-  const behind = makeGrid(W, H);
-  if (look.scarf && view === 'side') paintSideCape(behind, colors, body, pose.cape);
-  if (look.scarf && view === 'down') paintFlatCape(behind, colors, view, body, sway);
-  paintHairBack(behind, look, colors, view, body);
+function drawLegs(grid, c, look, bx, by, gait, dir) {
+  const sw = look.sword;
+  const skirt = look.skirt;
+  const stepL = gait === 'strideA' ? -1 : gait === 'strideB' ? 1 : 0;
+  const stepR = gait === 'strideA' ? 1 : gait === 'strideB' ? -1 : 0;
 
-  const upper = makeGrid(W, H);
-  paintTorso(upper, look, colors, view, body);
-  if (look.scarf && view === 'up') paintFlatCape(upper, colors, view, body, sway);
-  if (look.sword && pose.sword === undefined) paintSheathedSword(upper, view, body);
-  const armInFront = view === 'side' && ARMS_IN_FRONT.includes(pose.arms);
-  let hand = view === 'side' && !armInFront ? paintSideArm(upper, colors, pose.arms, body) : null;
-  if (view !== 'side') paintFrontArms(upper, colors, pose.arms, body);
-  if (look.scarf) paintScarf(upper, colors, view, body);
-  paintHead(upper, colors, view, body);
-  if (view !== 'up') paintFace(upper, colors, view, body, face);
-  paintHairCap(upper, look, colors, view, body);
-  paintExtras(upper, look, colors, view, body);
-  if (armInFront) hand = paintSideArm(upper, colors, pose.arms, body);
+  if (dir === 'down' || dir === 'up') {
+    const legC = sw ? 'M' : 'P';
+    const legD = sw ? 'm' : 'p';
+    const topY = skirt ? by + 11 : by + 8;
+    const rows = skirt ? [
+      `..${legD}${legC}..`,
+      '..BBB.',
+      '..fFF.',
+      '..fFF.',
+      '..hhh.',
+    ] : [
+      `.${legD}${legC}P.`,
+      `.${legD}${legC}P.`,
+      `.${legD}${legC}P.`,
+      `.${legD}${legC}P.`,
+      `.BBB.`,
+      `.fFF.`,
+      `.fFF.`,
+      `.hhh.`,
+    ];
+    stamp(grid, rows, c, bx - 6, topY + Math.max(0, stepL));
+    stamp(grid, rows, c, bx + 1, topY + Math.max(0, stepR));
+    return;
+  }
 
+  const topY = skirt ? by + 10 : by + 8;
+  if (gait === 'lunge') {
+    stamp(grid, [
+      '.pPP.....PPq.',
+      'pPP.......PPq',
+      'pP.........Pq',
+      'pP.........Pq',
+      'BBB.......BBB',
+      'fFF.......fFF',
+      'fFF.......fFF',
+      'hhh.......hhh',
+    ], c, bx - 7, topY);
+  } else if (gait === 'strideA') {
+    stamp(grid, [
+      '..pPP...PPq..',
+      '.pPP.....PPq.',
+      '.pPP.....PPq.',
+      '.pPP.....PPq.',
+      '.BBB.....BBB.',
+      '.fFF.....fFF.',
+      '.fFF.....fFF.',
+      '.hhh.....hhh.',
+    ], c, bx - 7, topY);
+  } else if (gait === 'strideB') {
+    stamp(grid, [
+      '..PPq...pPP..',
+      '.PPq.....pPP.',
+      '.PPq.....pPP.',
+      '.PPq.....pPP.',
+      '.BBB.....BBB.',
+      '.fFF.....fFF.',
+      '.fFF.....fFF.',
+      '.hhh.....hhh.',
+    ], c, bx - 7, topY);
+  } else {
+    stamp(grid, [
+      '...pPP.PPq...',
+      '...pPP.PPq...',
+      '...pPP.PPq...',
+      '...pPP.PPq...',
+      '...BBB.BBB...',
+      '...fFF.fFF...',
+      '...fFF.fFF...',
+      '...hhh.hhh...',
+    ], c, bx - 7, topY);
+  }
+}
+
+// ---------- Sleeves, Gauntlets & Weapon Hand ----------
+
+function drawArms(grid, c, look, bx, by, arm, dir) {
+  const sleeve = look.sword ? 'N' : 'U';
+  const darkSleeve = look.sword ? 'm' : 'O';
+  const lOff = arm === 'swingA' ? 1 : arm === 'swingB' ? -1 : arm === 'victory' ? -4 : 0;
+  const rOff = arm === 'swingA' ? -1 : arm === 'swingB' ? 1 : arm === 'victory' ? -4 : 0;
+
+  if (dir === 'down' || dir === 'up') {
+    const lArm = [
+      `${darkSleeve}${sleeve}`,
+      `${darkSleeve}${sleeve}`,
+      `${darkSleeve}${sleeve}`,
+      `${darkSleeve}${sleeve}`,
+      `${darkSleeve}${sleeve}`,
+      look.sword ? 'mn' : 'sk',
+    ];
+    stamp(grid, lArm, c, bx - 10, by + 1 + lOff);
+    stamp(grid, lArm, c, bx + 8, by + 1 + rOff);
+    return null;
+  }
+
+  let dx = 1;
+  let dy = 6;
+  if (arm === 'ready') { dx = 4; dy = 2; }
+  else if (arm === 'raised') { dx = 2; dy = -4; }
+  else if (arm === 'forward') { dx = 6; dy = 2; }
+  else if (arm === 'victory') { dx = 2; dy = -5; }
+  else if (arm === 'hurt') { dx = -3; dy = 0; }
+  else if (arm === 'drink') { dx = 5; dy = -1; }
+  else if (arm === 'swingA') { dx = 3; dy = 5; }
+  else if (arm === 'swingB') { dx = -2; dy = 5; }
+
+  const shX = bx - 2;
+  const shY = by + 2;
+  const hX = shX + dx;
+  const hY = shY + dy;
+  drawLine(grid, shX, shY, hX, hY, c[sleeve]);
+  drawLine(grid, shX, shY + 1, hX, hY + 1, c[darkSleeve]);
+  dot(grid, hX, hY, look.sword ? c.N : c.k);
+  dot(grid, hX, hY + 1, look.sword ? c.M : c.s);
+
+  if (arm === 'drink') {
+    fillRect(grid, hX + 1, hY - 3, 2, 4, '#54c8ff');
+    dot(grid, hX + 1, hY - 4, '#d9f4ff');
+    dot(grid, hX + 2, hY - 2, '#ffffff');
+  }
+  return [hX, hY];
+}
+
+function drawScarf(grid, c, look, bx, by, dir, capeWag) {
+  if (!look.scarf) return;
+  if (dir === 'up') {
+    stamp(grid, [
+      '..cCCCCCCCCCCc..',
+      '.cCRRRCCCCRRRCc.',
+      '..cCCCCCCCCCCc..',
+      '...cCCCccCCCc...',
+      '....cCC..CCc....',
+      '.....c....c.....',
+    ], c, bx - 8, by - 1);
+  } else if (dir === 'down') {
+    stamp(grid, [
+      '..cCRRRRRRRRCc..',
+      '..cCCCCCCCCCCc..',
+      '.cCCCc..........',
+      '.cCCc...........',
+    ], c, bx - 8, by - 1);
+  } else {
+    const tail = capeWag >= 2 ? [
+      '...cCCCCCCc.',
+      'cCRRRCCc....',
+      'cCCCc.......',
+      '.ccc........',
+    ] : [
+      '...cCCCCCCc.',
+      '.cCRRCCc....',
+      '..cCCc......',
+    ];
+    stamp(grid, tail, c, bx - 10 - Math.min(2, capeWag), by - 1);
+  }
+}
+
+// ---------- Full 38px Sprite Assembly (y=2..39 matching Hero/Luna) ----------
+
+function personGrid(look, dir, poseName) {
+  const pose = POSES[poseName] || POSES[SAME_AS[poseName]] || POSES.stand;
+  const c = colorsOf(look);
   const grid = makeGrid(W, H);
-  stamp(grid, behind, lean);
-  if (view === 'side') paintSideLegs(grid, colors, pose.legs, body, lean);
-  else paintFrontLegs(grid, colors, pose.legs, body);
-  stamp(grid, upper, lean);
-  return { grid: grid, hand: hand ? [hand[0] + lean, hand[1]] : null };
-}
+  const childShift = look.small ? 6 : 0;
+  const lean = dir === 'side' ? pose.lean : 0;
+  const bx = CX + lean;
+  const headY = 10 + pose.lift + childShift; // Hair top sits cleanly at y=2!
+  const by = headY + 6; // Collar hugs chin with zero seam gap!
+  const style = look.style || 'short';
+  const expr = pose.eyes || 'normal';
 
-// The picture turned a quarter to the left: the person lies on their back, the head on the left (knocked out).
-function lyingDown(grid) {
-  const result = makeGrid(grid.height, grid.width);
-  for (let y = 0; y < grid.height; y++) {
-    for (let x = 0; x < grid.width; x++) dot(result, y, grid.width - 1 - x, colorAt(grid, x, y));
+  // 1. Flowing back hair
+  if (dir === 'down') {
+    const h = HAIR_DOWN[style] || HAIR_DOWN.short;
+    if (h.back) stamp(grid, h.back, c, bx - 9, headY - 3);
+  } else if (dir === 'side') {
+    const h = HAIR_SIDE[style] || HAIR_SIDE.short;
+    if (h.back) stamp(grid, h.back, c, bx - 9, headY - 2);
   }
-  return result;
+
+  // 2. Tall boots, legs, torso
+  drawLegs(grid, c, look, bx, by, pose.gait, dir);
+  if (dir === 'side') {
+    drawTorsoSide(grid, c, look, bx, by);
+  } else {
+    drawTorsoDown(grid, c, look, bx, by, dir === 'up');
+  }
+
+  // 3. Neck scarf wrap
+  drawScarf(grid, c, look, bx, by, dir, pose.cape);
+
+  // 4. Face, rounded dome hair draping over brow/eyes, beard, traits
+  if (dir === 'down') {
+    stamp(grid, FACE_DOWN[expr] || FACE_DOWN.normal, c, bx - 7, headY);
+    if (look.beard) stamp(grid, BEARD_DOWN, c, bx - 7, headY + 4);
+    if (look.elfEars) {
+      dot(grid, bx - 8, headY + 2, c.l); dot(grid, bx - 7, headY + 2, c.k);
+      dot(grid, bx + 7, headY + 2, c.k); dot(grid, bx + 8, headY + 2, c.l);
+    }
+    const h = HAIR_DOWN[style] || HAIR_DOWN.short;
+    if (h.front) stamp(grid, h.front, c, bx - 10, headY - 7);
+    if (look.ears) stamp(grid, ['.0........0.', '0w0......0w0', '1w2......2w1'], c, bx - 6, headY - 8);
+    if (look.horns) stamp(grid, ['H..........H', 'vH........Hv'], c, bx - 6, headY - 8);
+  } else if (dir === 'up') {
+    stamp(grid, FACE_BACK, c, bx - 7, headY + 5);
+    if (look.elfEars) {
+      dot(grid, bx - 8, headY + 2, c.k); dot(grid, bx + 8, headY + 2, c.k);
+    }
+    stamp(grid, HAIR_UP[style] || HAIR_UP.short, c, bx - 10, headY - 7);
+    if (look.ears) stamp(grid, ['.0........0.', '0w0......0w0', '1w2......2w1'], c, bx - 6, headY - 8);
+    if (look.horns) stamp(grid, ['H..........H', 'vH........Hv'], c, bx - 6, headY - 8);
+  } else {
+    stamp(grid, FACE_SIDE[expr] || FACE_SIDE.normal, c, bx - 6, headY);
+    if (look.beard) stamp(grid, BEARD_SIDE, c, bx - 6, headY + 4);
+    if (look.elfEars) {
+      dot(grid, bx - 7, headY + 2, c.k);
+      dot(grid, bx - 8, headY + 1, c.l);
+    }
+    const h = HAIR_SIDE[style] || HAIR_SIDE.short;
+    if (h.front) stamp(grid, h.front, c, bx - 8, headY - 7);
+    if (look.ears) stamp(grid, ['.0..0.', '0w01w0', '1w22w1'], c, bx - 5, headY - 8);
+    if (look.horns) stamp(grid, ['H...H.', 'vH..vH'], c, bx - 5, headY - 8);
+  }
+
+  // 5. Forearms & sword anchor
+  const hand = drawArms(grid, c, look, bx, by, pose.arm, dir);
+  return { grid, hand };
 }
 
-// The lowest row with something painted (where a lying body touches the ground).
+function lyingDown(src) {
+  const dst = makeGrid(src.height, src.width);
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < src.width; x++) {
+      const col = colorAt(src, x, y);
+      if (col) dot(dst, y, src.width - 1 - x, col);
+    }
+  }
+  return dst;
+}
+
 function lowestRow(grid) {
   for (let y = grid.height - 1; y >= 0; y--) {
     for (let x = 0; x < grid.width; x++) if (colorAt(grid, x, y)) return y;
@@ -485,10 +1007,8 @@ function lowestRow(grid) {
   return grid.height - 1;
 }
 
-// The point of the picture that stands on the ground (between the feet).
 export const PERSON_ANCHOR = { x: CX, y: FEET + 1 };
 
-// A number for each look, to remember its pictures.
 const lookIds = new WeakMap();
 let nextLookId = 1;
 
@@ -497,121 +1017,168 @@ function lookId(look) {
   return lookIds.get(look);
 }
 
-// The knocked out person, lying on the ground.
 function lyingSprite(look) {
   const grid = lyingDown(personGrid(look, 'side', 'hurt').grid);
   return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: Math.round(grid.width / 2), ay: lowestRow(grid) + 1, hand: null, sword: undefined };
 }
 
-// dir: 'down' | 'up' | 'left' | 'right'. pose: a name of POSES ('stand', 'walk0'...), or 'ko' (lying on the ground).
-// Returns { canvas, ax, ay, hand, sword }: (ax, ay) touches the ground; in a fight, the sword is held at `hand`
-// with the angle `sword` (see swordSprite).
 export function personSprite(look, dir, pose = 'stand') {
   if (usesHeroArt(look) && isHeroArtReady()) return heroArtSprite(dir, pose);
   if (look.sheet && hasCharacterArt(look.sheet) && isCharacterArtReady()) return characterSprite(look.sheet, dir, pose);
-  return once('person' + lookId(look) + dir + pose, () => {
+  return once('personV6_' + lookId(look) + dir + pose, () => {
     if (pose === 'ko') return lyingSprite(look);
     const view = dir === 'left' || dir === 'right' ? 'side' : dir;
     const picture = personGrid(look, view, pose);
     const isMirror = dir === 'left';
     const grid = isMirror ? mirrored(picture.grid) : picture.grid;
     const hand = picture.hand && (isMirror ? [W - 1 - picture.hand[0], picture.hand[1]] : picture.hand);
-    const angle = (POSES[pose] || POSES[SAME_AS[pose]]).sword;
+    const angle = (POSES[pose] || POSES[SAME_AS[pose]] || POSES.stand).sword;
     return {
       canvas: toCanvas(addOutline(grid, OUTLINE)),
       ax: isMirror ? W - 1 - PERSON_ANCHOR.x : PERSON_ANCHOR.x,
       ay: PERSON_ANCHOR.y,
-      hand: hand,
+      hand,
       sword: angle === undefined ? undefined : isMirror ? 180 - angle : angle,
     };
   });
 }
 
-// The pose of someone on the map. step: grows while they walk (see logic). time: seconds (they breathe
-// when they stand still; `salt` makes everyone breathe at their own moment).
 export function walkPose(step, isWalking, time = 0, salt = 0) {
   if (isWalking) return WALK[Math.floor(step) % 4];
   return Math.floor(time * 1.4 + salt) % 2 ? 'breath' : 'stand';
 }
 
-// ---------- The sword in the hand (fights) ----------
+// ---------- Weapons in Combat ----------
 
-// The colors of each blade: [shade, light, shine].
 const BLADES = {
-  woodSword: ['#5a3a1e', '#a0683a', '#c98f55'],
-  ironSword: ['#5d6676', '#b9c2d2', '#eef3fa'],
-  steelSword: ['#4f5a70', '#c9d4e6', '#ffffff'],
-  mithrilSword: ['#2f6f9a', '#8fd6ff', '#e8fbff'],
-  lexiconBlade: ['#9a6a10', '#ffd24a', '#fff6c8'],
+  woodSword: ['#4a2e18', '#966134', '#cc945a', '#4a2e18'],
+  ironSword: ['#4a5264', '#a4b0c6', '#eef4ff', '#6c7894'],
+  steelSword: ['#444e64', '#bcc8dc', '#ffffff', '#e8b83a'],
+  mithrilSword: ['#21588a', '#6ec4ff', '#e8fbff', '#8ad6ff'],
+  lexiconBlade: ['#8c5a0e', '#ffd44a', '#fffbe0', '#ff684a'],
 };
 
-// The sword, turned to `angle` (degrees: 0 = forward to the right, −90 = up), held by its grip at the middle
-// of the picture. weapon: the id of the sword (its colors).
 export function swordSprite(angle, weapon) {
   const step = Math.round(angle / 15) * 15;
-  return once('sword' + step + weapon, () => {
-    const size = 35;
-    const c = 17; // the grip, in the middle
+  return once('swordV6_' + step + weapon, () => {
+    const size = 37;
+    const c = 18;
     const grid = makeGrid(size, size);
     const turn = (step * Math.PI) / 180;
-    const [ux, uy] = [Math.cos(turn), Math.sin(turn)]; // along the blade
-    const [nx, ny] = [-uy, ux]; // across the blade
+    const [ux, uy] = [Math.cos(turn), Math.sin(turn)];
+    const [nx, ny] = [-uy, ux];
     const at = (along, across) => [Math.round(c + ux * along + nx * across), Math.round(c + uy * along + ny * across)];
     const blade = BLADES[weapon] || BLADES.ironSword;
-    for (let i = -3; i <= 0; i++) dot(grid, ...at(i, 0), '#6b4423'); // the grip
-    for (let i = 3; i <= 14; i++) {
-      dot(grid, ...at(i, 0), blade[2]); // the shining edge and the shaded edge
+    for (let i = -4; i <= 0; i++) dot(grid, ...at(i, 0), '#543219');
+    dot(grid, ...at(-5, 0), blade[3]);
+    for (let i = 3; i <= 15; i++) {
+      dot(grid, ...at(i, 0), blade[2]);
       dot(grid, ...at(i, 1), blade[1]);
+      if (i < 13) dot(grid, ...at(i, -1), blade[0]);
     }
-    dot(grid, ...at(15, 0.5), blade[2]); // the tip
-    for (let i = -2; i <= 3; i++) dot(grid, ...at(2, i), '#e8b83a'); // the guard
+    dot(grid, ...at(16, 0), '#ffffff');
+    for (let i = -3; i <= 3; i++) dot(grid, ...at(2, i), GOLD_RAMP[3]);
+    dot(grid, ...at(2, 0), GOLD_RAMP[4]);
     return { canvas: toCanvas(addOutline(grid, OUTLINE)), ax: c, ay: c };
   });
 }
 
-// ---------- The obsidian friends ----------
+// ---------- Obsidian Summons ----------
 
-const OBSIDIAN = ['#0d0a14', '#1a1428', '#271e3c', '#372a52', '#4b3b6e', '#6a5a9a'];
-const GLOW = '#c9a8ff';
+const OBSIDIAN_PAL = {
+  0: '#0d0a14',
+  1: '#1a1428',
+  2: '#291f42',
+  3: '#3d2f5e',
+  4: '#5b4a8a',
+  5: '#8c72c8',
+  g: '#c9a8ff',
+  w: '#f4ebff',
+};
 
-// A tall, armored guardian of black glass, with a heavy shield, crested helm, halberd and glowing eyes. frame: it breathes.
+const SENTINEL_UPPER = [
+  '...........................g....',
+  '..........................wgw...',
+  '.....5..............5.....wgw...',
+  '......43..........34......gwg...',
+  '.......32........23.......4g4...',
+  '.......23333333332........343...',
+  '......1222233322221.......343...',
+  '......122gggggggg21........3....',
+  '......112gggggggg11........3....',
+  '.......12222222221.........3....',
+  '...543..111111111..345.....3....',
+  '..4543222222g222223454.....3....',
+  '.34432222233g3322223443....3....',
+  '.2332222233ggg332222332..4434...',
+  '.122.2222333g3332222.221.4g34...',
+  '.....1222233g3322221.....3g3....',
+  '.....1222223g3222221.....3g3....',
+  '......112222g222211......2g2....',
+  '......1112222222111......222....',
+  '.....1222211.1122221.......2....',
+  '.....12221.....12221.......2....',
+  '.....1221.......1221.......2....',
+  '.....1221.......1221.......2....',
+  '.....111.........111.......2....',
+  '.....111.........111.......2....',
+  '.....121.........121.......2....',
+  '.....121.........121.......2....',
+  '.....121.........121.......2....',
+  '.....121.........121.......2....',
+  '.....111.........111.......2....',
+  '.....111.........111.......2....',
+  '.....111.........111.......2....',
+  '.....111.........111.......2....',
+  '.....111.........111.......2....',
+  '.....111.........111.......2....',
+];
+
+const SENTINEL_LEGS = [
+  [
+    '.....121.........121.......1....',
+    '.....121.........121.......1....',
+    '.....111.........111.......1....',
+    '....12221.......12221......1....',
+    '....11111.......11111......1....',
+  ],
+  [
+    '....121...........121......1....',
+    '....121...........121......1....',
+    '....111...........111......1....',
+    '...12221.........12221.....1....',
+    '...11111.........11111.....1....',
+  ],
+];
+
 export function obsidianSoldier(frame) {
-  return once('soldierBig' + (frame % 2), () => {
-    const grid = makeGrid(32, 42);
-    const lift = frame % 2;
-    paintCloth(grid, 9, 27, 13, 39, OBSIDIAN); // left leg
-    paintCloth(grid, 16, 27, 20, 39, OBSIDIAN); // right leg
-    fillRect(grid, 8, 37, 6, 3, OBSIDIAN[1]); // heavy boots
-    fillRect(grid, 15, 37, 6, 3, OBSIDIAN[1]);
-    fillBall(grid, 14.5, 22 - lift, 8.5, 8, OBSIDIAN, { ambient: 0.25 }); // armored torso
-    fillBall(grid, 6, 17 - lift, 3.8, 3.2, OBSIDIAN, { ambient: 0.3 }); // left pauldron
-    fillBall(grid, 22, 17 - lift, 3.8, 3.2, OBSIDIAN, { ambient: 0.3 }); // right pauldron
-    fillBall(grid, 14.5, 11 - lift, 6.2, 6.2, OBSIDIAN, { ambient: 0.35 }); // crested helmet
-    drawLine(grid, 10, 6 - lift, 8, 2 - lift, OBSIDIAN[4]); // helmet horns
-    drawLine(grid, 19, 6 - lift, 21, 2 - lift, OBSIDIAN[4]);
-    fillRect(grid, 11, 11 - lift, 8, 2, GLOW); // glowing visor eyes
-    fillRect(grid, 20, 15 - lift, 7, 15, OBSIDIAN[2]); // front obsidian tower shield
-    fillRect(grid, 22, 17 - lift, 3, 11, GLOW); // shield rune
-    drawLine(grid, 28, 3, 28, 39, OBSIDIAN[4]); // tall halberd shaft
-    fillRect(grid, 26, 0, 5, 6, GLOW); // glowing halberd blade
-    fillBall(grid, 25, 21 - lift, 2.2, 2.2, OBSIDIAN); // shield hand
-    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 15, ay: 40 };
+  return once('soldierV7_' + (frame % 2), () => {
+    const rows = [...SENTINEL_UPPER, ...SENTINEL_LEGS[frame % 2]];
+    const raw = makeGrid(32, rows.length);
+    drawPicture(raw, rows, OBSIDIAN_PAL, 0, 0);
+    const outlined = addOutline(padded(raw, 1), '#0d0a14');
+    return { canvas: toCanvas(outlined), ax: 15, ay: outlined.height - 1 };
   });
 }
 
-// The cat of black glass, with violet eyes. It looks to the right.
+const CAT_ROWS = [
+  '..3...........2..3..',
+  '.34...........23.23.',
+  '32.............2333.',
+  '21.............2gg3.',
+  '21...23333333222224.',
+  '.21.23344433322221..',
+  '..2233322223221.....',
+  '....221....221......',
+  '....121....121......',
+  '....11......11......',
+];
+
 export function obsidianCat() {
-  return once('cat', () => {
-    const grid = makeGrid(20, 15);
-    drawLine(grid, 4, 9, 2, 3, OBSIDIAN[3]); // the tail
-    drawLine(grid, 3, 9, 1, 3, OBSIDIAN[2]);
-    [6, 8, 12, 14].forEach((x) => paintCloth(grid, x, 10, x + 1, 13, OBSIDIAN)); // the legs
-    fillBall(grid, 10, 9, 6, 3.6, OBSIDIAN, { ambient: 0.25 }); // the body
-    fillTriangle(grid, [13, 4], [13, 0], [16, 3], (x, y) => toneOf(OBSIDIAN, 0.7, x, y)); // the ears
-    fillTriangle(grid, [16, 3], [19, 0], [19, 5], (x, y) => toneOf(OBSIDIAN, 0.45, x, y));
-    fillBall(grid, 16, 6, 3.8, 3.4, OBSIDIAN, { ambient: 0.3 }); // the head
-    dot(grid, 17, 6, GLOW); // the eye
-    dot(grid, 19, 7, OBSIDIAN[5]); // the nose
-    return { canvas: toCanvas(addOutline(grid, '#0d0a14')), ax: 10, ay: 14 };
+  return once('catV6', () => {
+    const raw = makeGrid(20, CAT_ROWS.length);
+    drawPicture(raw, CAT_ROWS, OBSIDIAN_PAL, 0, 0);
+    const outlined = addOutline(padded(raw, 1), '#0d0a14');
+    return { canvas: toCanvas(outlined), ax: Math.floor(outlined.width / 2), ay: outlined.height - 1 };
   });
 }

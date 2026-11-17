@@ -51,25 +51,26 @@
   touch-action: none; /* the finger moves the hero, not the page */
 }
 
-/* ---------- Windows: dark blue, a light frame, a dark line inside and outside ---------- */
+/* ---------- Windows: dark-fantasy obsidian steel framed with etched gold/bronze trim ---------- */
 .window {
-  background: linear-gradient(#27325f, #161d3d);
-  border: 2px solid #dfe4f0;
+  background: linear-gradient(180deg, #1b1e34, #0f101d);
+  border: 2px solid #c99a52;
   border-radius: 6px;
   box-shadow:
-    inset 0 0 0 2px #0e1430,
-    0 0 0 2px #0e1430,
-    0 5px 0 2px rgba(0, 0, 0, 0.35);
+    inset 0 0 0 2px #090910,
+    inset 0 1px 0 3px rgba(255, 224, 160, 0.14),
+    0 0 0 2px #090910,
+    0 6px 0 2px rgba(0, 0, 0, 0.45);
   padding: 10px 12px;
 }
 
 .window-gold {
-  border-color: #e9c46a;
+  border-color: #ffd86b;
   box-shadow:
-    inset 0 0 0 2px #0e1430,
-    inset 0 0 0 4px #7a5a1c,
-    0 0 0 2px #0e1430,
-    0 5px 0 2px rgba(0, 0, 0, 0.35);
+    inset 0 0 0 2px #090910,
+    inset 0 0 0 4px #6b4714,
+    0 0 0 2px #090910,
+    0 6px 0 2px rgba(0, 0, 0, 0.45);
 }
 
 /* The title on the top edge of a window ("Stats"). */
@@ -78,14 +79,14 @@
   margin-top: -26px;
   margin-bottom: 8px;
   padding: 4px 22px;
-  background: linear-gradient(#2f4fa0, #1c2c66);
+  background: linear-gradient(180deg, #4b1826, #280d16);
   border: 2px solid #e9c46a;
   border-radius: 6px;
-  box-shadow: 0 0 0 2px #0e1430;
+  box-shadow: 0 0 0 2px #090910;
   font-size: 22px;
   font-weight: bold;
-  color: #ffffff;
-  text-shadow: 2px 2px 0 #0e1430;
+  color: #fff6dc;
+  text-shadow: 2px 2px 0 #090910;
 }
 
 /* A full-screen menu over the world. */
@@ -168,8 +169,8 @@
 
 .menu-item:hover,
 .menu-item.selected {
-  background: linear-gradient(#3a72e8, #2452c0);
-  border-color: #9fc0ff;
+  background: linear-gradient(90deg, #681f32, #321632);
+  border-color: #e9c46a;
 }
 
 .menu-item.selected::before,
@@ -179,10 +180,10 @@
   left: 7px;
   top: 50%;
   margin-top: -7px;
-  border-left: 11px solid #ffffff;
+  border-left: 11px solid #ffd86b;
   border-top: 7px solid transparent;
   border-bottom: 7px solid transparent;
-  filter: drop-shadow(1px 1px 0 #0e1430);
+  filter: drop-shadow(1px 1px 0 #090910);
 }
 
 .menu-item:disabled {
@@ -191,12 +192,12 @@
 
 /* ---------- Buttons ---------- */
 .px-button {
-  background: linear-gradient(#2a3668, #1a2248);
-  border: 2px solid #c9d0e4;
+  background: linear-gradient(180deg, #2b2944, #171628);
+  border: 2px solid #c99a52;
   border-radius: 6px;
-  box-shadow: 0 0 0 2px #0e1430;
+  box-shadow: 0 0 0 2px #090910;
   padding: 9px 12px;
-  color: #ffffff;
+  color: #fff6dc;
   font-size: 17px;
   align-items: center;
   justify-content: center;
@@ -232,7 +233,7 @@
   height: 80px;
   border-radius: 40px;
   padding: 0;
-  background: radial-gradient(#3a72e8, #1c2c66);
+  background: radial-gradient(#6e2036, #261020);
   border: 3px solid #e9c46a;
 }
 
@@ -243,11 +244,11 @@
   width: 34px;
   height: 34px;
   border-radius: 6px;
-  background: #1a2248;
-  border: 2px solid #c9d0e4;
+  background: #241828;
+  border: 2px solid #c99a52;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: #fff6dc;
   font-size: 16px;
   z-index: 2;
 }
@@ -453,10 +454,10 @@
   width: 100px;
   height: 100px;
   padding: 0;
-  background: linear-gradient(#5a7fd0, #2a3a78);
-  border: 2px solid #dfe4f0;
+  background: radial-gradient(circle at 50% 35%, #2b325c, #111220);
+  border: 2px solid #d4a254;
   border-radius: 6px;
-  box-shadow: 0 0 0 2px #0e1430;
+  box-shadow: inset 0 0 0 2px #090910, 0 0 0 2px #090910;
   align-items: center;
   justify-content: center;
   overflow: hidden;

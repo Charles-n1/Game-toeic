@@ -104,10 +104,11 @@ function paintOverhang(grid, side, ramp, salt) {
 
 function paintShore(grid, side, frame) {
   for (let i = 0; i < S; i++) {
-    const foam = randomOf(i + frame * 5, side, 5) < 0.7;
-    dot(grid, ...sideCell(side, i, 0), foam ? '#e6f6ff' : WATER_RAMP[5]);
-    dot(grid, ...sideCell(side, i, 1), WATER_RAMP[4]);
-    if (randomOf(i, side, 6) < 0.5) dot(grid, ...sideCell(side, i, 2), WATER_RAMP[4]);
+    const wave = Math.sin((i + frame * 2.5) * 0.6) > -0.15;
+    dot(grid, ...sideCell(side, i, 0), wave ? '#e6f8ff' : WATER_RAMP[5]);
+    dot(grid, ...sideCell(side, i, 1), WATER_RAMP[5]);
+    dot(grid, ...sideCell(side, i, 2), WATER_RAMP[4]);
+    if (randomOf(i, side, 6) < 0.55) dot(grid, ...sideCell(side, i, 3), WATER_RAMP[3]);
   }
 }
 
@@ -170,24 +171,31 @@ function paintBlade(grid, x, y) {
 }
 
 function paintGrass(grid, bx, by) {
-  paintTexture(grid, bx, by, GRASS_RAMP, 1, (big, small) => 0.22 + big * 0.42 + small * 0.18);
+  paintTexture(grid, bx, by, GRASS_RAMP, 1, (big, small) => 0.18 + big * 0.44 + small * 0.22);
   const salt = by * BLOCK + bx;
   const blades = 2 + Math.floor(randomOf(salt, 1, 30) * 4);
   for (let i = 0; i < blades; i++) {
     const x = 1 + Math.floor(randomOf(i, salt, 31) * 14);
     const y = 3 + Math.floor(randomOf(salt, i, 32) * 12);
     paintBlade(grid, x, y);
-    if (randomOf(i, salt, 33) < 0.5) paintBlade(grid, x + 1, y + 1); // a small tuft
+    if (randomOf(i, salt, 33) < 0.55) paintBlade(grid, x + 1, y + 1);
+  }
+  // Occasional delicate clover & wildflower buds in lush meadow grass
+  if (randomOf(salt, 4, 34) < 0.35) {
+    const fx = 3 + Math.floor(randomOf(salt, 6, 35) * 10);
+    const fy = 3 + Math.floor(randomOf(salt, 7, 36) * 10);
+    dot(grid, fx, fy + 1, GRASS_RAMP[0]);
+    dot(grid, fx, fy, randomOf(salt, 8, 37) < 0.5 ? '#ffe680' : '#f7f9ff');
   }
 }
 
 function paintPath(grid, bx, by) {
-  paintTexture(grid, bx, by, DIRT_RAMP, 3, (big, small) => 0.3 + big * 0.35 + small * 0.2);
+  paintTexture(grid, bx, by, DIRT_RAMP, 3, (big, small) => 0.26 + big * 0.38 + small * 0.24);
   const salt = by * BLOCK + bx + 70;
-  for (let i = 0; i < 2; i++) {
-    const x = 3 + Math.floor(randomOf(i, salt, 8) * 10);
-    const y = 3 + Math.floor(randomOf(salt, i, 9) * 10);
-    fillBall(grid, x, y, 1.6, 1.3, STONE_RAMP, { ambient: 0.3 }); // a pebble
+  for (let i = 0; i < 3; i++) {
+    const x = 2 + Math.floor(randomOf(i, salt, 8) * 12);
+    const y = 2 + Math.floor(randomOf(salt, i, 9) * 12);
+    fillBall(grid, x, y, 1.5, 1.2, STONE_RAMP, { ambient: 0.25 });
   }
 }
 
@@ -212,36 +220,49 @@ function paintCobble(grid, [left, top, w, h], tint) {
       if (isCorner) continue;
       const nx = ((x - left + 0.5) / w) * 2 - 1;
       const ny = ((y - top + 0.5) / h) * 2 - 1;
-      dot(grid, x, y, toneOf(STONE_RAMP, 0.55 - nx * 0.18 - ny * 0.28 + tint * 0.1, x, y));
+      const rimGlow = y === top && x < left + w - 1 ? 0.14 : 0;
+      dot(grid, x, y, toneOf(STONE_RAMP, 0.54 - nx * 0.18 - ny * 0.26 + tint * 0.12 + rimGlow, x, y));
     }
   }
 }
 
 function paintCobbles(grid, bx, by) {
-  fillRect(grid, 0, 0, S, S, '#4f4842');
+  fillRect(grid, 0, 0, S, S, '#2b2532');
   COBBLES.forEach((stone, i) => paintCobble(grid, stone, randomOf(i, by * BLOCK + bx, 9) * 2 - 1));
+  if (randomOf(bx, by, 77) < 0.28) {
+    dot(grid, 6, 4, GRASS_RAMP[2]);
+    dot(grid, 7, 10, GRASS_RAMP[3]);
+  }
 }
 
 function paintSand(grid, bx, by) {
-  paintTexture(grid, bx, by, SAND_RAMP, 5, (big, small) => 0.3 + big * 0.4 + small * 0.2);
+  paintTexture(grid, bx, by, SAND_RAMP, 5, (big, small) => {
+    const dune = Math.sin((bx * 16 + by * 8 + big * 6) * 0.25) * 0.12;
+    return 0.3 + big * 0.38 + small * 0.2 + dune;
+  });
 }
 
 // frame: 0 to 3, the light on the water moves.
 function paintWater(grid, bx, by, frame) {
-  paintTexture(grid, bx, by, WATER_RAMP, 7, (big, small) => 0.18 + big * 0.35 + small * 0.12);
+  paintTexture(grid, bx, by, WATER_RAMP, 7, (big, small) => 0.16 + big * 0.36 + small * 0.15);
   for (let y = 1; y < S; y += 4) {
-    const start = Math.floor(randomOf(y, by * BLOCK + bx, 12) * 12 + frame * 2) % 14;
-    fillRect(grid, start, y, 3, 1, WATER_RAMP[4]); // a reflection of the sky
+    const start = Math.floor(randomOf(y, by * BLOCK + bx, 12) * 12 + frame * 2) % 13;
+    fillRect(grid, start, y, 4, 1, WATER_RAMP[4]);
     dot(grid, start + 1, y - 1, WATER_RAMP[5]);
+    if (randomOf(y + frame, bx, 15) < 0.25) dot(grid, start + 2, y - 1, '#eef9ff');
   }
 }
 
 function paintSnow(grid, bx, by) {
-  paintTexture(grid, bx, by, SNOW_RAMP, 13, (big, small) => 0.4 + big * 0.4 + small * 0.15);
+  paintTexture(grid, bx, by, SNOW_RAMP, 13, (big, small) => 0.36 + big * 0.42 + small * 0.18);
+  const salt = by * BLOCK + bx;
+  if (randomOf(salt, 3, 14) < 0.35) {
+    dot(grid, 2 + Math.floor(randomOf(salt, 4, 14) * 12), 2 + Math.floor(randomOf(salt, 5, 14) * 12), '#ffffff');
+  }
 }
 
 function paintAsh(grid, bx, by) {
-  paintTexture(grid, bx, by, ASH_RAMP, 17, (big, small) => 0.2 + big * 0.45 + small * 0.2);
+  paintTexture(grid, bx, by, ASH_RAMP, 17, (big, small) => 0.16 + big * 0.46 + small * 0.22);
   const salt = by * BLOCK + bx;
   const x = 2 + Math.floor(randomOf(salt, 4, 3) * 9);
   [
@@ -249,38 +270,40 @@ function paintAsh(grid, bx, by) {
     [1, 1],
     [2, 1],
     [3, 2],
-  ].forEach(([dx, dy]) => dot(grid, x + dx, 6 + dy, '#1a1218')); // a crack
-  if (randomOf(salt, 5, 3) < 0.3) dot(grid, x + 2, 7, '#e8541c'); // with an ember in it
+  ].forEach(([dx, dy]) => dot(grid, x + dx, 6 + dy, '#110b12'));
+  if (randomOf(salt, 5, 3) < 0.36) {
+    dot(grid, x + 2, 7, '#ff6824');
+    dot(grid, x + 1, 7, '#ffe066');
+  }
 }
 
 function paintLava(grid, bx, by, frame) {
-  const lavaRamp = [LAVA.crust, '#c43a12', LAVA.base, '#ff7b22', LAVA.light, LAVA.bright];
+  const lavaRamp = [LAVA.crust, '#ad2e12', LAVA.base, '#ff7b22', LAVA.light, LAVA.bright];
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const px = bx * S + x;
       const py = by * S + y;
       const flow = periodicNoise(px + frame * 2, py, 16, PERIOD, 19);
-      dot(grid, x, y, toneOf(lavaRamp, 0.25 + flow * 0.7, px, py));
+      dot(grid, x, y, toneOf(lavaRamp, 0.25 + flow * 0.72, px, py));
     }
   }
 }
 
-// The colors of each theme: [floor ramp, wall top ramp, wall face ramp, mortar, rim].
+// Rich HD-2D dungeon & interior theme ramps: [floor ramp, wall top ramp, wall face ramp, mortar, rim].
 const THEMES = {
-  stone: [['#3d3850', '#4b4562', '#5a5373', '#6a6385', '#7a7396'], ['#3a3452', '#463f62', '#524a72'], ['#3b3452', '#4a4266', '#5a5178'], '#241f35', '#8c86ad'],
-  ruins: [['#3f4a3a', '#4f5a47', '#5f6a55', '#707b64', '#828c73'], ['#4a5244', '#566050', '#636d5b'], ['#535b4c', '#646d5c', '#76806c'], '#2a3024', '#9aa88a'],
-  ice: [['#7a94b8', '#8ea8c9', '#a3bcd9', '#b8cfe6', '#d0e2f3'], ['#5a7aa8', '#6c8cba', '#7f9fcb'], ['#6f8fbd', '#86a5d0', '#9dbbe0'], '#3f5a85', '#e6f3ff'],
-  demon: [['#2a1a20', '#38222a', '#472b34', '#56343e', '#663e48'], ['#2a1418', '#3a1a20', '#4a2228'], ['#3a1a20', '#4f2229', '#652b33'], '#14080a', '#c23a2a'],
-  crystal: [['#25304a', '#2f3c5a', '#3a496b', '#46577c', '#53658e'], ['#28304e', '#323c60', '#3d4872'], ['#2e3858', '#3a466c', '#475480'], '#181d30', '#8fd6ff'],
-  bandit: [['#7a5a3a', '#8a6a44', '#9a7a4e', '#ab8a5a', '#bc9a66'], ['#5a3a22', '#6a4428', '#7a4e2e'], ['#6a4428', '#7e5232', '#92603c'], '#3a2414', '#c48c52'],
-  tower: [['#4a4650', '#58545e', '#66626c', '#75717b', '#85818b'], ['#45414d', '#524e5a', '#605c68'], ['#4c4856', '#5c5866', '#6c6878'], '#2a2730', '#a8a4b0'],
-  mine: [['#4a3a2c', '#584634', '#66523e', '#745e48', '#836b53'], ['#3a2e24', '#46382c', '#524234'], ['#423428', '#504032', '#5e4c3c'], '#221a12', '#8a7058'],
-  home: [['#6b4a2c', '#7a5634', '#8a623c', '#9a6e44', '#aa7a4e'], ['#5a4636', '#6a5444', '#7a6252'], ['#e6d3ad', '#efdfbf', '#f7ebd2'], '#8a6a4a', '#c8b08a'],
+  stone: [['#2c283e', '#39344e', '#47415f', '#575072', '#6a6386'], ['#282338', '#332e48', '#413b5a'], ['#2e2842', '#3c3554', '#4a4266'], '#171324', '#7e789e'],
+  ruins: [['#2d382e', '#3b483a', '#4a5846', '#5b6a54', '#6d7c64'], ['#343e32', '#424d3e', '#505c4a'], ['#3c463a', '#4b5646', '#5c6854'], '#1b211a', '#8aa07a'],
+  ice: [['#58749c', '#6e8bb5', '#84a2cc', '#9bb9de', '#b8d3f0'], ['#42608e', '#5272a2', '#6687b6'], ['#5476a4', '#6c8ebb', '#84a6cf'], '#2a4268', '#d8edff'],
+  demon: [['#22121a', '#2e1822', '#3c202c', '#4b2936', '#5c3442'], ['#1f0e14', '#2d141c', '#3c1b24'], ['#2e131b', '#411b24', '#56232e'], '#10060a', '#b63434'],
+  crystal: [['#1c2640', '#253252', '#303f64', '#3c4e76', '#4a5e8a'], ['#1e2745', '#283458', '#34426c'], ['#242f4f', '#303e64', '#3f507a'], '#11162a', '#8fd6ff'],
+  bandit: [['#5e442c', '#6e5034', '#7e5c3e', '#8e6a48', '#a07954'], ['#442c1a', '#533620', '#644226'], ['#533620', '#664328', '#795130'], '#28180d', '#b8824c'],
+  tower: [['#383542', '#464252', '#545062', '#645f72', '#757084'], ['#322f3c', '#403c4c', '#4e495c'], ['#3b3847', '#4a4658', '#59556a'], '#1c1a24', '#9a96aa'],
+  mine: [['#3a2d22', '#47382a', '#554332', '#644f3b', '#735c46'], ['#2b211a', '#362a20', '#423326'], ['#34281f', '#423328', '#513f31'], '#19130d', '#7c624b'],
+  home: [['#583a22', '#68462a', '#785232', '#895e3b', '#9a6b44'], ['#463529', '#554233', '#66503f'], ['#d6c096', '#e6d3ad', '#f4e6c8'], '#6e523a', '#bfa57a'],
 };
 THEMES.mountain = THEMES.stone;
 
-// The color of the walls of the home: the player chooses it (see logic/home.js). Set by scene.js before drawing.
-let homeWallColor = '#e6d3ad';
+let homeWallColor = '#d6c096';
 
 export function setHomeWallColor(color) {
   homeWallColor = color;
@@ -288,11 +311,11 @@ export function setHomeWallColor(color) {
 THEMES.desert = THEMES.bandit;
 
 function paintFloor(grid, bx, by, theme) {
-  paintTexture(grid, bx, by, (THEMES[theme] || THEMES.stone)[0], 21, (big, small) => 0.35 + big * 0.3 + small * 0.2);
-  fillRect(grid, 0, 0, S, 1, '#2d283d');
-  fillRect(grid, 0, 8, S, 1, '#2d283d');
-  fillRect(grid, (bx % 2) * 8, 0, 1, 8, '#2d283d');
-  fillRect(grid, ((bx + 1) % 2) * 8, 8, 1, 8, '#2d283d');
+  paintTexture(grid, bx, by, (THEMES[theme] || THEMES.stone)[0], 21, (big, small) => 0.34 + big * 0.32 + small * 0.22);
+  fillRect(grid, 0, 0, S, 1, '#1e192d');
+  fillRect(grid, 0, 8, S, 1, '#1e192d');
+  fillRect(grid, (bx % 2) * 8, 0, 1, 8, '#1e192d');
+  fillRect(grid, ((bx + 1) % 2) * 8, 8, 1, 8, '#1e192d');
 }
 
 // A wall seen from above: the top. When the floor is below it, its face of bricks shows.
@@ -324,10 +347,10 @@ function paintWall(grid, edges, theme, bx, by) {
 
 // The colors of the cliffs of each land: [dark, mid, light, top].
 const CLIFFS = {
-  mountain: ['#4a5068', '#6a7290', '#8e96b0', '#eef3fa'], // gray rock, snow on the top
-  demon: ['#1c1418', '#2c2026', '#3e2e34', '#4e3a40'], // black basalt
-  desert: ['#7a4a2a', '#9a6238', '#b87a48', '#d49a62'], // red sandstone of the mesas
-  stone: ['#4a463e', '#625d52', '#7c7668', '#5f9a3e'], // gray rock, grass on the top
+  mountain: ['#31384f', '#4e5773', '#74809e', '#dde8f5'],
+  demon: ['#140d14', '#221821', '#32242c', '#453643'],
+  desert: ['#633a20', '#84502c', '#a8693c', '#cc9b5a'],
+  stone: ['#32303c', '#4b4956', '#666474', '#397938'],
 };
 CLIFFS.crystal = CLIFFS.stone;
 CLIFFS.mine = CLIFFS.desert;
@@ -376,8 +399,11 @@ function paintWood(grid, bx, by) {
   for (let y = 0; y < S; y++) {
     const plank = Math.floor((y + by * S) / 4);
     for (let x = 0; x < S; x++) {
-      const seam = (y % 4 === 3) || ((x + bx * S + plank * 7) % 24 === 0);
-      dot(grid, x, y, seam ? '#4a3220' : toneOf(THEMES.home[0], 0.45 + randomOf(plank, (x + bx * S) >> 3, 53) * 0.3, x, y));
+      const joint = (x + bx * S + plank * 7) % 24 === 0;
+      const seam = (y % 4 === 3) || joint;
+      const color = seam ? '#341f14' : toneOf(THEMES.home[0], 0.44 + randomOf(plank, (x + bx * S) >> 3, 53) * 0.32, x, y);
+      dot(grid, x, y, color);
+      if (y % 4 === 1 && joint) dot(grid, x + 1, y, '#6b5c4e'); // subtle iron floor nail
     }
   }
 }
@@ -453,7 +479,7 @@ const FLOWER_COLORS = [
   ['#ff8c5a', '#ffc4a3'],
 ];
 
-// A patch of 3 to 5 small flowers (the FLOWER tiles).
+// A patch of lush shaded blossoms (the FLOWER tiles).
 export function flowersDecal(x, y) {
   const variant = Math.floor(randomOf(x, y, 6) * 8);
   return once('flowers|' + variant, () => {
@@ -463,12 +489,14 @@ export function flowersDecal(x, y) {
     for (let i = 0; i < count; i++) {
       const fx = 2 + Math.floor(randomOf(i, variant, 1) * 12);
       const fy = 3 + Math.floor(randomOf(variant, i, 2) * 10);
-      dot(grid, fx, fy + 2, GRASS_RAMP[0]); // the stem
+      dot(grid, fx - 1, fy + 2, GRASS_RAMP[0]);
+      dot(grid, fx, fy + 2, GRASS_RAMP[1]);
+      dot(grid, fx + 1, fy + 2, GRASS_RAMP[0]);
       dot(grid, fx - 1, fy, petal);
       dot(grid, fx + 1, fy, petal);
       dot(grid, fx, fy + 1, petal);
       dot(grid, fx, fy - 1, light);
-      dot(grid, fx, fy, '#ffcf3a');
+      dot(grid, fx, fy, '#ffe478');
     }
     return toCanvas(grid);
   });

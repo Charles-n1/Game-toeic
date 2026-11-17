@@ -508,10 +508,11 @@ function sealDrawings(view, game, time) {
 // ---------- The living ----------
 
 const shadow = () =>
-  once('shadow', () => {
-    const grid = makeGrid(12, 5);
-    fillEllipse(grid, 6, 2.5, 6, 2.5, '#14101e55');
-    return { canvas: toCanvas(grid), ax: 6, ay: 3 };
+  once('shadowV2', () => {
+    const grid = makeGrid(14, 6);
+    fillEllipse(grid, 7, 3, 6.5, 2.5, '#140f1e68');
+    fillEllipse(grid, 7, 3, 4, 1.5, '#140f1e40');
+    return { canvas: toCanvas(grid), ax: 7, ay: 3 };
   });
 
 // How high the top of the head is, in pixels above the feet: the people of the sprite sheets are taller.
@@ -1191,20 +1192,24 @@ function drawHeroSlash(ctx, game, view) {
   const cx = Math.round(game.player.x * T - view.x);
   const cy = Math.round(game.player.y * T - view.y - 8);
   const dir = game.run.slashDir || game.player.dir;
-  const angles = { right: [-0.95, 0.95], left: [Math.PI - 0.95, Math.PI + 0.95], down: [Math.PI / 2 - 0.95, Math.PI / 2 + 0.95], up: [-Math.PI / 2 - 0.95, -Math.PI / 2 + 0.95] };
+  const angles = { right: [-0.98, 0.98], left: [Math.PI - 0.98, Math.PI + 0.98], down: [Math.PI / 2 - 0.98, Math.PI / 2 + 0.98], up: [-Math.PI / 2 - 0.98, -Math.PI / 2 + 0.98] };
   const [a0, a1] = angles[dir] || angles.down;
   const alpha = Math.min(1, left / 150).toFixed(2);
   const obsidian = game.player.obsidianBlade > 0;
-  ctx.strokeStyle = obsidian ? 'rgba(180, 110, 255, ' + alpha + ')' : 'rgba(130, 210, 255, ' + alpha + ')';
-  ctx.lineWidth = obsidian ? 5 : 4;
+  ctx.strokeStyle = obsidian ? 'rgba(180, 110, 255, ' + alpha + ')' : 'rgba(220, 48, 72, ' + alpha + ')';
+  ctx.lineWidth = obsidian ? 6 : 5;
   ctx.beginPath();
-  ctx.arc(cx, cy, obsidian ? 16 : 14, a0, a1);
+  ctx.arc(cx, cy, obsidian ? 17 : 15, a0, a1);
   ctx.stroke();
-  ctx.strokeStyle = obsidian ? 'rgba(255, 225, 255, ' + alpha + ')' : 'rgba(255, 250, 210, ' + alpha + ')';
+  ctx.strokeStyle = obsidian ? 'rgba(255, 225, 255, ' + alpha + ')' : 'rgba(255, 220, 115, ' + alpha + ')';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(cx, cy, obsidian ? 15 : 13, a0 + 0.15, a1 - 0.15);
   ctx.stroke();
+  // Flying tip ember sparks
+  ctx.fillStyle = obsidian ? '#e8c4ff' : '#fff0b0';
+  const tipAngle = a1 - 0.1;
+  ctx.fillRect(Math.round(cx + Math.cos(tipAngle) * 16), Math.round(cy + Math.sin(tipAngle) * 16), 2, 2);
   ctx.lineWidth = 1;
 }
 

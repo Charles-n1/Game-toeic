@@ -1,488 +1,888 @@
-import { makeGrid, dot, fillRect, fillBall, drawLine, addOutline, mirrored, toCanvas, once } from './pixels';
-import { OUTLINE } from './palette';
+import { addOutline, drawPicture, makeGrid, mirrored, once, padded, toCanvas } from './pixels';
+import { OUTLINE, darker, lighter, mix } from './palette';
 
-// The animals of the villages: pigs, cows, chickens and horses, seen from the side (looking right).
-// frame: 0 or 1, their legs move. dir: 'left' or 'right'.
+// Hand-pixelled HD-2D dark-fantasy animal sprites (no geometric blobs).
+// All templates face right; dir === 'left' mirrors cleanly before 1px OUTLINE.
 
-const PIG = ['#b85a6a', '#e08a98', '#f7b4c0', '#ffd6de'];
-const COW = ['#2a2428', '#f2ece4', '#ffffff', '#ffffff'];
-const CHICKEN = ['#c8b8a0', '#f6f2ea', '#ffffff', '#ffffff'];
-const HORSE = ['#4a2a16', '#7a4a26', '#9a6236', '#b87a48'];
-
-function legs(grid, xs, top, length, color, frame) {
-  xs.forEach((x, i) => fillRect(grid, x + ((i + frame) % 2 ? 1 : 0), top, 2, length, color));
+function furColors(base, extra = {}) {
+  return {
+    d: mix(base, '#120c1c', 0.5),
+    s: darker(base, 0.28),
+    b: base,
+    h: lighter(base, 0.28),
+    c: extra.belly || '#efe5d2',
+    w: '#ffffff',
+    e: '#140f1e',
+    p: extra.pink || '#e6949e',
+    r: extra.red || '#c93b3b',
+    k: extra.hoof || '#25202e',
+    a: extra.antler || '#d4be96',
+    n: extra.nose || '#2c222e',
+    y: extra.gold || '#e6a832',
+    g: extra.green || '#2d7c5c',
+    G: extra.greenHi || '#49a87a',
+    l: extra.blue || '#3b6ca8',
+    m: extra.chestnut || '#9c4c26',
+    o: extra.spot || mix(base, '#1c1522', 0.62),
+    t: extra.tusk || '#f7eed8',
+  };
 }
 
-function pig(frame) {
-  const grid = makeGrid(20, 14);
-  legs(grid, [4, 7, 12, 15], 9, 4, PIG[0], frame);
-  fillBall(grid, 10, 7, 8, 4.5, PIG);
-  fillBall(grid, 16.5, 6, 3.5, 3.5, PIG);
-  fillRect(grid, 19, 6, 1, 2, '#c86a7a'); // the nose
-  dot(grid, 17, 5, '#1c1726');
-  dot(grid, 15, 3, PIG[0]); // the ear
-  dot(grid, 2, 5, PIG[1]); // the curly tail
-  dot(grid, 1, 4, PIG[1]);
-  return grid;
+function drawFrames(frames, colors, frame) {
+  const rows = frames[frame % frames.length];
+  const h = rows.length;
+  const w = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  const raw = makeGrid(w, h);
+  drawPicture(raw, rows, colors, 0, 0);
+  return padded(raw, 1);
 }
 
-function cow(frame) {
-  const grid = makeGrid(26, 20);
-  legs(grid, [4, 7, 17, 20], 13, 6, '#2a2428', frame);
-  fillBall(grid, 12, 9, 10, 5.5, COW, { ambient: 0.4 });
-  fillBall(grid, 8, 8, 3, 2.5, ['#1c1418', '#2a2428', '#3a3438']); // the spots
-  fillBall(grid, 15, 11, 2.5, 2, ['#1c1418', '#2a2428', '#3a3438']);
-  fillBall(grid, 22, 7, 3.5, 3.5, COW, { ambient: 0.4 });
-  fillRect(grid, 23, 8, 3, 3, '#f2b8b8'); // the muzzle
-  dot(grid, 22, 6, '#1c1726');
-  fillRect(grid, 20, 2, 1, 2, '#e8dcc0'); // the horns
-  fillRect(grid, 24, 2, 1, 2, '#e8dcc0');
-  dot(grid, 2, 8, '#2a2428'); // the tail
-  dot(grid, 1, 9, '#2a2428');
-  return grid;
+// Composite upper body rows with gait/stance leg blocks so posture stays unified.
+function animalRig(upper, lowerFrames, colors, frame) {
+  const lower = lowerFrames[frame % lowerFrames.length];
+  return drawFrames([[...upper, ...lower]], colors, 0);
 }
 
-function chicken(frame) {
-  const grid = makeGrid(12, 12);
-  legs(grid, [5, 7], 9, 3, '#e8a030', frame);
-  fillBall(grid, 5.5, 6.5, 4.5, 3.5, CHICKEN, { ambient: 0.5 });
-  fillBall(grid, 8.5, 3.5, 2.5, 2.5, CHICKEN, { ambient: 0.5 });
-  fillRect(grid, 8, 0, 2, 1, '#e8423f'); // the comb
-  fillRect(grid, 11, 3, 1, 1, '#e8a030'); // the beak
-  dot(grid, 9, 3, '#1c1726');
-  dot(grid, 1, 4, '#d8ccb8');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Horses (26x21 inner -> ~28x23 outlined, rider seat at ~y = ground - 10)
+// ---------------------------------------------------------------------------
+const HORSE_UPPER = [
+  '...............dd.a.......',
+  '..............dhsad.......',
+  '............ddhhhbbh......',
+  '...........dhhbbbbhbc.....',
+  '..........ddbbbbbbewbc....',
+  '.........ddhbbbbbssbbbh...',
+  '........dhbbbbbbssssbhcc..',
+  '.......ddhbbbbss..ssbshn..',
+  '..dd...dhhbbbs.....sss....',
+  '.dsbbddhhbbbbbbbbs........',
+  'dsbhhhhhhhhhhhhhhhbbs.....',
+  'dsbhhbbbbbbbbbbbbbbbbd....',
+  'dbbbbssssssssssssbbbbs....',
+  '.sbb..csssssssssccsbbs....',
+];
+const HORSE_LEGS = [
+  [
+    '.ss...bb.........bb..s....',
+    '.d....ss.........ss..s....',
+    '......d..........d...d....',
+    '......s..........s...s....',
+    '......k..........k...k....',
+  ],
+  [
+    '.s....bb........bb...s....',
+    '.d....ss........ss...s....',
+    '......d.........d....d....',
+    '......s.........s....s....',
+    '......k.........k....k....',
+  ],
+];
 
-function horse(frame) {
-  const grid = makeGrid(30, 26);
-  legs(grid, [5, 8, 20, 23], 17, 8, HORSE[0], frame);
-  fillBall(grid, 14, 13, 11, 5.5, HORSE);
-  fillRect(grid, 22, 4, 4, 10, HORSE[2]); // the neck
-  fillBall(grid, 26, 5, 3.5, 2.5, HORSE);
-  fillRect(grid, 21, 2, 2, 9, '#2a1a10'); // the mane
-  dot(grid, 26, 4, '#1c1726');
-  fillRect(grid, 1, 11, 2, 9, '#2a1a10'); // the tail
-  return grid;
-}
+const FOAL_UPPER = [
+  '.............d.a....',
+  '............dhsh....',
+  '..........ddhbbbbs..',
+  '.........ddbbbbewb..',
+  '..d.....dhbbbbbssbh.',
+  '.dbbddddbbbbss...sc.',
+  'dbhhhhhhhhhhbhs.....',
+  'dbbbbbsssssbbbbd....',
+  '.sbb..cssssccsb.....',
+];
+const FOAL_LEGS = [
+  [
+    '.d...b..s...b..s....',
+    '.....s..d...s..d....',
+    '.....d..s...d..s....',
+    '.....k..k...k..k....',
+  ],
+  [
+    '.s...s..b...s..b....',
+    '.....d..s...d..s....',
+    '.....s..d...s..d....',
+    '.....k..k...k..k....',
+  ],
+];
 
-const WHITE_RABBIT = ['#d0cad4', '#eef0f6', '#ffffff', '#ffffff'];
-const BROWN_RABBIT = ['#6b4228', '#9a6540', '#c48c62', '#e2b58e'];
-const FOX_PAL = ['#8f3314', '#c94c1a', '#eb6f28', '#ff9e4a'];
-const DEER_PAL = ['#6e4020', '#965c30', '#ba7b48', '#d9a472'];
-const SHEEP_WOOL = ['#cfc8bc', '#e8e2d8', '#faf8f2', '#ffffff'];
+// ---------------------------------------------------------------------------
+// Cattle & Bison
+// ---------------------------------------------------------------------------
+const COW_UPPER = [
+  '.................t..t.....',
+  '................th..ht....',
+  '...............kbbbbsbb...',
+  '..............khhbbwewbb..',
+  '...kk........kkhhbbcbbbbp.',
+  '..dchhddddddchhhcbcccccppp',
+  '.dchhhhhhhhcccchbcc..dpp..',
+  '.chhcckkkccchhbbbcs.......',
+  '.chbkkkkkcccbccccss.......',
+  'dcbbkkkkkcccbccsss........',
+  'dsbbcccddddccppp..........',
+  '..sbb.kssssspcc...........',
+];
+const COW_LEGS = [
+  [
+    '..d...c.s...s.c...........',
+    '..d...c.d...s.s...........',
+    '......s.d...d.d...........',
+    '......k.k...k.k...........',
+  ],
+  [
+    '..s...s.c...d.s...........',
+    '..k...d.s...k.d...........',
+    '......d.s...s.k...........',
+    '......k.k...k.k...........',
+  ],
+];
 
-function paintRabbit(ramp, frame) {
-  const grid = makeGrid(14, 14);
-  const hop = frame ? 1 : 0;
-  fillBall(grid, 6, 9 - hop, 3.8, 2.8, ramp, { ambient: 0.45 }); // plump body
-  fillBall(grid, 9.5, 7 - hop, 2.4, 2.2, ramp, { ambient: 0.5 }); // head
-  fillRect(grid, 7 + hop, 2 - hop, 1, 4, ramp[2]); // tall ears
-  fillRect(grid, 9 + hop, 2 - hop, 1, 4, ramp[3]);
-  dot(grid, 10, 6 - hop, '#1c1726'); // eye
-  dot(grid, 12, 7 - hop, '#ff8ca8'); // pink nose
-  fillRect(grid, 2, 8 - hop, 2, 2, '#ffffff'); // cotton tail
-  fillRect(grid, 4, 11, 2, 2, ramp[1]);
-  fillRect(grid, 8, 11 - hop, 2, 2, ramp[1]);
-  return grid;
-}
+const BISON_UPPER = [
+  '.............ddddhhddd....',
+  '...........ddhhhbbbbbbd...',
+  '.........ddhbbbbbbbbbbbdt.',
+  '........ddbbbbddbbbbdhbbtt',
+  '..dd....dhbbbdddbbbwewbhbb',
+  '.dsbbdddhhbbbdddbbbbbbbssb',
+  '.dshhhhhhhhhddddbbbbdddnbb',
+  'dsbhhhhhbbssdddddddssddd..',
+  'dsbbssssss...dddddssdd....',
+  'd.sbb........dddddd.......',
+  '...s..bbbb...dddsd........',
+];
+const BISON_LEGS = [
+  [
+    '......dd.s....dd.s........',
+    '......ss.d....ss.d........',
+    '......d..s....d..s........',
+    '......k..k....k..k........',
+  ],
+  [
+    '......ss.d....ss.d........',
+    '......dd.s....dd.s........',
+    '......s..d....s..d........',
+    '......k..k....k..k........',
+  ],
+];
 
-function fox(frame) {
-  const grid = makeGrid(22, 16);
-  legs(grid, [5, 7, 13, 15], 11, 4, '#2a1d24', frame);
-  fillBall(grid, 10, 9, 6, 3.2, FOX_PAL);
-  fillBall(grid, 16.5, 6.5, 3, 2.6, FOX_PAL); // head
-  fillRect(grid, 18, 6, 3, 2, '#ffffff'); // white snout tip
-  dot(grid, 20, 6, '#1c1726');
-  dot(grid, 17, 5, '#1c1726');
-  fillRect(grid, 15, 2, 1, 3, FOX_PAL[0]); // pointed ears
-  fillRect(grid, 17, 2, 1, 3, FOX_PAL[1]);
-  fillBall(grid, 3.5, 8.5, 3, 2, FOX_PAL); // bushy tail + white tip
-  dot(grid, 1, 8, '#ffffff');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Pigs & Boar
+// ---------------------------------------------------------------------------
+const PIG_UPPER = [
+  '...........dddd.....',
+  '....ddhhhhhhbbbd....',
+  '..ddhhhhhhhhhbbbs...',
+  '.dhhhhhhhhhhbdddbs..',
+  '.phhhhhhhhhbbwewbpr.',
+  'p.hhhhhhhhbbbpppprpp',
+  '..pbbbbbbbbbppppppp.',
+  '..dssssssssssppdd...',
+];
+const PIG_LEGS = [
+  [
+    '...b..s....b..s.....',
+    '...s..d....s..d.....',
+    '...k..k....k..k.....',
+  ],
+  [
+    '...s..b....s..b.....',
+    '...d..s....d..s.....',
+    '...k..k....k..k.....',
+  ],
+];
 
-function deer(frame) {
-  const grid = makeGrid(24, 24);
-  legs(grid, [6, 8, 14, 16], 15, 8, DEER_PAL[0], frame);
-  fillBall(grid, 11, 12, 7, 4, DEER_PAL);
-  fillRect(grid, 15, 6, 3, 7, DEER_PAL[2]); // graceful neck
-  fillBall(grid, 18, 6, 2.8, 2.2, DEER_PAL);
-  dot(grid, 19, 5, '#1c1726');
-  drawLine(grid, 17, 4, 15, 0, '#e8d8b8'); // branching antlers
-  drawLine(grid, 19, 4, 21, 0, '#e8d8b8');
-  dot(grid, 16, 1, '#e8d8b8');
-  dot(grid, 4, 10, '#ffffff'); // tail patch
-  return grid;
-}
+const PIGLET_UPPER = [
+  '.......ddd....',
+  '..ddhhhhbbbs..',
+  '.phhhhhhwewpr.',
+  '.dhhhhbbppppr.',
+  '..dssssssppd..',
+];
+const PIGLET_LEGS = [
+  ['..b..s..b..s..', '..k..k..k..k..'],
+  ['..s..b..s..b..', '..k..k..k..k..'],
+];
 
-function squirrel(frame) {
-  const grid = makeGrid(14, 14);
-  const tailY = frame ? 4 : 5;
-  fillBall(grid, 4, tailY + 1, 2.8, 3.8, FOX_PAL); // fluffy upright tail
-  fillBall(grid, 8, 9 - frame, 3, 2.4, FOX_PAL);
-  fillBall(grid, 10.5, 6.5 - frame, 2, 1.8, FOX_PAL);
-  dot(grid, 11, 6 - frame, '#1c1726');
-  dot(grid, 9, 4 - frame, FOX_PAL[2]);
-  fillRect(grid, 7, 11, 2, 2, FOX_PAL[0]);
-  return grid;
-}
+const BOAR_UPPER = [
+  '.......kkk..kk.........',
+  '.....kddhhkdkhhdd......',
+  '...kkdhhhhhhbbbbbd.....',
+  '..ddhhhhhhhhhbbbbbbs...',
+  '.kdbbbbbbbbbbbebbbbts..',
+  'k.dbbbbbbbbbbddbbbttpr.',
+  '..dssssssssssddbbbbnpp.',
+  '...dss....ssdddssdd....',
+];
+const BOAR_LEGS = [
+  [
+    '...b..d.....d..b.......',
+    '...d..s.....s..d.......',
+    '...k..k.....k..k.......',
+  ],
+  [
+    '...d..b.....b..d.......',
+    '...s..d.....d..s.......',
+    '...k..k.....k..k.......',
+  ],
+];
 
-function duck(frame) {
-  const grid = makeGrid(14, 12);
-  fillBall(grid, 6, 8, 4.5, 2.6, ['#6d6658', '#8c8372', '#a89f8d']);
-  fillBall(grid, 10, 4.5, 2.2, 2, ['#145a36', '#1f7a4a', '#2e9e60']); // emerald head
-  fillRect(grid, 12, 4, 2, 1, '#ffd23f'); // yellow bill
-  dot(grid, 10, 4, '#1c1726');
-  fillRect(grid, 5 + (frame % 2), 10, 1, 2, '#ff9a2b');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Sheep, Lamb, Goat
+// ---------------------------------------------------------------------------
+const SHEEP_UPPER = [
+  '.....hhhh..hhh......',
+  '...hhhhhhhhhhhh.....',
+  '..hbbbbhhhhhbbbhkk..',
+  '.hbbbbbbhhhbbbkkkwk.',
+  '.sbbbbbbbbbbbbksskn.',
+  '..sssssssssssskkss..',
+  '...dddd.dddd........',
+];
+const SHEEP_LEGS = [
+  [
+    '...k..d..k..d.......',
+    '...k..d..k..d.......',
+    '...k..k..k..k.......',
+  ],
+  [
+    '...d..k..d..k.......',
+    '...d..k..d..k.......',
+    '...k..k..k..k.......',
+  ],
+];
 
-function swan(frame) {
-  const grid = makeGrid(18, 16);
-  fillBall(grid, 7, 11, 5.5, 3, SHEEP_WOOL, { ambient: 0.5 });
-  drawLine(grid, 11, 10, 13, 4 - frame, '#ffffff'); // curved white neck
-  fillRect(grid, 13, 3 - frame, 2, 2, '#ffffff');
-  fillRect(grid, 15, 4 - frame, 2, 1, '#ff9a2b');
-  dot(grid, 14, 3 - frame, '#1c1726');
-  return spritePadWaterRipples(grid, frame);
-}
+const LAMB_UPPER = [
+  '...hhhh.hh.....',
+  '..hbbbbbhbbpk..',
+  '.hbbbbbbbhkkwk.',
+  '..ssssssskkkn..',
+  '...dd..dd......',
+];
+const LAMB_LEGS = [
+  ['...k.d.k.d.....', '...k.k.k.k.....'],
+  ['...d.k.d.k.....', '...k.k.k.k.....'],
+];
 
-function spritePadWaterRipples(grid, frame) {
-  fillRect(grid, 3 + frame, 14, 8, 1, '#7cc4f5');
-  return grid;
-}
+const GOAT_UPPER = [
+  '...........kk..tt...',
+  '............kktt....',
+  '.............hbbb...',
+  '.hh.........hbbwewb.',
+  '..hhhbbbbbbhhbbssbcn',
+  '..hbbbbbbbbbbsscc...',
+  '..ssssssssssss.cc...',
+  '...s..c.....s.......',
+];
+const GOAT_LEGS = [
+  [
+    '...b..s.....b..s....',
+    '...s..d.....s..d....',
+    '...k..k.....k..k....',
+  ],
+  [
+    '...s..b.....s..b....',
+    '...d..s.....d..s....',
+    '...k..k.....k..k....',
+  ],
+];
 
-function hedgehog(frame) {
-  const grid = makeGrid(14, 10);
-  fillBall(grid, 6, 6, 4.5, 3, ['#4f3422', '#6e4930', '#8c5e3f']); // spiky shell
-  for (let x = 2; x <= 9; x += 2) dot(grid, x, 3, '#c4a882');
-  fillRect(grid, 9, 5, 4, 3, '#e2b58e'); // snout
-  dot(grid, 12, 6, '#1c1726');
-  fillRect(grid, 4 + frame, 9, 2, 1, '#6b3e1f');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Deer, Doe, Fawn, Moose
+// ---------------------------------------------------------------------------
+const DEER_ANTLER = [
+  '............t.a..t..t.....',
+  '.............aaa.aaa......',
+  '..............t..t........',
+];
+const DEER_UPPER = [
+  '...............d.a.d......',
+  '..............dhbbbbh.....',
+  '.............dhbbwewbbc...',
+  '.............dhbbbsssbbn..',
+  '............dhbbbcc.......',
+  '.cc........dhbbbbcc.......',
+  'chhdddddddhhbbbbcc........',
+  'cbbhhhhhhhhbbbbcc.........',
+  '.sbbbbsssssssscc..........',
+  '..sbb..cccccccbs..........',
+];
+const DEER_LEGS = [
+  [
+    '..b..s.......b..s.........',
+    '..s..d.......s..d.........',
+    '..d..s.......d..s.........',
+    '..s..d.......s..d.........',
+    '..k..k.......k..k.........',
+  ],
+  [
+    '..s..b.......s..b.........',
+    '..d..s.......d..s.........',
+    '..s..d.......s..d.........',
+    '..d..s.......d..s.........',
+    '..k..k.......k..k.........',
+  ],
+];
 
-function frog(frame) {
-  const grid = makeGrid(12, 10);
-  const hop = frame ? 2 : 0;
-  fillBall(grid, 6, 6 - hop, 3.5, 2.5, ['#2a7a26', '#3fa036', '#66c44c']);
-  dot(grid, 8, 3 - hop, '#ffd23f'); // golden eye
-  dot(grid, 8, 4 - hop, '#1c1726');
-  fillRect(grid, 2, 7, 3, 2, '#3fa036');
-  fillRect(grid, 8, 7 - hop, 2, 2, '#3fa036');
-  return grid;
-}
+const FAWN_UPPER = [
+  '..........d.p.....',
+  '.........dhbbb....',
+  '........dhbwewbn..',
+  '.c......dhbbcc....',
+  'cbddhchcchbbbc....',
+  'dbbhchbhchbbsc....',
+  '.sbbssssssss......',
+];
+const FAWN_LEGS = [
+  ['.b..s...b..s......', '.s..d...s..d......', '.k..k...k..k......'],
+  ['.s..b...s..b......', '.d..s...d..s......', '.k..k...k..k......'],
+];
 
-function turtle(frame) {
-  const grid = makeGrid(14, 10);
-  fillBall(grid, 6.5, 6, 4.5, 3, ['#265c2c', '#3b7c38', '#54a04a']); // domed shell
-  fillRect(grid, 10, 6, 3, 2, '#7ab85a'); // head
-  dot(grid, 12, 6, '#1c1726');
-  fillRect(grid, 3 + frame, 8, 2, 2, '#5e8c48');
-  fillRect(grid, 8 - frame, 8, 2, 2, '#5e8c48');
-  return grid;
-}
+const MOOSE_UPPER = [
+  '.............tt..tttt..tt...',
+  '............tttttttttttt....',
+  '..............aaaaaaaa......',
+  '...............dhhbbbb......',
+  '......ddd......dhbwewbhbbb..',
+  '....ddhhhhdddddhbbbbbbbbbbn.',
+  '..ddhhhhhhhhhhhhbbbbbddddn..',
+  '.dhbbbbbbbbbbbbbdddddcc.....',
+  '.sbbsssssssssssdddd..c......',
+  '..sbb........dddd...........',
+];
+const MOOSE_LEGS = [
+  [
+    '..b....d.....d...b..........',
+    '..s....s.....s...s..........',
+    '..c....c.....c...c..........',
+    '..c....c.....c...c..........',
+    '..k....k.....k...k..........',
+  ],
+  [
+    '..d....b.....b...d..........',
+    '..s....s.....s...s..........',
+    '..c....c.....c...c..........',
+    '..c....c.....c...c..........',
+    '..k....k.....k...k..........',
+  ],
+];
 
-function owl(frame) {
-  const grid = makeGrid(14, 16);
-  fillBall(grid, 7, 9 - frame, 4, 5, ['#5a3e28', '#8a6242', '#ba8c64']);
-  fillRect(grid, 5, 5 - frame, 4, 3, '#f6efe0'); // facial disc
-  dot(grid, 6, 6 - frame, '#ffd23f');
-  dot(grid, 8, 6 - frame, '#ffd23f');
-  dot(grid, 7, 7 - frame, '#ff9a2b'); // beak
-  fillRect(grid, 5, 13, 2, 2, '#ffd23f');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Canids & Bears: Wolf, Fox, Shepherd Dog, Bear
+// ---------------------------------------------------------------------------
+const CANID_UPPER = [
+  '.............k.k......',
+  '............dk.kh.....',
+  '..dd.......dhbhbhh....',
+  '.dsbhdddddhhbbyeebhn..',
+  'dsbhhhhhhhhbbbccssnn..',
+  'd.ssbbbbbbbbssccc.....',
+  '...ssbbbbssss.cc......',
+];
+const CANID_LEGS = [
+  [
+    '...s..d......b..s.....',
+    '...d..s......s..d.....',
+    '...c..c......c..c.....',
+  ],
+  [
+    '...d..s......s..b.....',
+    '...s..d......d..s.....',
+    '...c..c......c..c.....',
+  ],
+];
 
-function sheep(frame) {
-  const grid = makeGrid(20, 16);
-  legs(grid, [5, 7, 13, 15], 11, 4, '#2a2428', frame);
-  fillBall(grid, 10, 8, 7, 4.5, SHEEP_WOOL, { ambient: 0.45 });
-  fillBall(grid, 6, 8, 3, 3, SHEEP_WOOL, { ambient: 0.45 });
-  fillBall(grid, 16, 7, 2.5, 2.5, ['#1c1726', '#2a2428', '#3e3844']); // dark face
-  dot(grid, 17, 6, '#ffffff');
-  fillRect(grid, 14, 5, 2, 1, '#3e3844');
-  return grid;
-}
+const FOX_FRAMES = [
+  [
+    '...............k..k...',
+    '.cc...........dk..kh..',
+    'ccchh........dhbhbhh..',
+    'chbhbhddddddhhbbwewbn.',
+    '.dsbhhhhhhhhhbbbcccn..',
+    '..d.sssbbbbbbbsscc....',
+    '.....ssbbbbss..c......',
+    '.....d..s....k..k.....',
+    '.....k..d....k..k.....',
+  ],
+  [
+    '.cc............k..k...',
+    'ccchh.........dk..kh..',
+    '.hbhbhddddddhhbbwewbn.',
+    '.dsbhhhhhhhhhbbbcccn..',
+    '..d.sssbbbbbbbsscc....',
+    '.....ssbbbbss..c......',
+    '.....s..d....k..k.....',
+    '.....k..k....k..k.....',
+  ],
+];
 
-function goat(frame) {
-  const grid = makeGrid(20, 18);
-  legs(grid, [5, 7, 13, 15], 12, 5, '#6b5e54', frame);
-  fillBall(grid, 10, 9, 6, 3.5, ['#9e9488', '#c8beb2', '#e8dfd4']);
-  fillBall(grid, 16, 6, 2.5, 2.2, ['#9e9488', '#c8beb2', '#e8dfd4']);
-  fillRect(grid, 17, 8, 1, 2, '#e8dfd4'); // goat beard
-  drawLine(grid, 15, 4, 13, 1, '#5a4e42'); // curved horns
-  dot(grid, 17, 5, '#1c1726');
-  return grid;
-}
+const DOG_UPPER = [
+  '.............o.o......',
+  '.hh.........dh.hh.....',
+  'hhbhdddddddhhbwewbhn..',
+  '.sbhboooohhhhbbcccnn..',
+  '..ssbboooobbssccc.....',
+  '....ssbbbbss..c.......',
+];
+const DOG_LEGS = [
+  ['....b..s.....b..s.....', '....c..c.....c..c.....'],
+  ['....s..b.....s..b.....', '....c..c.....c..c.....'],
+];
 
-const DOE_PAL = ['#7d4d28', '#a86b3a', '#cc8e58', '#e6b888'];
-const BOAR_PAL = ['#2b1e1a', '#4a342a', '#6b4d3e', '#8c6854'];
-const MUSTANG_PAL = ['#5c2810', '#8f441c', '#b8622a', '#d88446'];
+const BEAR_UPPER = [
+  '..............d..d.....',
+  '......ddddd..dhbbh.....',
+  '....ddhhhhhhddbbwewbc..',
+  '..ddhhhhhhhhhbbbbcccn..',
+  '.dhhbbbbbbbbbbbbcccc...',
+  '.sbbbbbbbbbbbbbbsss....',
+  '..sbbbsssssssbbbb......',
+];
+const BEAR_LEGS = [
+  [
+    '..b..d.......b..d......',
+    '..s..d.......s..d......',
+    '..k..k.......k..k......',
+  ],
+  [
+    '..d..b.......d..b......',
+    '..d..s.......d..s......',
+    '..k..k.......k..k......',
+  ],
+];
 
-function doe(frame) {
-  const grid = makeGrid(22, 20);
-  legs(grid, [5, 7, 13, 15], 12, 7, DOE_PAL[0], frame);
-  fillBall(grid, 10, 10, 6.5, 3.5, DOE_PAL);
-  fillRect(grid, 14, 5, 3, 6, DOE_PAL[2]);
-  fillRect(grid, 15, 7, 2, 4, '#f4ebd8'); // pale throat
-  fillBall(grid, 17, 5, 2.5, 2, DOE_PAL);
-  fillRect(grid, 15, 1, 1, 3, DOE_PAL[1]); // large alert ears
-  fillRect(grid, 17, 1, 1, 3, DOE_PAL[2]);
-  dot(grid, 18, 4, '#1c1726');
-  dot(grid, 3, 8, '#ffffff');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Small Woodland: Rabbit, Squirrel, Hedgehog, Frog, Turtle
+// ---------------------------------------------------------------------------
+const RABBIT_FRAMES = [
+  [
+    '.......pp.pp..',
+    '......bhbbh...',
+    '.....bhbhhb...',
+    '..cc.bhhwewbp.',
+    '.chhhbbbbccbb.',
+    '.cbbbbbbbbss..',
+    '..ssssssss....',
+    '..c..k...c..k.',
+  ],
+  [
+    '......pp.pp...',
+    '.....bhbbh....',
+    '..cc.bhbhhb...',
+    '.chhhbhhwewbp.',
+    '.cbbbbbbbbcc..',
+    '..ssssssss....',
+    '...c..k..c..k.',
+  ],
+];
 
-function fawn(frame) {
-  const grid = makeGrid(16, 14);
-  legs(grid, [4, 6, 10, 11], 9, 4, DOE_PAL[1], frame);
-  fillBall(grid, 7.5, 7.5, 4.5, 2.6, DOE_PAL);
-  for (const [sx, sy] of [[5, 6], [7, 5], [9, 6], [6, 8]]) dot(grid, sx, sy, '#fff4df'); // fawn spots
-  fillRect(grid, 10, 4, 2, 4, DOE_PAL[2]);
-  fillBall(grid, 12, 4, 2, 1.8, DOE_PAL);
-  fillRect(grid, 10, 1, 1, 2, DOE_PAL[2]);
-  dot(grid, 13, 3, '#1c1726');
-  dot(grid, 2, 6, '#ffffff');
-  return grid;
-}
+const SQUIRREL_FRAMES = [
+  [
+    '.hhh............',
+    'hhbbh.....p.p...',
+    'hbhbb....dhbhh..',
+    '.hbhb....hbwewn.',
+    '.bhh..ddhhcc....',
+    '..hhbhhhhbc.....',
+    '..dsssssssc.....',
+    '....k..c.k......',
+  ],
+  [
+    '..hhh...........',
+    'hhbbh.....p.p...',
+    'hbhbb....dhbhh..',
+    '.hbhb....hbwewn.',
+    '.bhh..ddhhcc....',
+    '..hhbhhhhbc.....',
+    '..dsssssssc.....',
+    '...k..c..k......',
+  ],
+];
 
-function boar(frame) {
-  const grid = makeGrid(22, 15);
-  legs(grid, [5, 7, 14, 16], 10, 4, '#1c1412', frame);
-  fillBall(grid, 10, 8, 7.5, 4.5, BOAR_PAL);
-  for (let x = 5; x <= 14; x += 2) dot(grid, x, 3, '#2b1e1a'); // bristly ridge
-  fillBall(grid, 17, 7, 3.5, 3, BOAR_PAL);
-  fillRect(grid, 19, 8, 2, 2, '#9a6b58'); // snout
-  drawLine(grid, 19, 8, 21, 6, '#fff8e0'); // tusks
-  dot(grid, 18, 6, '#e85a3a');
-  return grid;
-}
+const HEDGEHOG_FRAMES = [
+  [
+    '...d.h.d.h.d....',
+    '..hdhdhdhdhdh...',
+    '.dhdhdhdhdhcce..',
+    '.hdhdhdhdhccccp.',
+    '..ssssssssccc...',
+    '...k..k..k..k...',
+  ],
+  [
+    '...h.d.h.d.h....',
+    '..dhdhdhdhdhd...',
+    '.hdhdhdhdhccce..',
+    '.dhdhdhdhhccccp.',
+    '..ssssssssccc...',
+    '..k..k....k..k..',
+  ],
+];
 
-function piglet(frame) {
-  const grid = makeGrid(14, 11);
-  legs(grid, [3, 5, 8, 10], 7, 3, '#3b2820', frame);
-  fillBall(grid, 6.5, 5.5, 4, 2.5, ['#5c3e2c', '#7a523c', '#9c6e50']);
-  fillRect(grid, 4, 4, 5, 1, '#d8be98'); // classic striped piglet bands
-  fillRect(grid, 4, 6, 5, 1, '#c49e72');
-  fillBall(grid, 10.5, 5, 2, 1.8, ['#7a523c', '#9c6e50', '#b88864']);
-  dot(grid, 11, 4, '#1c1726');
-  return grid;
-}
+const FROG_FRAMES = [
+  [
+    '......yy..yy..',
+    '.....yewewew..',
+    '...ddhhhhhhbh.',
+    '..dhhohhhcccb.',
+    '.dhhbsssscc...',
+    '..k..k...k..k.',
+  ],
+  [
+    '......yy..yy..',
+    '.....yewewew..',
+    '..dddhhhhhhbh.',
+    '.dhhohhhhcccc.',
+    '..hbsssscc....',
+    '.k..k....k..k.',
+  ],
+];
 
-function wildHorse(frame) {
-  const grid = makeGrid(30, 26);
-  legs(grid, [5, 8, 20, 23], 17, 8, '#38180a', frame);
-  fillBall(grid, 14, 13, 11, 5.5, MUSTANG_PAL);
-  fillRect(grid, 22, 4, 4, 10, MUSTANG_PAL[2]);
-  fillBall(grid, 26, 5, 3.5, 2.5, MUSTANG_PAL);
-  fillRect(grid, 21, 2, 2, 9, '#f4e6c8'); // wild flaxen mane
-  fillRect(grid, 27, 4, 2, 2, '#ffffff'); // white blaze on muzzle
-  dot(grid, 26, 4, '#1c1726');
-  fillRect(grid, 1, 10 - frame, 3, 9, '#f4e6c8'); // flowing flaxen tail
-  return grid;
-}
+const TURTLE_FRAMES = [
+  [
+    '....dhhhhhd......',
+    '..ddhhbhbhbhd....',
+    '.dhhbhdhbhdhbgb..',
+    '.sssssssssssgewg.',
+    '.cccccccccccggg..',
+    '..g..g....g..g...',
+  ],
+  [
+    '....dhhhhhd......',
+    '..ddhhbhbhbhd....',
+    '.dhhbhdhbhdhbgb..',
+    '.sssssssssssgewg.',
+    '.cccccccccccggg..',
+    '...g..g..g..g....',
+  ],
+];
 
-function foal(frame) {
-  const grid = makeGrid(20, 18);
-  legs(grid, [4, 6, 13, 15], 11, 6, MUSTANG_PAL[0], frame);
-  fillBall(grid, 9.5, 9.5, 6.5, 3.2, MUSTANG_PAL);
-  fillRect(grid, 14, 4, 3, 6, MUSTANG_PAL[2]);
-  fillBall(grid, 17, 4.5, 2.2, 1.8, MUSTANG_PAL);
-  fillRect(grid, 13, 3, 2, 5, '#4a2e18');
-  dot(grid, 17, 4, '#1c1726');
-  fillRect(grid, 2, 8, 2, 5, '#4a2e18');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Birds & Waterfowl
+// ---------------------------------------------------------------------------
+const CHICKEN_FRAMES = [
+  [
+    '.......r.r....',
+    '......rrrr....',
+    '.d.....hhwew..',
+    'ddb...dhhhhry.',
+    'dhhdddhhbbhr..',
+    '.hbbbbhbbhh...',
+    '..ssssssss....',
+    '....y...y.....',
+    '...yk..yk.....',
+  ],
+  [
+    '.......r.r....',
+    '......rrrr....',
+    '.d.....hhwew..',
+    'ddb...dhhhhry.',
+    'dhhdddhhhhhr..',
+    '.hbbbbhbbbh...',
+    '..ssssssss....',
+    '...y....y.....',
+    '..yk...yk.....',
+  ],
+];
 
-function lamb(frame) {
-  const grid = makeGrid(14, 12);
-  legs(grid, [3, 5, 9, 10], 8, 3, '#2a2428', frame);
-  fillBall(grid, 6.5, 6, 4.2, 2.8, SHEEP_WOOL, { ambient: 0.55 });
-  fillBall(grid, 10.5, 5, 1.8, 1.8, ['#2a2428', '#3e3844', '#524b5a']);
-  dot(grid, 11, 4, '#ffffff');
-  return grid;
-}
+const DUCK_FRAMES = [
+  [
+    '........ggG...',
+    '.......gGgewy.',
+    '.......gGccyyy',
+    '.d.....cccm...',
+    'dhhdddhhbmm...',
+    '.hhbllbbhmm...',
+    '..ssssssss....',
+    '....y...y.....',
+  ],
+  [
+    '........ggG...',
+    '.......gGgewy.',
+    '.......gGccyyy',
+    '.d.....cccm...',
+    'dhhddhhhhmm...',
+    '.hhbllbbhmm...',
+    '..ssssssss....',
+    '...y....y.....',
+  ],
+];
 
-function shepherdDog(frame) {
-  const grid = makeGrid(20, 16);
-  legs(grid, [4, 6, 12, 14], 10, 5, '#c48648', frame);
-  fillBall(grid, 9, 8.5, 5.5, 3.2, ['#1e1b22', '#2e2934', '#463f4e']);
-  fillRect(grid, 11, 6, 3, 5, '#ffffff'); // white collie ruff
-  fillBall(grid, 15, 5.5, 2.6, 2.4, ['#8c4f24', '#c4783e', '#e09a5c']);
-  fillRect(grid, 13, 2, 1, 2, '#1e1b22');
-  fillRect(grid, 15, 2, 1, 2, '#1e1b22');
-  fillRect(grid, 17, 5, 2, 2, '#ffffff');
-  dot(grid, 16, 5, '#1c1726');
-  drawLine(grid, 3, 7, 1, 4 - frame, '#2e2934'); // wagging tail
-  return grid;
-}
+const DUCKLING_FRAMES = [
+  [
+    '.....hhh...',
+    '....hhewy..',
+    '.h.hhhbbyy.',
+    'dhhhhbhss..',
+    '.sssssss...',
+    '...y..y....',
+  ],
+  [
+    '.....hhh...',
+    '....hhewy..',
+    '.h.hhhbbyy.',
+    'dhhhhhhss..',
+    '.sssssss...',
+    '..y...y....',
+  ],
+];
 
-function duckling(frame) {
-  const grid = makeGrid(9, 9);
-  fillBall(grid, 4, 5.5, 2.5, 2, ['#e0a81a', '#ffd23f', '#fff07c']);
-  fillBall(grid, 6.5, 3.5, 1.6, 1.5, ['#ffd23f', '#fff07c', '#ffffff']);
-  dot(grid, 8, 4, '#ff8a24');
-  dot(grid, 6, 3, '#1c1726');
-  dot(grid, 3 + frame, 7, '#ff8a24');
-  return grid;
-}
+const SWAN_FRAMES = [
+  [
+    '...........hhh....',
+    '..........hheek...',
+    '..........hhkkyyy.',
+    '..........hh......',
+    '..d.......hh......',
+    '.dhhddd..dhh......',
+    'dhhhhhhhhhhh......',
+    '.hbbhhhbbbbh......',
+    '..sssssssss.......',
+    '....k...k.........',
+  ],
+  [
+    '...........hhh....',
+    '..........hheek...',
+    '..........hhkkyyy.',
+    '..........hh......',
+    '.d........hh......',
+    'dhhddd...dhh......',
+    'dhhhhhhhhhhh......',
+    '.hbbhhhbbbbh......',
+    '..sssssssss.......',
+    '...k....k.........',
+  ],
+];
 
-function heron(frame) {
-  const grid = makeGrid(18, 22);
-  fillRect(grid, 7, 14, 1, 7, '#5a6270'); // long wading legs
-  fillRect(grid, 10 + frame, 14, 1, 6 - frame, '#5a6270');
-  fillBall(grid, 7.5, 11.5, 5, 3.2, ['#6b7788', '#96a4b8', '#c8d2e0']);
-  drawLine(grid, 11, 10, 12, 4, '#dde4f0'); // S-neck
-  fillRect(grid, 11, 2, 3, 2, '#ffffff');
-  fillRect(grid, 14, 3, 4, 1, '#ffa828'); // long spear bill
-  dot(grid, 12, 2, '#1c1726');
-  return grid;
-}
+const GOOSE_FRAMES = [
+  [
+    '........ccc.....',
+    '.......ccewyy...',
+    '.......cccyyy...',
+    '.......cc.......',
+    '.d....dcc.......',
+    'dbbdddhhcc......',
+    '.hbbbbhcc.......',
+    '..ssssss........',
+    '...y..y.........',
+  ],
+  [
+    '........ccc.....',
+    '.......ccewyy...',
+    '.......cccyyy...',
+    '.......cc.......',
+    '.d....dcc.......',
+    'dbbdddhhcc......',
+    '.hbbbbhcc.......',
+    '..ssssss........',
+    '..y...y.........',
+  ],
+];
 
-function sparrow(frame) {
-  const grid = makeGrid(10, 10);
-  const hop = frame ? 1 : 0;
-  fillBall(grid, 4.5, 5.5 - hop, 3, 2.2, ['#5c3e26', '#8a6242', '#ba8c64']);
-  fillBall(grid, 7, 4 - hop, 1.8, 1.6, ['#5c3e26', '#7a5232', '#9e6e48']);
-  dot(grid, 9, 4 - hop, '#e8a030');
-  dot(grid, 7, 3 - hop, '#1c1726');
-  dot(grid, 1, 4 - hop, '#4a321e');
-  fillRect(grid, 4, 8 - hop, 1, 2, '#6b4a2b');
-  return grid;
-}
+const HERON_FRAMES = [
+  [
+    '....kkk.cc......',
+    '.......ccewyyyyy',
+    '.......cc...yy..',
+    '.......cc.......',
+    '......dcc.......',
+    '.dd..dhhcc......',
+    'dbbhddhbbh......',
+    '.sbbbbhbs.......',
+    '..ssssss........',
+    '....k..k........',
+    '....y..y........',
+    '....y..y........',
+    '....k..k........',
+  ],
+  [
+    '....kkk.cc......',
+    '.......ccewyyyyy',
+    '.......cc...yy..',
+    '.......cc.......',
+    '......dcc.......',
+    '.dd..dhhcc......',
+    'dbbhdhhbbh......',
+    '.sbbbbhbs.......',
+    '..ssssss........',
+    '....k..k........',
+    '....y...y.......',
+    '....y...y.......',
+    '....k...k.......',
+  ],
+];
 
-function crow(frame) {
-  const grid = makeGrid(12, 11);
-  const hop = frame ? 1 : 0;
-  fillBall(grid, 5, 6 - hop, 3.6, 2.6, ['#14161e', '#222634', '#384056']);
-  fillBall(grid, 8, 4 - hop, 2, 1.8, ['#1c202e', '#2e3448', '#46506c']);
-  fillRect(grid, 10, 4 - hop, 2, 1, '#586274');
-  dot(grid, 8, 3 - hop, '#f4f8ff');
-  fillRect(grid, 4, 8 - hop, 1, 2, '#2b2b34');
-  fillRect(grid, 6, 8 - hop, 1, 2, '#2b2b34');
-  return grid;
-}
+const OWL_FRAMES = [
+  [
+    '..h.....h...',
+    '..bhccchb...',
+    '..hcyeych...',
+    '..hccyccch..',
+    '.dhhbbbbhhd.',
+    '.dbhcbbchbd.',
+    '.sbbcbbcbb..',
+    '..ssccccss..',
+    '...y....y...',
+  ],
+  [
+    '..h.....h...',
+    '..bhccchb...',
+    '..hcyeych...',
+    '..hccyccch..',
+    '.dhhbbbbhhd.',
+    '.dbccbbccbd.',
+    '.sbbcbbcbb..',
+    '..ssccccss..',
+    '...y....y...',
+  ],
+];
 
-const WOLF_PAL = ['#4c5260', '#707888', '#96a0b2', '#cfd6e2'];
-const BEAR_PAL = ['#3a2214', '#5c3820', '#7c4e30', '#9e6a46'];
-const MOOSE_PAL = ['#362014', '#543420', '#74482e', '#926040'];
+const SPARROW_FRAMES = [
+  [
+    '......mmm...',
+    '.....meweyk.',
+    '.....mcck...',
+    '.d..dhhbn...',
+    'dbbhhbhb....',
+    '.ssssccc....',
+    '...k...k....',
+  ],
+  [
+    '......mmm...',
+    '.....meweyk.',
+    '.....mcck...',
+    '.d..dhhbn...',
+    'dbbhbhhb....',
+    '.ssssccc....',
+    '..k....k....',
+  ],
+];
 
-function wolf(frame) {
-  const grid = makeGrid(24, 17);
-  legs(grid, [5, 7, 15, 17], 11, 5, WOLF_PAL[0], frame);
-  fillBall(grid, 11, 9, 7, 3.5, WOLF_PAL);
-  fillBall(grid, 18, 6.5, 3.2, 2.8, WOLF_PAL); // lupine head
-  fillRect(grid, 20, 6, 3, 2, WOLF_PAL[2]); // muzzle
-  fillRect(grid, 16, 2, 1, 3, WOLF_PAL[1]); // pointed ears
-  fillRect(grid, 18, 2, 1, 3, WOLF_PAL[2]);
-  dot(grid, 19, 5, '#ffd23f'); // amber eye
-  drawLine(grid, 4, 8, 1, 10 - frame, WOLF_PAL[1]); // bushy tail
-  return grid;
-}
+const CROW_FRAMES = [
+  [
+    '.......hhh....',
+    '......hhwek...',
+    '......hbkkkk..',
+    '.d...dhbbk....',
+    'dhhddhhbbs....',
+    '.hbbhhbbbs....',
+    '..sssssss.....',
+    '....k..k......',
+  ],
+  [
+    '.......hhh....',
+    '......hhwek...',
+    '......hbkkkk..',
+    '.d...dhbbk....',
+    'dhhddhbbbs....',
+    '.hbbhhhbb.....',
+    '..sssssss.....',
+    '...k...k......',
+  ],
+];
 
-function bear(frame) {
-  const grid = makeGrid(28, 22);
-  legs(grid, [6, 9, 17, 20], 14, 6, BEAR_PAL[0], frame);
-  fillBall(grid, 13, 11, 9.5, 6, BEAR_PAL); // heavy bear body
-  fillBall(grid, 22, 9, 4.5, 4, BEAR_PAL); // round bear head
-  fillRect(grid, 24, 9, 3, 3, '#c49668'); // snout
-  fillRect(grid, 19, 4, 2, 2, BEAR_PAL[1]); // rounded ears
-  fillRect(grid, 22, 4, 2, 2, BEAR_PAL[2]);
-  dot(grid, 23, 8, '#1c1726');
-  return grid;
-}
+const PHEASANT_FRAMES = [
+  [
+    '.............gG.....',
+    '............grewy...',
+    '............gcc.....',
+    '........ddddhbbb....',
+    'ddddbbbbhhhhhbbbh...',
+    '.ssddbbbsssssbbb....',
+    '.........y...y......',
+  ],
+  [
+    '.............gG.....',
+    '............grewy...',
+    '............gcc.....',
+    '........ddddhbbb....',
+    'ddddbbbbhhhhbbbbh...',
+    '.ssddbbbsssssbbb....',
+    '........y.....y.....',
+  ],
+];
 
-function moose(frame) {
-  const grid = makeGrid(30, 28);
-  legs(grid, [6, 9, 19, 22], 17, 9, MOOSE_PAL[0], frame);
-  fillBall(grid, 14, 13, 9.5, 5.5, MOOSE_PAL); // humped shoulders
-  fillRect(grid, 20, 7, 4, 7, MOOSE_PAL[2]);
-  fillBall(grid, 24, 8, 3.8, 3, MOOSE_PAL); // heavy muzzle
-  fillRect(grid, 22, 10, 2, 2, MOOSE_PAL[1]); // dewlap bell
-  fillRect(grid, 16, 2, 9, 3, '#dfd0b4'); // broad palmate antlers
-  fillRect(grid, 18, 1, 2, 5, '#dfd0b4');
-  fillRect(grid, 22, 1, 2, 5, '#dfd0b4');
-  dot(grid, 24, 7, '#1c1726');
-  return grid;
-}
-
-function pheasant(frame) {
-  const grid = makeGrid(18, 13);
-  legs(grid, [8, 10], 9, 3, '#7a5230', frame);
-  fillBall(grid, 8, 7, 4.5, 3, ['#8a321c', '#c85828', '#e88838']); // copper body
-  fillBall(grid, 12, 4, 2.2, 2, ['#1c5a46', '#288266', '#3cb08a']); // emerald neck
-  dot(grid, 13, 4, '#e83232'); // red cheek wattle
-  dot(grid, 14, 4, '#ffd23f'); // beak
-  drawLine(grid, 4, 6, 0, 4 - frame, '#b87a3a'); // long plumed tail
-  return grid;
-}
-
-function goose(frame) {
-  const grid = makeGrid(18, 15);
-  fillBall(grid, 7, 10, 5.5, 3, ['#9ea4ae', '#d8dee8', '#ffffff']);
-  fillRect(grid, 11, 4 - frame, 2, 6, '#e8eef7'); // upright neck
-  fillRect(grid, 12, 3 - frame, 3, 2, '#ffffff');
-  fillRect(grid, 15, 4 - frame, 2, 1, '#ff8a28'); // orange bill
-  dot(grid, 13, 3 - frame, '#1c1726');
-  fillRect(grid, 6 + (frame % 2), 12, 1, 2, '#ff8a28');
-  return grid;
-}
-
-function bison(frame) {
-  const grid = makeGrid(30, 24);
-  legs(grid, [6, 9, 19, 22], 16, 6, '#261810', frame);
-  fillBall(grid, 14, 12, 10, 6.5, ['#382214', '#5a361e', '#7a4b2c']);
-  fillBall(grid, 18, 10, 7, 6.5, ['#26160c', '#3e2414', '#54321c']); // massive shaggy shoulder hump
-  fillBall(grid, 24, 11, 3.8, 3.8, ['#26160c', '#3e2414', '#54321c']); // lowered head
-  drawLine(grid, 22, 8, 25, 6, '#e8dcc0'); // curved horns
-  dot(grid, 25, 10, '#ffffff');
-  return grid;
-}
+// ---------------------------------------------------------------------------
+// Palettes
+// ---------------------------------------------------------------------------
+const PAL = {
+  horse: furColors('#8d4e29', { belly: '#ebd8bd', hoof: '#1c1824', antler: '#6e3a1a' }),
+  wildHorse: furColors('#4f576e', { belly: '#dce3ee', hoof: '#181a24', antler: '#c9c2b2' }),
+  foal: furColors('#b87442', { belly: '#f2e0c4', antler: '#8a5226' }),
+  cow: furColors('#c8bba8', { belly: '#f5efe6', pink: '#eb9ba8', hoof: '#24202a', tusk: '#ece2cc' }),
+  bison: furColors('#634128', { belly: '#875c3c', hoof: '#1a151e', nose: '#1e161d', tusk: '#d6ccb8' }),
+  pig: furColors('#e89aa3', { belly: '#f8ccd2', pink: '#f4788c', red: '#d64c64', hoof: '#422c30' }),
+  piglet: furColors('#f2b4bc', { pink: '#f68ca0', red: '#de627a', hoof: '#4e3238' }),
+  boar: furColors('#4d3224', { belly: '#74513d', pink: '#9c5a5a', hoof: '#1b161c', tusk: '#f6ebd2' }),
+  sheep: furColors('#e3ddd0', { belly: '#f8f4ea', hoof: '#26232e' }),
+  lamb: furColors('#ece7da', { pink: '#e8a2ac', hoof: '#2a2632' }),
+  goat: furColors('#bcc2ca', { belly: '#eef2f5', hoof: '#24242c', tusk: '#c8b896' }),
+  deer: furColors('#9d6537', { belly: '#f2e2c8', antler: '#cbb082', hoof: '#221c24', tusk: '#e0ccb0' }),
+  doe: furColors('#ab7142', { belly: '#f4e5cd', antler: '#c99364', hoof: '#221c24' }),
+  fawn: furColors('#be804c', { belly: '#f6ebd7', pink: '#c88c5c', hoof: '#262028' }),
+  moose: furColors('#4e3322', { belly: '#c6bca8', antler: '#baa480', hoof: '#1b161c', tusk: '#d8ccb2' }),
+  wolf: furColors('#71798e', { belly: '#cfd7e6', gold: '#e8aa2c', nose: '#1c1824' }),
+  fox: furColors('#d05c22', { belly: '#f7ece0', hoof: '#1f1a24' }),
+  shepherdDog: furColors('#a67540', { belly: '#efe4cf', spot: '#2c2834' }),
+  bear: furColors('#654026', { belly: '#ba8c64', hoof: '#1b151a' }),
+  rabbit: furColors('#eee9f2', { pink: '#f2a4b6', hoof: '#c8b4ca' }),
+  rabbitBrown: furColors('#966846', { pink: '#d89a9c', hoof: '#5e3c26' }),
+  squirrel: furColors('#b85524', { belly: '#f0dec4', pink: '#94421a', hoof: '#4a2614' }),
+  hedgehog: furColors('#5b4638', { belly: '#e4cfb0', pink: '#df8890', hoof: '#2e2226' }),
+  frog: furColors('#3ca44e', { belly: '#d2e282', gold: '#f4ca3a', spot: '#1f5e34', hoof: '#246e36' }),
+  turtle: furColors('#48783e', { belly: '#b99c62', green: '#648f48', gold: '#a4a852' }),
+  chicken: furColors('#efeae0', { red: '#d83834', gold: '#eb9d2e', hoof: '#6e5226' }),
+  duck: furColors('#7e8494', { belly: '#f2eee6', green: '#1e6e58', greenHi: '#34a87e', chestnut: '#824024', blue: '#3e74b8', gold: '#ec9c28' }),
+  duckling: furColors('#f2ca3c', { gold: '#eb8c22' }),
+  swan: furColors('#eef2fa', { hoof: '#1e202c', gold: '#f07c2e' }),
+  goose: furColors('#868d9e', { belly: '#f2f4f8', gold: '#eb8c28' }),
+  heron: furColors('#95a0b4', { belly: '#eef2f8', gold: '#e5b232', hoof: '#2a2c38' }),
+  owl: furColors('#8a5a36', { belly: '#eedec2', gold: '#f2b82a' }),
+  sparrow: furColors('#8e6446', { belly: '#e8dcc8', chestnut: '#a44b2a', gold: '#b89458', hoof: '#342622' }),
+  crow: furColors('#242636', { hoof: '#141520' }),
+  pheasant: furColors('#a65428', { belly: '#f2ece2', red: '#dc322c', green: '#1f6a4e', greenHi: '#349e74', gold: '#c9883a' }),
+};
 
 const PAINTERS = {
-  pig: pig,
-  cow: cow,
-  chicken: chicken,
-  horse: horse,
-  rabbit: (frame) => paintRabbit(WHITE_RABBIT, frame),
-  rabbitBrown: (frame) => paintRabbit(BROWN_RABBIT, frame),
-  fox: fox,
-  deer: deer,
-  doe: doe,
-  fawn: fawn,
-  boar: boar,
-  piglet: piglet,
-  wildHorse: wildHorse,
-  foal: foal,
-  lamb: lamb,
-  shepherdDog: shepherdDog,
-  squirrel: squirrel,
-  duck: duck,
-  duckling: duckling,
-  swan: swan,
-  heron: heron,
-  hedgehog: hedgehog,
-  frog: frog,
-  turtle: turtle,
-  owl: owl,
-  sheep: sheep,
-  goat: goat,
-  sparrow: sparrow,
-  crow: crow,
-  wolf: wolf,
-  bear: bear,
-  moose: moose,
-  pheasant: pheasant,
-  goose: goose,
-  bison: bison,
+  pig: (f) => animalRig(PIG_UPPER, PIG_LEGS, PAL.pig, f),
+  cow: (f) => animalRig(COW_UPPER, COW_LEGS, PAL.cow, f),
+  chicken: (f) => drawFrames(CHICKEN_FRAMES, PAL.chicken, f),
+  horse: (f) => animalRig(HORSE_UPPER, HORSE_LEGS, PAL.horse, f),
+  rabbit: (f) => drawFrames(RABBIT_FRAMES, PAL.rabbit, f),
+  rabbitBrown: (f) => drawFrames(RABBIT_FRAMES, PAL.rabbitBrown, f),
+  fox: (f) => drawFrames(FOX_FRAMES, PAL.fox, f),
+  deer: (f) => animalRig([...DEER_ANTLER, ...DEER_UPPER], DEER_LEGS, PAL.deer, f),
+  doe: (f) => animalRig(DEER_UPPER, DEER_LEGS, PAL.doe, f),
+  fawn: (f) => animalRig(FAWN_UPPER, FAWN_LEGS, PAL.fawn, f),
+  boar: (f) => animalRig(BOAR_UPPER, BOAR_LEGS, PAL.boar, f),
+  piglet: (f) => animalRig(PIGLET_UPPER, PIGLET_LEGS, PAL.piglet, f),
+  wildHorse: (f) => animalRig(HORSE_UPPER, HORSE_LEGS, PAL.wildHorse, f),
+  foal: (f) => animalRig(FOAL_UPPER, FOAL_LEGS, PAL.foal, f),
+  lamb: (f) => animalRig(LAMB_UPPER, LAMB_LEGS, PAL.lamb, f),
+  shepherdDog: (f) => animalRig(DOG_UPPER, DOG_LEGS, PAL.shepherdDog, f),
+  squirrel: (f) => drawFrames(SQUIRREL_FRAMES, PAL.squirrel, f),
+  duck: (f) => drawFrames(DUCK_FRAMES, PAL.duck, f),
+  duckling: (f) => drawFrames(DUCKLING_FRAMES, PAL.duckling, f),
+  swan: (f) => drawFrames(SWAN_FRAMES, PAL.swan, f),
+  heron: (f) => drawFrames(HERON_FRAMES, PAL.heron, f),
+  hedgehog: (f) => drawFrames(HEDGEHOG_FRAMES, PAL.hedgehog, f),
+  frog: (f) => drawFrames(FROG_FRAMES, PAL.frog, f),
+  turtle: (f) => drawFrames(TURTLE_FRAMES, PAL.turtle, f),
+  owl: (f) => drawFrames(OWL_FRAMES, PAL.owl, f),
+  sheep: (f) => animalRig(SHEEP_UPPER, SHEEP_LEGS, PAL.sheep, f),
+  goat: (f) => animalRig(GOAT_UPPER, GOAT_LEGS, PAL.goat, f),
+  sparrow: (f) => drawFrames(SPARROW_FRAMES, PAL.sparrow, f),
+  crow: (f) => drawFrames(CROW_FRAMES, PAL.crow, f),
+  wolf: (f) => animalRig(CANID_UPPER, CANID_LEGS, PAL.wolf, f),
+  bear: (f) => animalRig(BEAR_UPPER, BEAR_LEGS, PAL.bear, f),
+  moose: (f) => animalRig(MOOSE_UPPER, MOOSE_LEGS, PAL.moose, f),
+  pheasant: (f) => drawFrames(PHEASANT_FRAMES, PAL.pheasant, f),
+  goose: (f) => drawFrames(GOOSE_FRAMES, PAL.goose, f),
+  bison: (f) => animalRig(BISON_UPPER, BISON_LEGS, PAL.bison, f),
 };
 
 export function animalSprite(kind, dir, frame) {
-  return once('animal' + kind + dir + frame, () => {
+  return once('animalV2_' + kind + dir + frame, () => {
     const painter = PAINTERS[kind] || PAINTERS.rabbit;
-    const grid = painter(frame);
+    const grid = painter(frame || 0);
     const outlined = addOutline(dir === 'left' ? mirrored(grid) : grid, OUTLINE);
     return { canvas: toCanvas(outlined), ax: Math.floor(outlined.width / 2), ay: outlined.height - 1 };
   });

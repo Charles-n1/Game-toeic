@@ -19,7 +19,7 @@ paintedMap.src = paintedMapUrl;
 // ---------- The painting ----------
 
 const PAINT_SIZE = 2048; // the painting is drawn in a square of this many pixels
-const CELL_COLORS = { water: '#2a66b8', grass: '#4f9a3e', sand: '#e3c98c', snow: '#eef3fb', ash: '#4d3f4a', lava: '#ff6a1c', cliff: '#5d5a63' };
+const CELL_COLORS = { water: '#1d4e94', grass: '#358034', sand: '#cc9b5a', snow: '#dde8f5', ash: '#332734', lava: '#ff6a1c', cliff: '#494758' };
 
 function rect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -234,11 +234,11 @@ export function drawWorldMap(ctx, game, view, size, time, selectedId) {
 
 const MINI_TILES = 64; // the corner map shows 64 x 64 tiles
 const MINI_COLORS = {
-  [TILE.GRASS]: '#5fa945', [TILE.FLOWER]: '#8fbf55', [TILE.PATH]: '#c9a36a', [TILE.SAND]: '#e3c98c', [TILE.WATER]: '#2f6fc2',
-  [TILE.TREE]: '#2a6a30', [TILE.ROCK]: '#8e8a93', [TILE.STONE]: '#eef3fb', [TILE.ASH]: '#5a4a56', [TILE.LAVA]: '#ff6a1c',
-  [TILE.DEAD_TREE]: '#4a3428', [TILE.WALL]: '#4a4658', [TILE.FLOOR]: '#9a8e7c', [TILE.ROOF]: '#b0503c', [TILE.HOUSE]: '#d8c49a',
-  [TILE.DOOR]: '#5a3418', [TILE.SOIL]: '#7a5232', [TILE.BRIDGE]: '#9a6a3a', [TILE.CLIFF]: '#5d5a63', [TILE.VOID]: '#0b0d18',
-  [TILE.STAIRS]: '#ffd86b', [TILE.ORE]: '#6fc0e8', [TILE.WOOD_FLOOR]: '#a8784a', [TILE.RUG]: '#a83a3a',
+  [TILE.GRASS]: '#358034', [TILE.FLOWER]: '#6cbd4b', [TILE.PATH]: '#9c6e44', [TILE.SAND]: '#cc9b5a', [TILE.WATER]: '#22589c',
+  [TILE.TREE]: '#1c4a26', [TILE.ROCK]: '#6e6c82', [TILE.STONE]: '#dde8f5', [TILE.ASH]: '#332734', [TILE.LAVA]: '#ff6a1c',
+  [TILE.DEAD_TREE]: '#362428', [TILE.WALL]: '#35304c', [TILE.FLOOR]: '#6a627c', [TILE.ROOF]: '#8a2a2c', [TILE.HOUSE]: '#c8b494',
+  [TILE.DOOR]: '#4a2b14', [TILE.SOIL]: '#5f3b22', [TILE.BRIDGE]: '#7c4e2a', [TILE.CLIFF]: '#494758', [TILE.VOID]: '#0b0a14',
+  [TILE.STAIRS]: '#ffd86b', [TILE.ORE]: '#52a3d8', [TILE.WOOD_FLOOR]: '#8c5e36', [TILE.RUG]: '#8c2832',
 };
 let miniCanvas = null;
 let miniOf = '';

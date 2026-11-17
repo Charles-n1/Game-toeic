@@ -491,6 +491,5 @@ export function learnEarthRecipeFromCook(game, dishId) {
   const r = ensureRealism(game);
   if (r.codex.recipes.includes(dishId)) return;
   r.codex.recipes.push(dishId);
-  if (!addItem) return;
   notify(game, '📖 Recorded ' + (ITEMS[dishId]?.name || TAVERN_SPECIALS[dishId]?.name || dishId) + ' in your Codex!', '#ffd23f');
 }
