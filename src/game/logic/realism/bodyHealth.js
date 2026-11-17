@@ -293,8 +293,11 @@ export function stepBodyAndClimateHourly(game, hours, allowLethal = true) {
   }
   if (h.infectionHours > 0) {
     h.infectionHours = Math.max(0, h.infectionHours - hours);
-    const dmg = Math.floor(hours);
+    // Time passes in small steps (each frame): the hours add up, and each full hour costs 1 HP.
+    h.infectionPain = (h.infectionPain || 0) + hours;
+    const dmg = Math.floor(h.infectionPain);
     if (dmg >= 1) {
+      h.infectionPain -= dmg;
       const floorHp = allowLethal ? 1 : 5;
       player.health = Math.max(floorHp, Math.round((player.health || 10) - dmg));
     }

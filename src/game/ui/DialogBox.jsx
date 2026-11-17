@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Portrait from './Portrait';
 import PixelIcon from './PixelIcon';
 import { npcOf } from '../data/npcs';
@@ -53,6 +53,7 @@ export default function DialogBox({ game, refresh }) {
   const [startedAt, setStartedAt] = useState(Date.now());
   const [cursor, setCursor] = useState(0);
   const [, setTick] = useState(0);
+  const choicesRef = useRef(null);
   const shown = lettersShown(line, game.run.textSpeed, (Date.now() - startedAt) / 1000);
   const isWriting = shown < line.length;
   const isLastLine = dialog.index === dialog.lines.length - 1;
@@ -61,6 +62,7 @@ export default function DialogBox({ game, refresh }) {
   useEffect(newLine, [dialog, dialog.index]);
   useEffect(animateLetters, [isWriting, dialog]);
   useEffect(listenToKeys, [dialog, showChoices, cursor, isWriting]);
+  useEffect(showSelectedChoice, [cursor, showChoices]);
 
   // A new line starts to be written.
   function newLine() {
@@ -78,6 +80,13 @@ export default function DialogBox({ game, refresh }) {
       setTick((tick) => tick + 1);
     }, 30);
     return () => clearInterval(timer);
+  }
+
+  // A long list of choices scrolls: the choice selected with the arrows always stays in view.
+  function showSelectedChoice() {
+    if (!showChoices || !choicesRef.current) return;
+    const selected = choicesRef.current.children[cursor];
+    if (selected) selected.scrollIntoView({ block: 'nearest' });
   }
 
   function listenToKeys() {
@@ -118,7 +127,7 @@ export default function DialogBox({ game, refresh }) {
       {(showChoices || showExpression) && (
         <div className="dialog-top">
           {showChoices ? (
-            <div className="window choices">
+            <div className="window choices" ref={choicesRef}>
               {dialog.choices.map((choice, index) => (
                 <button
                   key={choice.label}

@@ -362,13 +362,23 @@
 }
 
 /* ---------- Dialogs ---------- */
+/* The dialog area goes from the top to the bottom of the screen, but its content sits at the bottom.
+   So a long list of choices can never go past the top of the screen: it scrolls instead. */
 .dialog-area {
   position: absolute;
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   left: 8px;
   right: 8px;
+  top: 8px;
   bottom: 12px;
+  pointer-events: none !important; /* the empty part lets the clicks through... */
+}
+
+.dialog-area > .dialog {
+  pointer-events: auto; /* ...but the box of the text takes them */
+  flex-shrink: 0;
 }
 
 .dialog-top {
@@ -378,11 +388,18 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
+  flex-shrink: 1; /* it can shrink (index.css says no by default), so the choices scroll */
+  min-height: 0;
   pointer-events: none;
 }
 
 .dialog-top .choices {
   margin-bottom: 0;
+  max-height: 100%;
+  overscroll-behavior: contain; /* scrolling the list does not move the page */
+  touch-action: pan-y; /* a finger scrolls the list on a phone */
+  scrollbar-width: thin;
+  scrollbar-color: #dfe4f0 #0e1430;
   pointer-events: auto;
 }
 

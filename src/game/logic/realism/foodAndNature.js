@@ -182,8 +182,13 @@ export function stepGearAndStepsHourly(game, hours) {
   if (!isTierEnabled(game, 'B')) return;
   const r = ensureRealism(game);
   // Rain/sea iron rust: armor/weapon loses 2 extra durability over stormy hours unless Oil-Waxed
-  if (isOutdoors(game) && isRaining(game) && r.health.waterproofHours <= 0 && hours >= 1) {
-    wearGear(game, 'armor', 1);
+  // Time passes in small steps (each frame): the rainy hours add up, and each full hour rusts the armor.
+  if (isOutdoors(game) && isRaining(game) && r.health.waterproofHours <= 0) {
+    r.health.rainRustHours = (r.health.rainRustHours || 0) + hours;
+    if (r.health.rainRustHours >= 1) {
+      r.health.rainRustHours -= 1;
+      wearGear(game, 'armor', 1);
+    }
   }
 }
 

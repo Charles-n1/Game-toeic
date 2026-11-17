@@ -1,5 +1,5 @@
 import { useGameOptions } from './gameOptions';
-import { TEXT_SPEEDS } from '../logic/options';
+import { TEXT_SPEEDS, REALISM_LEVELS } from '../logic/options';
 import { playEffect } from '../audio/effects';
 
 function VolumeLine({ label, value, onChange }) {
@@ -14,7 +14,7 @@ function VolumeLine({ label, value, onChange }) {
   );
 }
 
-// The options of the game: volumes, text speed, relaxed mode. Saved at once.
+// The options of the game: volumes, text speed, relaxed mode, realism level. Saved at once.
 export default function OptionsPanel() {
   const { options, changeOption } = useGameOptions();
 
@@ -45,6 +45,16 @@ export default function OptionsPanel() {
           <span className="small">+50% time to answer each question. For beginners.</span>
         </div>
       </button>
+
+      <span className="section">Realism</span>
+      {REALISM_LEVELS.map((level) => (
+        <button key={level.id} className={'menu-item' + (options.realismLevel === level.id ? ' selected' : '')} onClick={() => changeOption('realismLevel', level.id)}>
+          <div className="grow">
+            <span>{level.name}</span>
+            <span className="small">{level.desc}</span>
+          </div>
+        </button>
+      ))}
     </>
   );
 }

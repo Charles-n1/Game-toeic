@@ -39,6 +39,7 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
   game.run.onAnswer = onAnswer;
   game.run.relaxed = options.relaxed;
   game.run.textSpeed = options.textSpeed;
+  if (game.realism) game.realism.mode = options.realismLevel; // light / normal / hardcore (see realism/state.js)
 
   const canvasRef = useCanvas(frame);
   useEffect(listenToKeyboard, []);

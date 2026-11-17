@@ -4,7 +4,7 @@ import { isSolid, propsAround } from '../world/map';
 import { pickRandom } from '../../logic/random';
 import { killNpc, addFriendship, addHappiness } from './village';
 import { addBoost, clearBoostSource } from './boosts';
-import { seasonOf } from './clock';
+import { seasonOf, isNight } from './clock';
 import { accessoryStat } from './player';
 import { say, notify } from './messages';
 import { burst } from './particles';
@@ -52,6 +52,15 @@ export function firstWeather() {
 
 export function isRaining(game) {
   return game.weather.kind === 'rain' || game.weather.kind === 'storm';
+}
+
+export function isStorm(game) {
+  return game.weather.kind === 'storm';
+}
+
+// Is the air cold? In winter, at night, or under the rain.
+export function isCold(game) {
+  return seasonOf(game) === 'Winter' || isNight(game) || isRaining(game);
 }
 
 export function isWindy(game) {

@@ -194,9 +194,9 @@ export function weekdayName(day = 1) {
 }
 
 export function isMarketDay(day = 1) {
-  return ((Math.max(1, day) - 1) % 7) === 5; // Sat = Market Day
+  return weekdayName(day) === 'Sat'; // Saturday = Market Day (the notices say it)
 }
 
 export function isTempleDay(day = 1) {
-  return ((Math.max(1, day) - 1) % 7) === 0; // Sun = Temple Day
+  return weekdayName(day) === 'Sun'; // Sunday = Temple Day
 }
