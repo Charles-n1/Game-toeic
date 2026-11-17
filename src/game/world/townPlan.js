@@ -152,11 +152,16 @@ function fieldIn(lot, place, random, plan) {
   if (plan) {
     plan.props.push({ kind: 'scarecrow', x: lot.x + Math.floor(CELL_W / 2) - 1, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
     if (random() < 0.7) plan.props.push({ kind: 'wheelbarrow', x: lot.x + 2, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: pickWith(random, ['pumpkinPatch', 'melonPatch', 'strawberryPatch', 'grapeVine']), x: lot.x + CELL_W - 3, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
   }
   return { x: lot.x + 1, y: lot.y + 1, w: CELL_W - 3, h: CELL_H - 5, crop: crop, village: place.id };
 }
 
-function penIn(lot, place) {
+function penIn(lot, place, plan, random) {
+  if (plan) {
+    plan.props.push({ kind: 'waterPump', x: lot.x + 1, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: pickWith(random, ['hayBale', 'milkChurns']), x: lot.x + CELL_W - 3, y: lot.y + CELL_H - 3, w: 1, h: 1, walkable: true });
+  }
   return { x: lot.x + 2, y: lot.y + 2, w: CELL_W - 5, h: CELL_H - 6, animals: { ...(place.kind === 'farm' ? ANIMALS_OF.farm : ANIMALS_OF.other) }, village: place.id };
 }
 
@@ -181,9 +186,15 @@ function gardenIn(lot, plan, random) {
   plan.flowers.push({ x: lot.x + 2, y: lot.y + 7, w: CELL_W - 5, h: 2 });
   plan.props.push({ kind: 'flowerArch', x: lot.x + 6, y: lot.y + 6, w: 2, h: 1, walkable: true });
   plan.props.push({ kind: 'flowerBed', variant: between(random, 0, 2), x: lot.x + 2, y: lot.y + 3, w: 2, h: 1, walkable: true });
-  plan.props.push({ kind: 'bench', x: lot.x + 5, y: lot.y + 4, w: 2, h: 1 });
-  plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: lot.x + 3, y: lot.y + 5, w: 1, h: 1, walkable: true });
-  plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: lot.x + 8, y: lot.y + 5, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: 'stoneBench', x: lot.x + 5, y: lot.y + 4, w: 2, h: 1, walkable: true });
+  plan.props.push({ kind: pickWith(random, ['bushHeart', 'bushSpiral', 'bushCrown', 'bushRose']), x: lot.x + 3, y: lot.y + 5, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: pickWith(random, ['bushDragon', 'bushHydrangea', 'bushBamboo', 'bushSword']), x: lot.x + 8, y: lot.y + 5, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: pickWith(random, ['roseBush', 'lavenderRow', 'tulipBed', 'sunflowerPatch']), x: lot.x + 4, y: lot.y + 8, w: 2, h: 1, walkable: true });
+  plan.props.push({ kind: pickWith(random, ['picnicBlanket', 'beehive', 'birdhouse']), x: lot.x + 10, y: lot.y + 4, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: pickWith(random, ['appleTree', 'pearTree', 'cherryTree', 'peachTree', 'plumTree']), x: lot.x + 2, y: lot.y + 2, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: pickWith(random, ['grapeVine', 'strawberryPatch', 'orangeTree', 'figTree']), x: lot.x + 11, y: lot.y + 2, w: 1, h: 1, walkable: true });
+  if (random() < 0.5) plan.props.push({ kind: 'rabbitBurrow', x: lot.x + 11, y: lot.y + 8, w: 1, h: 1, walkable: true });
+  else plan.props.push({ kind: 'fallenLeafPile', x: lot.x + 11, y: lot.y + 8, w: 1, h: 1, walkable: true });
 }
 
 // Rich exterior decorations around every building (never blocking its front door).
@@ -193,30 +204,44 @@ function decorate(house, plan, random) {
   const rightX = house.x + house.w - 2;
   if (house.role === 'church') {
     plan.props.push({ kind: 'statue', x: house.x + 1, y: house.y + house.h, w: 2, h: 2 });
-    if (rightX > doorX) plan.props.push({ kind: 'topiary', x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+    if (rightX > doorX) plan.props.push({ kind: 'bushHeart', x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
     plan.props.push({ kind: 'flowerPot', variant: 1, x: house.x, y: house.y + house.h, w: 1, h: 1, walkable: true });
-    plan.props.push({ kind: 'flowerBed', variant: 1, x: house.x + house.w - 3, y: house.y + house.h + 1, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: 'moonflower', x: house.x + house.w - 3, y: house.y + house.h + 1, w: 2, h: 1, walkable: true });
     return;
   }
   if (leftX < doorX) {
-    plan.props.push({ kind: 'flowerPot', variant: between(random, 0, 2), x: leftX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: pickWith(random, ['flowerPot', 'roseBush', 'tulipBed', 'lavenderRow']), variant: between(random, 0, 2), x: leftX, y: house.y + house.h, w: 1, h: 1, walkable: true });
   }
-  if (rightX > doorX && (house.role === 'inn' || house.role === 'clinic' || house.role === 'school' || random() < 0.75)) {
-    plan.props.push({ kind: house.role === 'inn' || house.size === 'palace' ? 'topiary' : 'flowerPot', variant: between(random, 0, 2), x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+  if (rightX > doorX && (house.role === 'inn' || house.role === 'clinic' || house.role === 'school' || house.size === 'palace' || random() < 0.75)) {
+    const topiary = house.size === 'palace' ? pickWith(random, ['bushCrown', 'bushDragon', 'bushSword']) : house.role === 'inn' ? pickWith(random, ['bushSpiral', 'bushHeart', 'bushHydrangea']) : 'flowerPot';
+    plan.props.push({ kind: topiary, variant: between(random, 0, 2), x: rightX, y: house.y + house.h, w: 1, h: 1, walkable: true });
   }
-  if (house.w >= 8 && (house.role === 'inn' || house.role === 'school' || house.role === 'house' || random() < 0.45)) {
-    plan.props.push({ kind: 'flowerBed', variant: between(random, 0, 2), x: house.x, y: house.y + house.h + 1, w: 2, h: 1, walkable: true });
+  if (house.w >= 8 && (house.role === 'inn' || house.role === 'school' || house.role === 'house' || random() < 0.5)) {
+    plan.props.push({ kind: pickWith(random, ['flowerBed', 'roseBush', 'sunflowerPatch', 'tulipBed']), variant: between(random, 0, 2), x: house.x, y: house.y + house.h + 1, w: 2, h: 1, walkable: true });
   }
   if (house.role === 'barracks' || house.role === 'guild') {
-    plan.props.push({ kind: 'weaponRack', x: house.x + house.w, y: house.y + house.h - 1, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: pickWith(random, ['crossedHalberds', 'knightArmorStand', 'shieldPedestal', 'warDrums']), x: house.x + house.w, y: house.y + house.h - 1, w: 2, h: 1, walkable: true });
+    if (leftX < doorX) plan.props.push({ kind: 'bushSword', x: leftX, y: house.y + house.h, w: 1, h: 1, walkable: true });
+    return;
+  }
+  if (house.role === 'forge') {
+    plan.props.push({ kind: 'anvilHammer', x: house.x + house.w, y: house.y + house.h - 1, w: 1, h: 1, walkable: true });
     return;
   }
   if (house.role === 'harbor') {
     plan.props.push({ kind: 'harborGear', x: house.x + house.w, y: house.y + house.h - 1, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: 'fishingGear', x: house.x + house.w, y: house.y + house.h, w: 1, h: 1, walkable: true });
     return;
   }
+  if ((house.role === 'house' || house.role === 'elder') && random() < 0.85) {
+    const lifeProp = pickWith(random, ['mailbox', 'laundryLine', 'woodPile', 'doghouse', 'birdhouse', 'waterPump']);
+    plan.props.push({ kind: lifeProp, x: house.x + house.w, y: house.y + house.h, w: 1, h: 1, walkable: true });
+  }
+  if ((house.role === 'farm' || house.role === 'mill') && random() < 0.9) {
+    plan.props.push({ kind: pickWith(random, ['hayBale', 'milkChurns', 'beehive']), x: house.x + house.w, y: house.y + house.h, w: 1, h: 1, walkable: true });
+  }
   if ((house.role === 'farm' || house.role === 'mill' || house.role === 'forge') && random() < 0.8) {
-    plan.props.push({ kind: 'wheelbarrow', x: house.x + house.w, y: house.y + house.h, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: 'wheelbarrow', x: house.x - 1, y: house.y + house.h - 1, w: 1, h: 1, walkable: true });
   }
   const kind = house.role === 'farm' || house.role === 'mill' ? 'hay' : house.style === 'hut' ? 'logs' : pickWith(random, ['barrels', 'crates', 'barrels', null]);
   if (!kind || house.size === 'palace') return;
@@ -239,6 +264,8 @@ function squareProps(place, square, plan, random) {
   plan.props.push({ kind: 'board', x: square.x + 1, y: square.y + 1, w: 1, h: 1 }); // the notice board (bounties)
   plan.props.push({ kind: 'flowerPot', variant: 0, x: square.x + 2, y: square.y + 1, w: 1, h: 1, walkable: true });
   plan.props.push({ kind: 'flowerPot', variant: 2, x: square.x + square.w - 2, y: square.y + 1, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: 'stoneLantern', x: middle.x - 2, y: middle.y - 3, w: 1, h: 1, walkable: true });
+  plan.props.push({ kind: 'stoneLantern', x: middle.x + 2, y: middle.y - 3, w: 1, h: 1, walkable: true });
   plan.props.push({ kind: 'signpost', x: square.x + 1, y: square.y + square.h - 2, w: 1, h: 1 });
   if (place.kind !== 'hamlet') {
     for (const [x, y] of [[square.x, square.y], [square.x + square.w - 1, square.y], [square.x, square.y + square.h - 1], [square.x + square.w - 1, square.y + square.h - 1]]) plan.props.push({ kind: 'lamp', x: x, y: y, w: 1, h: 1 });
@@ -248,12 +275,17 @@ function squareProps(place, square, plan, random) {
     plan.props.push({ kind: 'stall', x: square.x + 3, y: square.y + square.h - 4, w: 2, h: 2 });
     plan.props.push({ kind: 'stall', x: square.x + square.w - 6, y: square.y + square.h - 4, w: 2, h: 2 });
     plan.props.push({ kind: 'bench', x: middle.x + 2, y: middle.y - 1, w: 2, h: 1 });
-    plan.props.push({ kind: 'flowerBed', variant: 0, x: middle.x - 4, y: square.y + 2, w: 2, h: 1, walkable: true });
-    plan.props.push({ kind: 'flowerBed', variant: 2, x: middle.x + 2, y: square.y + 2, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: 'hedgeRow', x: middle.x - 4, y: square.y + 2, w: 2, h: 1, walkable: true });
+    plan.props.push({ kind: 'hedgeRow', x: middle.x + 2, y: square.y + 2, w: 2, h: 1, walkable: true });
     plan.props.push({ kind: 'flowerArch', x: middle.x - 1, y: square.y + 1, w: 2, h: 1, walkable: true });
     plan.props.push({ kind: 'flowerArch', x: middle.x - 1, y: square.y + square.h - 2, w: 2, h: 1, walkable: true });
-    plan.props.push({ kind: 'topiary', x: square.x + 2, y: square.y + 2, w: 1, h: 1, walkable: true });
-    plan.props.push({ kind: 'topiary', x: square.x + square.w - 3, y: square.y + 2, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: pickWith(random, ['bushSpiral', 'bushHeart', 'bushSword']), x: square.x + 2, y: square.y + 2, w: 1, h: 1, walkable: true });
+    plan.props.push({ kind: pickWith(random, ['bushDragon', 'bushCrown', 'bushHydrangea']), x: square.x + square.w - 3, y: square.y + 2, w: 1, h: 1, walkable: true });
+    if (place.kind === 'capital') {
+      plan.props.push({ kind: 'cannonDisplay', x: square.x + 2, y: square.y + square.h - 2, w: 2, h: 1, walkable: true });
+      plan.props.push({ kind: 'knightArmorStand', x: middle.x - 7, y: square.y + 2, w: 1, h: 1, walkable: true });
+      plan.props.push({ kind: 'shieldPedestal', x: middle.x + 6, y: square.y + 2, w: 1, h: 1, walkable: true });
+    }
     const flagColors = ['#d6302f', '#3b7be0', '#2e9e54', '#c9961e', '#8b5ad6'];
     const bannerColor = flagColors[Math.floor(random() * flagColors.length)];
     plan.props.push({ kind: 'banner', color: bannerColor, x: middle.x - 5, y: square.y + 1, w: 1, h: 1, walkable: true });
@@ -281,7 +313,7 @@ function fillLots(place, lots, plan, random) {
     if (!lot) break;
     used.add(lot);
     if (i < fieldCount) plan.fields.push(fieldIn(lot, place, random, plan));
-    else plan.pens.push(penIn(lot, place));
+    else plan.pens.push(penIn(lot, place, plan, random));
   }
   const graveLot = place.kind !== 'hamlet' ? take(outer) : null;
   if (graveLot) {

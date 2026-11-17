@@ -14,6 +14,7 @@ const BREAD = ['............', '...CCCCCC...', '..CLCLCLCC..', '.CCCCCCCCCC.', '
 const MAP = ['.PPPPPPPPPP.', '.PWWWWWWWWP.', '.PWRWWWWWWP.', '.PWWKKWWWWP.', '.PWWWWKWRWP.', '.PWWWWWWWWP.', '.PPPPPPPPPP.'];
 const SEED = ['.....N......', '....NNN.....', '.....N......', '....BBB.....', '...BBBBB....', '...BBBBB....', '....BBB.....'];
 const CARROT = ['...N..N.....', '....NN......', '...OOOO.....', '...OOOO.....', '....OOO.....', '....OO......', '....OO......', '.....O......'];
+const FRUIT = ['.....N.L....', '....NLL.....', '..RRRRRRR...', '.RRWRRRRRR..', '.RRRRRRRRR..', '.RRRRRRRRR..', '..RRRRRRR...', '...RRRRR....'];
 const FLOWER = ['....PP......', '...PYYP.....', '..PYYYYP....', '...PYYP.....', '....PP......', '.....N......', '...N.N......', '....NN......', '.....N......'];
 const COIN = ['...YYYYY....', '..YyYYYYY...', '.YyYYYYYYY..', '.YyYYyYYYY..', '.YyYYyYYYY..', '.YyYYYYYYY..', '..YYYYYYY...', '...yyyyy....'];
 const GEM = ['...LLLLL....', '..LCCCCCL...', '.LCCLCCCCL..', '..CCCCCCC...', '...CCCCC....', '....CCC.....', '.....C......'];
@@ -159,6 +160,31 @@ const ICONS = {
   scholarTea: [MUG, { W: '#9fe8a8', Y: '#7a4a24' }],
   honeyPorridge: [BOWL, { C: '#ffd23f', B: '#8a5a30', S: '#fff6c8' }],
   travelersFeast: [CHEST, { D: '#7a4a24', W: '#ffd23f' }],
+  apple: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#e83232', W: '#ff8a8a' }],
+  pear: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#c8d64a', W: '#fff288' }],
+  cherry: [FRUIT, { N: '#4cc35a', L: '#7cfc9a', R: '#c81c2e', W: '#ff6fa8' }],
+  orange: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#ff8c2b', W: '#ffd23f' }],
+  peach: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#ff8a7a', W: '#ffd6a8' }],
+  plum: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#6e32a8', W: '#b48cff' }],
+  lemon: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#ffd23f', W: '#fff8b0' }],
+  fig: [FRUIT, { N: '#7a4a24', L: '#4cc35a', R: '#5c2d6e', W: '#a868b8' }],
+  olive: [FRUIT, { N: '#7a4a24', L: '#6ea84a', R: '#568036', W: '#98c46a' }],
+  coconut: [ORB, { B: '#6b4228' }],
+  grapes: [FRUIT, { N: '#4cc35a', L: '#7cfc9a', R: '#7a32b8', W: '#c48cff' }],
+  pumpkin: [FRUIT, { N: '#4cc35a', L: '#6ea84a', R: '#e87020', W: '#ffb040' }],
+  melon: [FRUIT, { N: '#266b2e', L: '#6ed85a', R: '#3fa036', W: '#9fe8a8' }],
+  strawberry: [FRUIT, { N: '#4cc35a', L: '#7cfc9a', R: '#e82848', W: '#ffd8e0' }],
+  wildBerries: [FRUIT, { N: '#4cc35a', L: '#7cfc9a', R: '#2e58c8', W: '#7fa8ff' }],
+  honey: [JAR, { Y: '#ffd23f', W: '#fff8c8' }],
+  mushroom: [HAT, { M: '#a85a2a', Y: '#f2ead8' }],
+  rawFish: [FISH, { U: '#5aa8ee', W: '#ffffff' }],
+  roastedFish: [FISH, { U: '#d88a3a', W: '#ffe8a8' }],
+  mushroomSoup: [BOWL, { C: '#c89a64', B: '#5c3820', S: '#f6efe0' }],
+  berryTart: [BREAD, { C: '#d89a48', c: '#8a5220', L: '#c83264' }],
+  pelt: [BAG, { B: '#8a5228', b: '#522e14', L: '#e0b084' }],
+  feather: [LEAF, { N: '#e8eef7', L: '#ffffff' }],
+  antler: [BRANCH, { N: '#d8c8a8' }],
+  wool: [ORB, { B: '#faf8f2' }],
   egg: [ORB, { B: '#f4ead8' }],
   milk: [BOTTLE, { B: '#e8eef7', W: '#ffffff' }],
   hay: [BREAD, { C: '#ffd23f', c: '#c9961e', L: '#fff6c8' }],
@@ -190,6 +216,15 @@ const ICONS = {
   mayonnaise: [JAR, { Y: '#fff2c0', W: '#ffffff' }],
   ramen: [BOWL, { C: '#f2d28a', B: '#e8423f' }],
   curryRice: [BOWL, { C: '#c9852a', B: '#f4ead8' }],
+  repairKit: [GEAR, { G: '#d8dee8' }],
+  antidote: [POTION, { P: '#4cc35a', W: '#d8ffd8' }],
+  travelerPack: [BAG, { B: '#8a5228', b: '#522e14', L: '#ffd23f' }],
+  warSatchel: [BAG, { B: '#3a5a9e', b: '#1f3159', L: '#9fd8ff' }],
+  wolfCloak: [ARMOR, { A: '#7d8597', a: '#4a505e', L: '#f2ead8' }],
+  hunterBow: [BRANCH, { N: '#a0683a' }],
+  bisonPlate: [ARMOR, { A: '#6b4228', a: '#3d2415', L: '#e8b83a' }],
+  royalPass: [SCROLL, { P: '#fff3c8' }],
+  crown: [HAT, { M: '#e8b83a', Y: '#ffd23f' }],
 
   // ---------- The grammar types ----------
   gerunds: [FLOWER, { P: '#ff6fb5', N: '#4caf50' }],
@@ -208,6 +243,7 @@ const ICONS = {
   obsidianSoldier: [PAWN, { L: '#6a5aa0' }],
   obsidianPet: [CAT, { V: '#c9a8ff' }],
   obsidianBlade: [SWORD, blade('#3a2f5b', '#b48cff')],
+  obsidianSpike: [STAR, { Y: '#b48cff', W: '#f3d8ff' }],
   lightningStrike: [BOLT, {}],
   lightningField: [CLOUD, { W: '#c9d1e0', G: '#6d7686' }],
   lightningBall: [ORB, { B: '#5fb8ff' }],

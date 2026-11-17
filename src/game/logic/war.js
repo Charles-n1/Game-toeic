@@ -47,6 +47,7 @@ import {
   handleSkirmishFightEnd,
   spawnRivalSkirmish,
 } from './war/skirmishes';
+import { advanceDemonThreat } from './war/demonThreat';
 
 // The war of the world: the monster villages want land. Their warbands march on the villages, break the walls,
 // fight the villagers (who defend with pitchforks and stones), the knights and the turrets; a village can fall.
@@ -132,6 +133,7 @@ export function newDayWar(game) {
   growMonsterTowns(game);
   launchWarbands(game);
   advanceWarbandsDay(game);
+  advanceDemonThreat(game);
   war.corpses = war.corpses.filter((c) => game.day - (c.day || game.day) <= 14);
 }
 

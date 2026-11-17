@@ -92,7 +92,7 @@ function failRite(game) {
 }
 
 // The rite: a duel of words with the curse itself, RITE_GOOD_ANSWERS good answers before 3 mistakes.
-function offerRite(game, placeName) {
+export function offerRite(game, placeName) {
   const curse = { id: null, name: 'The Curse', look: null, shape: 'wisp' };
   const rite = { title: 'Rite of Purification', category: game.focus.current, tag: 'hard', health: RITE_GOOD_ANSWERS, speed: 11, onWin: () => liftCurse(game), onLose: () => failRite(game) };
   say(game, null, [placeName + ': the old words of the rite are carved here. Read them right, and the curse will let go.'], [

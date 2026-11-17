@@ -818,3 +818,17 @@ export function smallBed(color = '#5a9fd6') {
     return sprite(grid, 0, 26);
   });
 }
+
+export function throne() {
+  return once('royalThrone', () => {
+    const grid = makeGrid(32, 28);
+    fillRect(grid, 6, 2, 20, 16, '#ffd23f');
+    fillRect(grid, 8, 4, 16, 12, '#8a1c34');
+    fillRect(grid, 11, 2, 10, 3, '#fff3b0');
+    fillRect(grid, 5, 14, 22, 8, WOOD.dark);
+    fillRect(grid, 7, 15, 18, 5, '#b8253f');
+    fillRect(grid, 4, 18, 24, 9, WOOD.base);
+    fillRect(grid, 8, 20, 16, 4, '#ffd23f');
+    return sprite(grid, 0, 27);
+  });
+}

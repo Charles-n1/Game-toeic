@@ -68,6 +68,30 @@ export const ITEMS = {
   rugRed: { name: 'Red Rug', icon: '🟥', kind: 'furniture', furniture: 'rug', color: '#b8303a', price: 30 },
   rugBlue: { name: 'Blue Rug', icon: '🟦', kind: 'furniture', furniture: 'rug', color: '#2f50a0', price: 30 },
 
+  // ---------- Fruits, wild harvest, fish & hunting drops ----------
+  apple: { name: 'Crisp Apple', icon: '🍎', kind: 'food', food: 16, heal: 8, sell: 5, text: 'Food +16, +8 HP' },
+  pear: { name: 'Juicy Pear', icon: '🍐', kind: 'food', food: 16, water: 6, heal: 8, sell: 5, text: 'Food +16, water +6, +8 HP' },
+  cherry: { name: 'Sweet Cherries', icon: '🍒', kind: 'food', food: 14, heal: 10, sell: 6, text: 'Food +14, +10 HP' },
+  orange: { name: 'Fresh Orange', icon: '🍊', kind: 'food', food: 16, water: 12, heal: 8, sell: 6, text: 'Food +16, water +12' },
+  peach: { name: 'Ripe Peach', icon: '🍑', kind: 'food', food: 18, water: 8, heal: 10, sell: 6, text: 'Food +18, water +8, +10 HP' },
+  plum: { name: 'Wild Plum', icon: '🫐', kind: 'food', food: 15, heal: 7, sell: 5, text: 'Food +15, +7 HP' },
+  lemon: { name: 'Sunny Lemon', icon: '🍋', kind: 'food', food: 8, water: 14, heal: 6, sell: 5, text: 'Food +8, water +14' },
+  fig: { name: 'Sweet Fig', icon: '🌰', kind: 'food', food: 18, heal: 10, sell: 7, text: 'Food +18, +10 HP' },
+  olive: { name: 'Harvest Olives', icon: '🫒', kind: 'food', food: 14, heal: 8, sell: 6, text: 'Food +14, +8 HP' },
+  coconut: { name: 'Fresh Coconut', icon: '🥥', kind: 'food', food: 20, water: 22, heal: 12, sell: 8, text: 'Food +20, water +22, +12 HP' },
+  grapes: { name: 'Purple Grapes', icon: '🍇', kind: 'food', food: 18, water: 10, heal: 10, sell: 7, text: 'Food +18, water +10' },
+  pumpkin: { name: 'Golden Pumpkin', icon: '🎃', kind: 'food', food: 28, heal: 14, sell: 12, text: 'Food +28, +14 HP' },
+  melon: { name: 'Juicy Melon', icon: '🍉', kind: 'food', food: 24, water: 20, heal: 12, sell: 10, text: 'Food +24, water +20' },
+  strawberry: { name: 'Fresh Strawberries', icon: '🍓', kind: 'food', food: 15, water: 6, heal: 10, sell: 7, text: 'Food +15, +10 HP' },
+  wildBerries: { name: 'Wild Berries', icon: '🫐', kind: 'food', food: 14, water: 6, heal: 6, sell: 5, text: 'Food +14, water +6' },
+  honey: { name: 'Golden Honey', icon: '🍯', kind: 'food', food: 26, heal: 22, sell: 16, text: 'Food +26, +22 HP. Rich wild nectar.' },
+  mushroom: { name: 'Forest Mushroom', icon: '🍄', kind: 'food', food: 16, heal: 8, sell: 7, text: 'Food +16, +8 HP. Great in soup.' },
+  rawFish: { name: 'Fresh Fish', icon: '🐟', kind: 'food', food: 16, raw: true, sell: 9, text: 'Food +16 (cook over camp fire!)' },
+  pelt: { name: 'Soft Pelt', icon: '🧥', kind: 'goods', sell: 18, text: 'Warm animal fur sought by merchants.' },
+  feather: { name: 'Wild Feather', icon: '🪶', kind: 'material', sell: 4, text: 'Plume gathered from birds and nests.' },
+  antler: { name: 'Stag Antler', icon: '🦌', kind: 'goods', sell: 28, text: 'Carved ivory trophy or horn.' },
+  wool: { name: 'Fleece Wool', icon: '🧶', kind: 'material', sell: 12, text: 'Soft fleece sheared or hunted from flocks.' },
+
   // ---------- Gathered materials (the torch of the hero is not an item: see logic/torch.js) ----------
   branch: { name: 'Branch', icon: '🪵', kind: 'material', sell: 1, text: 'From a tree. 2 branches make firewood.' },
   oil: { name: 'Lamp Oil', icon: '🫙', kind: 'material', price: 8, sell: 2, text: 'Oil for lamps.' },
@@ -92,12 +116,12 @@ export const UPGRADES = {
 
 // What each kind of shop sells.
 export const SHOPS = {
-  clinic: ['healthPotion', 'bigPotion', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'],
+  clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'],
   bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil'],
-  potions: ['healthPotion', 'bigPotion', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion'],
+  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion'],
   carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'painting', 'rugRed', 'rugBlue'],
-  market: ['map1', 'map2', 'map3', 'ring', 'healthPotion', 'manaPotion', 'oil'],
-  weaver: ['cloth'],
+  market: ['map1', 'map2', 'map3', 'travelerPack', 'repairKit', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil'],
+  weaver: ['cloth', 'travelerPack'],
   otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion'],
 };
 

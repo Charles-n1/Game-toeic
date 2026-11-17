@@ -395,9 +395,26 @@ function paintExtras(grid, look, colors, view, body) {
       [head.cx + 5, 1],
     ].forEach(([x, side]) => fillTriangle(grid, [x - 2, top + 3], [x + 2, top + 3], [x + side * 4, top - 5], (px, py) => toneOf(['#1c1420', '#3a2c3e', '#5a4860'], 0.6, px, py)));
   }
+  if (look.elfEars) {
+    if (view === 'side') {
+      fillTriangle(grid, [head.cx - 4, head.cy - 1], [head.cx - 4, head.cy + 2], [head.cx - 11, head.cy - 3], (px, py) => toneOf(colors.skin, 0.78, px, py));
+    } else {
+      [-1, 1].forEach((side) => {
+        const bx = head.cx + side * 6;
+        fillTriangle(grid, [bx, head.cy - 1], [bx, head.cy + 2], [bx + side * 5, head.cy - 3], (px, py) => toneOf(colors.skin, 0.8, px, py));
+      });
+    }
+  }
+  if (look.dwarfBrow && view !== 'up') {
+    const lx = view === 'side' ? head.cx - 2 : head.cx - 6;
+    const rx = view === 'side' ? head.cx + 6 : head.cx + 6;
+    fillRect(grid, lx, Math.round(head.cy - 3), rx - lx + 1, 2, '#c9883a');
+    dot(grid, Math.round((lx + rx) / 2), Math.round(head.cy - 3), '#ffd23f');
+  }
   if (look.beard && view !== 'up') {
     const cx = view === 'side' ? head.cx + 4 : head.cx;
-    paintBallPart(grid, { cx: cx, cy: head.cy + 6.5, rx: view === 'side' ? 5 : 6.5, ry: 3.6 }, colors.hair);
+    const rx = look.burly ? (view === 'side' ? 6 : 7.5) : view === 'side' ? 5 : 6.5;
+    paintBallPart(grid, { cx: cx, cy: head.cy + 6.5, rx: rx, ry: look.burly ? 4.4 : 3.6 }, colors.hair);
   }
 }
 

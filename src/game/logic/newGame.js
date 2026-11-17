@@ -25,6 +25,11 @@ import { firstCamp } from './camp';
 import { firstBonds } from './bonds';
 import { firstStatLinks, ensureStatLinks } from './statLinks';
 import { firstIsekai } from './isekai/common';
+import { firstEconomy } from './economy';
+import { firstGuild, ensureGuild } from './guild/ranks';
+import { firstKingdoms, ensureKingdoms } from './kingdomLaws';
+import { firstDurability, ensureDurability } from './durability';
+import { firstLanguages, ensureLanguages } from './languages';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
 export const WORLD_VERSION = 4; // 4: the world of the painting art/MAP2.png (a save of an older world moves to it)
@@ -44,6 +49,8 @@ export function makeRun() {
     followers: [],
     particles: [],
     blood: [], // persistent crimson puddles on kills (see particles.js)
+    vfxRings: [],
+    spikes: [],
     parties: [], // roaming NPC adventurer groups (see worldParties.js)
     campProps: [], // dynamic camp props placed by roaming groups
     emotes: [], // the small bubbles over the heads (see emotes.js)
@@ -52,7 +59,11 @@ export function makeRun() {
     storm: null, // the storm field: { x, y, radius, until }
     cooldowns: {}, // { powerId: the time it is ready again }
     villagers: [], // the people working in the villages (see villages.js)
+    gatherers: [], // paid local resource gatherers carrying bundles back to town
     animals: [], // the animals of the pens
+    wildAnimals: [], // rabbits, foxes, deer herds, sheep flocks, horses roaming free (see animals.js)
+    herds: {}, // active wildlife herd anchors keyed by herdId
+    tracks: [], // temporary footprints & hoof tracks in sand, snow or mud
     caravans: [],
     skirmishes: [],
     bolts: [], // the lightning strikes of the moment (see weather.js)
@@ -72,6 +83,8 @@ export function makeRun() {
     safeUntil: 0, // no fight can start before this time
     dashUntil: 0,
     flashUntil: 0,
+    slashUntil: 0,
+    slashDir: 'down',
     sealToldUntil: 0, // the message of a closed seal is not repeated before this time
     shakeUntil: 0, // the screen shakes until this time (a hard hit)
     walking: false, // the hero is walking right now
@@ -175,7 +188,9 @@ function firstPlayer(hero) {
     spells: {}, // the skills learned from the researchers: { gerunds: 1 } (see logic/skills.js). None at the start.
     hunger: 80, // 100 = full (see logic/survival.js)
     thirst: 80,
+    fatigue: 0,
     bottle: 3, // the drinks left in the water bottle
+    bottleUntreated: false,
     carrying: null, // a KO person on the back of the hero (see logic/weather.js)
   };
 }
@@ -223,6 +238,7 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
     crops: {},
     dug: {}, // the treasures already dug
     gathered: {}, // the trees and rocks already used today (see logic/torch.js)
+    harvested: {}, // the fruit trees, berry bushes, hives & harvests gathered today (see logic/harvest.js)
     world: WORLD_VERSION,
     villages: firstVillages(), // the resources and the level of each village (see logic/villages.js)
     puzzles: firstPuzzles(), // the boulders and the doors of the dungeons (see logic/puzzles.js)
@@ -239,6 +255,11 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
     camp: firstCamp(), // the camp, the cooking (see camp.js)
     isekai: firstIsekai(), // curses, the Lost Hero, the classmates, the arenas, the events (see isekai/)
     bonds: firstBonds(), // the bonds with the characters (see bonds.js)
+    economy: firstEconomy(), // town treasuries, workshop stocks, road haulers, maritime ships & patrols
+    guild: firstGuild(),
+    kingdoms: firstKingdoms(),
+    durability: firstDurability(),
+    languages: firstLanguages(),
     run: makeRun(),
   };
   game.focus.current = chooseFocus(game);
@@ -325,6 +346,12 @@ function addMissing(game) {
   const npcIds = new Set(NPCS.map((n) => n.id));
   p.party = Array.isArray(p.party) ? p.party.filter((id) => npcIds.has(id)) : [];
   if (p.hunger === undefined) Object.assign(p, { hunger: 80, thirst: 80, bottle: 3, carrying: null });
+  if (typeof p.fatigue !== 'number') p.fatigue = 0;
+  if (typeof p.bottleUntreated !== 'boolean') p.bottleUntreated = false;
+  ensureDurability(game);
+  ensureGuild(game);
+  ensureKingdoms(game);
+  ensureLanguages(game);
 
   ensureVillages(game);
   if (!game.puzzles) game.puzzles = firstPuzzles();

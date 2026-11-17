@@ -4,7 +4,7 @@ import { ITEMS } from '../data/items';
 import { GEAR_ITEMS } from '../data/items/gear';
 import { weaknessOf } from '../data/types';
 import { pickQuestion, pickSpellQuestion, recordAnswer, monsterCategory } from './learning';
-import { speedOf, strikePower, armorOf, spellPowerBonus, criticalChance, gainXp, heal, restoreMana, earnLexis, addItem } from './player';
+import { maxHealth, speedOf, strikePower, armorOf, spellPowerBonus, criticalChance, gainXp, heal, restoreMana, earnLexis, addItem } from './player';
 import { TAG_POWER, spellLevel } from './skills';
 import { classBonus } from './classes';
 import { lootMonster } from './loot';
@@ -19,7 +19,14 @@ import { companionAttackBonus, companionStatBonuses, companionSpecialMove, recor
 import { onFightEndWar } from './war';
 import { onFightEndSociety } from './society';
 import { onFightEndParties } from './worldParties';
+import { onFightEndAnimals } from './animalFight';
 import { callTheKingByName } from './isekai/lostHero';
+import { wearGear } from './durability';
+import { encumbranceStatus } from './weight';
+import { standingParty, companionRoleOf, damageCompanion, healCompanion } from './guild/ranks';
+import { companionRank } from './bonds/training';
+import { soldierUnitMaxHp } from './obsidian';
+import { gainLanguage } from './languages';
 
 // A fight = questions. A good answer strikes the opponent, a bad one (or no answer in time) lets it strike.
 // The opponent is a monster, or a person in a "duel" (negotiating a price, a game, a job): same rules,
@@ -39,8 +46,9 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-// How many companions fight directly beside the hero.
-export function allyCount(player) {
+// How many standing companions fight directly beside the hero.
+export function allyCount(player, game = null) {
+  if (game) return standingParty(game).length;
   return player.party.length;
 }
 
@@ -48,7 +56,7 @@ export function allyCount(player) {
 export function attackPower(game) {
   const comp = companionStatBonuses(game);
   const compDamage = Math.round((companionAttackBonus(game) + comp.attack) * fatigueMultiplier(game));
-  return strikePower(game.player, game) + allyCount(game.player) * ALLY_DAMAGE + compDamage + classBonus(game, 'ally') + classBonus(game, 'attack');
+  return strikePower(game.player, game) + allyCount(game.player, game) * ALLY_DAMAGE + compDamage + classBonus(game, 'ally') + classBonus(game, 'attack');
 }
 
 // The armor of the hero, with the class and companion defense buffs.
@@ -73,7 +81,8 @@ export function timeLimit(game, fight) {
   const storm = fight.inStorm ? 1.3 : 1;
   const relaxed = game.run.relaxed ? 1.5 : 1; // the relaxed mode of the options
   const samurai = 1 + classBonus(game, 'time') / 100;
-  return examSeconds(fight.question) * speedRatio * potion * storm * relaxed * samurai * 1000;
+  const encTime = encumbranceStatus(game).timeMult;
+  return examSeconds(fight.question) * speedRatio * potion * storm * relaxed * samurai * encTime * 1000;
 }
 
 // Who strikes first? A slow hero with a FAST answer still wins: answering at once doubles their speed.
@@ -129,6 +138,7 @@ export function startFight(game, opponent, others = []) {
     mode: 'strike', // 'strike', or the id of a category = its spell
     phase: 'ask', // 'ask' -> 'result' -> 'ask' ... -> 'won' | 'lost' | 'fled'
     inStorm: isInStormField(game),
+    statuses: { player: {}, opponent: {} },
     last: null, // what happened with the last answer
     question: null,
     combo: 0, // good answers in a row
@@ -176,11 +186,17 @@ function playerHit(game, fight) {
   const special = !isSpell && (critical || fight.combo >= 3) ? companionSpecialMove(game) : null;
   let power = attackPower(game) + (fight.inStorm ? 10 : 0) + (special ? Math.round(special.bonusDamage * fatigueMultiplier(game)) : 0);
   let blocked = opponent.resistance;
+  if (game.player.obsidianResonance) {
+    power = Math.round(power * 1.25);
+    game.player.obsidianResonance = false;
+  }
   if (isSpell) {
     const spellScale = Math.max(0.25, 1 + (classBonus(game, 'spell') + spellPowerBonus(game) + comp.spell) / 100);
     power = SPELL_POWER * (1 + (spellLevel(game, fight.mode) - 1) * 0.5) * spellScale;
     if (weaknessOf(opponent.category) === fight.mode) power *= 2;
     blocked = opponent.magicResistance;
+  } else if (game.player.obsidianBlade > 0) {
+    blocked = Math.max(0, blocked - 0.2);
   }
   const combo = 1 + COMBO_BONUS * Math.min(COMBO_MAX, fight.combo - 1);
   const tag = TAG_POWER[fight.question.difficulty] || 1;
@@ -218,10 +234,11 @@ function phaseAfter(game, fight) {
 function absorbBySoldiers(game, rawTaken) {
   const player = game.player;
   if (rawTaken <= 0 || player.soldiers <= 0) return { heroTaken: rawTaken, soldierTaken: 0 };
-  if (!player.soldierHp || player.soldierHp <= 0) player.soldierHp = player.soldiers * SOLDIER_MAX_HP;
+  const unitHp = soldierUnitMaxHp(player) || SOLDIER_MAX_HP;
+  if (!player.soldierHp || player.soldierHp <= 0) player.soldierHp = player.soldiers * unitHp;
   const absorbed = Math.min(rawTaken, player.soldierHp);
   player.soldierHp -= absorbed;
-  const remaining = player.soldierHp > 0 ? Math.ceil(player.soldierHp / SOLDIER_MAX_HP) : 0;
+  const remaining = player.soldierHp > 0 ? Math.ceil(player.soldierHp / unitHp) : 0;
   if (remaining < player.soldiers) {
     player.soldiers = remaining;
     notify(game, '💥 An Obsidian Soldier shattered shielding you!', '#c9a8ff');
@@ -229,13 +246,64 @@ function absorbBySoldiers(game, rawTaken) {
   return { heroTaken: rawTaken - absorbed, soldierTaken: absorbed };
 }
 
+function applyStatus(bucket, kind, turns, dmg) {
+  if (!bucket[kind] || bucket[kind].turns < turns) {
+    bucket[kind] = { turns, dmg };
+  }
+}
+
+function tickStatuses(bucket) {
+  let total = 0;
+  for (const kind of ['burn', 'poison', 'bleed']) {
+    const entry = bucket[kind];
+    if (!entry || entry.turns <= 0) continue;
+    total += entry.dmg || 0;
+    entry.turns -= 1;
+    if (entry.turns <= 0) delete bucket[kind];
+  }
+  return total;
+}
+
+function tryEnemyStatus(opponent, bucket) {
+  const sp = opponent.species || '';
+  if (['spider', 'mushroom'].includes(sp) && Math.random() < 0.28) applyStatus(bucket, 'poison', 2, 5);
+  else if (['drake', 'shadowMage', 'demonLich'].includes(sp) && Math.random() < 0.28) applyStatus(bucket, 'burn', 2, 6);
+  else if (['wolf', 'bear', 'boar', 'bison'].includes(sp) && Math.random() < 0.25) applyStatus(bucket, 'bleed', 2, 5);
+}
+
+function absorbByCompanions(game, rawHeroTaken) {
+  if (rawHeroTaken < 8) return { heroTaken: rawHeroTaken, taken: 0, defender: null };
+  const party = standingParty(game);
+  if (party.length === 0) return { heroTaken: rawHeroTaken, taken: 0, defender: null };
+  const tank = party.find((id) => companionRoleOf(id) === 'tank');
+  const defenderId = tank || party[0];
+  const share = tank ? 0.35 : 0.2;
+  const absorbed = Math.max(1, Math.round(rawHeroTaken * share));
+  damageCompanion(game, defenderId, absorbed);
+  return { heroTaken: rawHeroTaken - absorbed, taken: absorbed, defender: defenderId };
+}
+
 // The player answered. index: the tapped answer (null = the time ran out).
 export function answer(game, fight, index) {
   const opponent = fight.opponent;
   const question = fight.question;
+  if (!fight.statuses) fight.statuses = { player: {}, opponent: {} };
   const isCorrect = index === question.correct_index;
   const used = clamp((Date.now() - fight.startedAt) / fight.limit, 0, 1);
-  const last = { index: index, isCorrect: isCorrect, first: false, damage: 0, soldierDamage: 0, soldierTaken: 0, critical: false, taken: 0, at: Date.now() };
+  const last = {
+    index: index,
+    isCorrect: isCorrect,
+    first: false,
+    damage: 0,
+    soldierDamage: 0,
+    soldierTaken: 0,
+    companionTaken: 0,
+    companionHeal: 0,
+    dotDamage: 0,
+    critical: false,
+    taken: 0,
+    at: Date.now(),
+  };
 
   fight.asked += 1;
   if (isCorrect) fight.correct += 1;
@@ -252,21 +320,73 @@ export function answer(game, fight, index) {
     const heroSpeed = speedOf(game.player, game) + companionStatBonuses(game).speed;
     last.first = strikesFirst(used, heroSpeed, opponent.speed);
     if (!opponent.duel) {
+      wearGear(game, 'weapon', 2);
+      const healer = standingParty(game).find((id) => companionRoleOf(id) === 'healer');
+      if (healer && game.player.health < maxHealth(game.player, game)) {
+        const hAmt = 6 + companionRank(game, healer) * 2;
+        heal(game.player, hAmt, game);
+        healCompanion(game, healer, Math.round(hAmt * 0.5));
+        last.companionHeal = hAmt;
+      }
       classAfterHit(game, hit.damage, companionStatBonuses(game).heal);
+      gainLanguage(game, 'runes', 1, true);
+      if (ITEMS[game.player.weapon]?.status === 'bleed' && Math.random() < 0.45) {
+        applyStatus(fight.statuses.opponent, 'bleed', 3, Math.max(4, Math.round(hit.damage * 0.12)));
+      }
+      if (game.player.obsidianBlade > 0 && Math.random() < 0.45) {
+        applyStatus(fight.statuses.opponent, 'bleed', 3, Math.max(6, Math.round(hit.damage * 0.15)));
+      }
+      if (!last.special && standingParty(game).includes('lea') && (hit.critical || fight.combo >= 3)) {
+        last.special = 'Holy Sword';
+        opponent.health -= 8;
+        last.damage += 8;
+      }
+      if (fight.mode !== 'strike' && Math.random() < 0.35) {
+        applyStatus(fight.statuses.opponent, 'burn', 2, Math.max(5, Math.round(hit.damage * 0.14)));
+      }
+      if (hit.critical && Math.random() < 0.3) {
+        applyStatus(fight.statuses.opponent, 'stun', 1, 0);
+      }
     }
   }
-  // Obsidian soldiers attack every turn automatically when fighting monsters!
+  // Obsidian soldiers attack every turn automatically when fighting monsters (2+ form a Shield Wall)!
   if (!opponent.duel && game.player.soldiers > 0 && opponent.health > 0) {
     const tag = TAG_POWER[question.difficulty] || 1;
-    const sDmg = Math.max(4, Math.round(game.player.soldiers * 12 * tag * (1 - (opponent.resistance || 0))));
+    const wallBonus = game.player.soldiers >= 2 ? 1.25 : 1;
+    const sDmg = Math.max(4, Math.round(game.player.soldiers * 12 * wallBonus * tag * (1 - (opponent.resistance || 0))));
     opponent.health -= sDmg;
     last.soldierDamage = sDmg;
   }
-  if (!opponent.duel && opponent.health > 0 && (!isCorrect || !last.first)) {
+  if (!opponent.duel && opponent.health > 0) {
+    const dot = tickStatuses(fight.statuses.opponent);
+    if (dot > 0) {
+      opponent.health -= dot;
+      last.dotDamage = dot;
+    }
+  }
+  const oppStun = fight.statuses.opponent.stun;
+  const oppStunned = oppStun && oppStun.turns > 0;
+  if (oppStunned) {
+    oppStun.turns -= 1;
+    if (oppStun.turns <= 0) delete fight.statuses.opponent.stun;
+    last.stunned = true;
+  }
+  if (!opponent.duel && opponent.health > 0 && !oppStunned && (!isCorrect || !last.first)) {
     const rawTaken = monsterHit(game, opponent, isCorrect);
     const guard = absorbBySoldiers(game, rawTaken);
-    last.taken = guard.heroTaken;
+    const compGuard = absorbByCompanions(game, guard.heroTaken);
+    last.taken = compGuard.heroTaken;
     last.soldierTaken = guard.soldierTaken;
+    last.companionTaken = compGuard.taken;
+    if (guard.heroTaken > 0) wearGear(game, 'armor', 2);
+    if (compGuard.heroTaken > 0) tryEnemyStatus(opponent, fight.statuses.player);
+  }
+  if (!opponent.duel && opponent.health > 0) {
+    const selfDot = tickStatuses(fight.statuses.player);
+    if (selfDot > 0) {
+      last.taken += selfDot;
+      last.statusTaken = selfDot;
+    }
   }
   game.player.health -= last.taken;
   last.mode = fight.mode; // 'strike', or the spell used (for the animation)
@@ -284,6 +404,7 @@ function countCombo(fight, isCorrect) {
 export function flee(game, fight) {
   const fastest = Math.max(...standing(fight).map((opponent) => opponent.speed));
   const chance = clamp(0.5 + (speedOf(game.player, game) - fastest) * 0.04, 0.2, 0.95);
+  wearGear(game, 'boots', 2);
   if (Math.random() < chance) {
     fight.phase = 'fled';
     return;
@@ -308,7 +429,8 @@ export function totalOf(fight, key) {
 }
 
 function maybeDropGear(game, opponent) {
-  const gearKeys = Object.keys(GEAR_ITEMS);
+  const maxVal = opponent.boss ? Infinity : opponent.tier === 'demon' || opponent.tag === 'extreme' ? Infinity : opponent.tag === 'hard' || opponent.tier === 'big' ? 450 : 180;
+  const gearKeys = Object.keys(GEAR_ITEMS).filter((id) => (GEAR_ITEMS[id].price || 0) <= maxVal);
   if (gearKeys.length === 0) return;
   const chance = opponent.boss ? 0.75 : opponent.tag && opponent.tag !== 'normal' ? 0.35 : 0.16;
   if (Math.random() >= chance) return;
@@ -362,5 +484,6 @@ export function endFight(game) {
   onFightEndWar(game, fight);
   onFightEndSociety(game, fight);
   onFightEndParties(game, fight);
+  onFightEndAnimals(game, fight);
   if (game.run.screen !== 'over') saveGame(game); // after each fight (not after a real death: the save is gone)
 }

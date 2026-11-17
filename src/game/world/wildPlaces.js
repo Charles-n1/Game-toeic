@@ -1,4 +1,5 @@
 import { OBELISKS } from '../data/dungeons';
+import { STRUCTURES_50 } from '../data/structures50';
 import { CELLS, SCALE } from './size';
 import { paintedGround, paintedBiome, isWalkableCell } from './painting';
 import { landOfCell } from './regions';
@@ -121,10 +122,9 @@ function findCampfires() {
 
 export const WILD_CAMPFIRES = findCampfires();
 
-// ---------- Isekai wilderness structures ----------
-// Monster camps, bandit traps, wayfarer camps, goddess shrines, hot springs and the graves of the Lost Hero.
+// ---------- Isekai wilderness structures (all 50 blueprints + scenic decorations) ----------
 
-const structRandom = randomOf('isekai');
+const structRandom = randomOf('isekai50');
 const CAMP_SPECIES = {
   meadow: ['slime', 'goblin', 'wolf'],
   forest: ['wolf', 'goblin', 'spider', 'orc'],
@@ -135,124 +135,219 @@ const CAMP_SPECIES = {
 };
 const MONSTER_CAMP_NAMES = ['Goblin Warpost', 'Wolf Den', 'Feral Stockade', 'Raider Outpost', 'Bone Clearing', 'Demon Vanguard'];
 
-function findIsekaiStructures() {
-  const structures = [];
-  const props = [];
-  const occupied = [...CAVES, ...TOTEMS, ...WILD_CAMPFIRES];
+function isShoreCell(cx, cy) {
+  return (
+    paintedGround(cx - 1, cy) === 'water' ||
+    paintedGround(cx + 1, cy) === 'water' ||
+    paintedGround(cx, cy - 1) === 'water' ||
+    paintedGround(cx, cy + 1) === 'water'
+  );
+}
 
-  // wanted: the lands where it may stand (null = any land but the demon one, unless allowDemon).
-  const pickSpot = (gapVillage, gapStruct, allowDemon = false, wanted = null) => {
-    for (let tries = 0; tries < 160; tries++) {
-      const cx = between(structRandom, 7, CELLS - 8);
-      const cy = between(structRandom, 7, CELLS - 8);
-      const biome = paintedBiome(cx, cy);
-      if (!allowDemon && biome === 'demon') continue;
-      if (wanted && !wanted.includes(biome)) continue;
+// Pre-buckets walkable candidate cells per biome + shoreline so every one of the 50 structures spawns reliably & fast.
+function collectBiomeBuckets() {
+  const buckets = { meadow: [], forest: [], mountain: [], desert: [], coast: [], demon: [], shore: [] };
+  for (let cy = 7; cy < CELLS - 8; cy += 2) {
+    for (let cx = 7; cx < CELLS - 8; cx += 2) {
       if (!isWalkableCell(cx, cy) || !isWalkableCell(cx + 1, cy) || !isWalkableCell(cx, cy + 1)) continue;
-      const freeAll = [...ALL_PLACES, ...occupied, ...structures.map((s) => ({ x: s.x - 4, y: s.y - 4, w: 8, h: 8 }))].every((place) => {
-        const mid = cellOf(place);
-        const minGap = place.plan ? gapVillage : gapStruct;
-        return Math.hypot(mid.cx - cx, mid.cy - cy) - Math.max(place.w || 4, place.h || 4) / (2 * SCALE) >= minGap;
-      });
-      if (freeAll) return { cx, cy, biome, land: landOfCell(cx, cy) };
+      const biome = paintedBiome(cx, cy);
+      if (buckets[biome]) buckets[biome].push({ cx, cy, biome });
+      if (biome !== 'demon' && (biome === 'coast' || isShoreCell(cx, cy))) buckets.shore.push({ cx, cy, biome });
     }
-    return null;
-  };
+  }
+  return buckets;
+}
 
-  // 1. 26 Monster Camps / Lairs (spawn origins for wild monsters!)
-  for (let i = 0; i < 26; i++) {
-    const spot = pickSpot(8, 7, true);
-    if (!spot) break;
-    const sx = spot.cx * SCALE + 5;
-    const sy = spot.cy * SCALE + 5;
-    const id = 'mcamp-' + i;
-    const speciesList = spot.land.species && spot.land.species.length > 0 ? spot.land.species : CAMP_SPECIES[spot.biome] || CAMP_SPECIES.meadow;
-    const camp = {
-      id: id,
-      kind: 'monsterCamp',
-      name: pickWith(structRandom, MONSTER_CAMP_NAMES) + ' #' + (i + 1),
-      x: sx,
-      y: sy,
-      w: 8,
-      h: 7,
-      biome: spot.biome,
-      species: speciesList,
-    };
-    structures.push(camp);
+// Attaches tailored decorative accents around each of the 50 structure archetypes.
+function addStructureProps(def, id, sx, sy, props, variant) {
+  const kind = def.id;
+  if (kind === 'monsterCamp') {
     props.push({ kind: 'tent', look: 'monster', x: sx - 4, y: sy - 3, w: 6, h: 4, structId: id });
     props.push({ kind: 'campfire', x: sx + 2, y: sy, w: 1, h: 1, structId: id });
     props.push({ kind: 'monsterBanner', x: sx + 3, y: sy - 2, w: 1, h: 1, structId: id });
     props.push({ kind: 'bones', x: sx + 1, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
     props.push({ kind: 'spikes', x: sx - 4, y: sy + 3, w: 1, h: 1, side: 'row', structId: id });
+    return;
   }
-
-  // 2. 20 Bandit Trap Ambushes along wilderness trails (lure crate + spike traps + tripwire)
-  for (let i = 0; i < 20; i++) {
-    const spot = pickSpot(8, 6, false);
-    if (!spot) break;
-    const sx = spot.cx * SCALE + 5;
-    const sy = spot.cy * SCALE + 5;
-    const id = 'btrap-' + i;
-    const trap = { id: id, kind: 'banditTrap', name: 'Bandit Ambush Trap', x: sx, y: sy, w: 5, h: 5, danger: Math.max(1, spot.land.danger) };
-    structures.push(trap);
+  if (kind === 'banditTrap') {
     props.push({ kind: 'crates', x: sx, y: sy - 1, w: 1, h: 1, structId: id });
     props.push({ kind: 'spikeTrap', x: sx - 1, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
     props.push({ kind: 'spikeTrap', x: sx + 1, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
     props.push({ kind: 'tripwire', x: sx, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
+    return;
   }
-
-  // 3. 16 Wayfarer Roadside Camps (tent, simmering cauldron, bedroll, weapon rack)
-  for (let i = 0; i < 16; i++) {
-    const spot = pickSpot(7, 6, false);
-    if (!spot) break;
-    const sx = spot.cx * SCALE + 5;
-    const sy = spot.cy * SCALE + 5;
-    const id = 'wcamp-' + i;
-    structures.push({ id: id, kind: 'wayCamp', name: 'Traveler Waycamp', x: sx, y: sy, w: 7, h: 6 });
+  if (kind === 'wayCamp') {
     props.push({ kind: 'tent', look: 'bandit', x: sx - 4, y: sy - 3, w: 6, h: 4, structId: id });
     props.push({ kind: 'cauldron', x: sx + 2, y: sy, w: 1, h: 1, structId: id });
     props.push({ kind: 'bedroll', x: sx + 4, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
     props.push({ kind: 'weaponRack', x: sx - 3, y: sy + 2, w: 1, h: 1, structId: id });
+    return;
   }
-
-  // 4. 12 Ancient Isekai Shrines & Ruined Summoning Portals
-  for (let i = 0; i < 12; i++) {
-    const spot = pickSpot(8, 8, false);
-    if (!spot) break;
-    const sx = spot.cx * SCALE + 5;
-    const sy = spot.cy * SCALE + 5;
-    const id = 'shrine-' + i;
-    const isPortal = i % 3 === 0;
-    structures.push({ id: id, kind: 'isekaiShrine', isPortal: isPortal, name: isPortal ? 'Ruined Summon Gate' : 'Ancient Goddess Shrine', x: sx, y: sy, w: 6, h: 5 });
-    props.push({ kind: isPortal ? 'portalRuins' : 'shrine', x: sx, y: sy - 1, w: 1, h: 1, structId: id });
-    props.push({ kind: 'ruinPillar', x: sx - 2, y: sy + 1, w: 1, h: 1, structId: id });
-    props.push({ kind: 'ruinPillar', x: sx + 2, y: sy + 1, w: 1, h: 1, structId: id });
-  }
-
-  // 5. 5 Hot Springs in the mountains and the forests (a bath: rest, friends, see logic/isekai/springs.js)
-  for (let i = 0; i < 5; i++) {
-    const spot = pickSpot(7, 8, false, ['mountain', 'forest']);
-    if (!spot) break;
-    const sx = spot.cx * SCALE + 5;
-    const sy = spot.cy * SCALE + 5;
-    const id = 'spring-' + i;
-    structures.push({ id: id, kind: 'hotSpring', name: 'Hot Spring', x: sx, y: sy, w: 8, h: 6 });
+  if (kind === 'hotSpring') {
     props.push({ kind: 'hotSpring', x: sx - 2, y: sy - 1, w: 4, h: 3, structId: id });
     props.push({ kind: 'bench', x: sx + 3, y: sy + 2, w: 1, h: 1, structId: id });
-    props.push({ kind: 'signpost', x: sx - 3, y: sy + 2, w: 1, h: 1, structId: id });
+    props.push({ kind: 'stoneLantern', x: sx - 3, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    return;
   }
-
-  // 6. 6 Graves of the friends of the Lost Hero, the first summoned one (a page of his diary at each, see logic/isekai/lostHero.js)
-  for (let i = 0; i < 6; i++) {
-    const spot = pickSpot(6, 10, false);
-    if (!spot) break;
-    const sx = spot.cx * SCALE + 5;
-    const sy = spot.cy * SCALE + 5;
-    const id = 'grave-' + i;
-    structures.push({ id: id, kind: 'heroGrave', name: 'Forgotten Grave', grave: i, x: sx, y: sy, w: 5, h: 4 });
+  if (kind === 'heroGrave') {
     props.push({ kind: 'heroGrave', x: sx, y: sy, w: 1, h: 1, structId: id });
     props.push({ kind: 'grave', x: sx - 2, y: sy + 1, w: 1, h: 1, structId: id });
     props.push({ kind: 'grave', x: sx + 2, y: sy + 1, w: 1, h: 1, structId: id });
+    props.push({ kind: 'flowerPot', variant: 1, x: sx, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
+    return;
+  }
+
+  // Primary centerpiece prop of the structure
+  props.push({ kind: def.propKind, x: sx, y: sy, w: 1, h: 1, structId: id });
+
+  // Bespoke atmospheric ornaments around every structure family
+  if (def.family === 'sacred') {
+    props.push({ kind: 'stoneLantern', x: sx - 2, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'stoneLantern', x: sx + 2, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    if (kind === 'summonGate' || kind === 'isekaiShrine') {
+      props.push({ kind: 'ruinPillar', x: sx - 2, y: sy - 1, w: 1, h: 1, structId: id });
+      props.push({ kind: 'ruinPillar', x: sx + 2, y: sy - 1, w: 1, h: 1, structId: id });
+    } else {
+      props.push({ kind: 'flowerPot', variant: variant % 3, x: sx - 1, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
+      props.push({ kind: 'flowerPot', variant: (variant + 1) % 3, x: sx + 1, y: sy + 2, w: 1, h: 1, walkable: true, structId: id });
+    }
+  } else if (def.family === 'travel') {
+    props.push({ kind: 'bench', x: sx - 2, y: sy + 2, w: 2, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'stoneLantern', x: sx + 3, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    if (kind === 'lumberCamp' || kind === 'merchantOutpost') {
+      props.push({ kind: 'barrels', x: sx - 3, y: sy, w: 1, h: 1, structId: id });
+      props.push({ kind: 'crates', x: sx + 2, y: sy + 2, w: 1, h: 1, structId: id });
+    } else {
+      props.push({ kind: 'flowerBed', variant: variant % 3, x: sx + 1, y: sy + 2, w: 2, h: 1, walkable: true, structId: id });
+    }
+  } else if (def.family === 'monument') {
+    props.push({ kind: 'topiary', x: sx - 3, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'topiary', x: sx + 3, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'flowerBed', variant: variant % 3, x: sx - 1, y: sy + 2, w: 2, h: 1, walkable: true, structId: id });
+  } else if (def.family === 'danger') {
+    props.push({ kind: 'bones', x: sx - 2, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'spikes', x: sx + 2, y: sy + 1, w: 1, h: 1, side: 'row', structId: id });
+    if (kind === 'monsterBanner' || kind === 'goblinTotem' || kind === 'boneCairn') {
+      props.push({ kind: 'campfire', x: sx + 2, y: sy - 1, w: 1, h: 1, structId: id });
+    }
+  } else {
+    // Biome wonders
+    props.push({ kind: 'stoneLantern', x: sx - 3, y: sy + 1, w: 1, h: 1, walkable: true, structId: id });
+    props.push({ kind: 'flowerBed', variant: variant % 3, x: sx + 1, y: sy + 2, w: 2, h: 1, walkable: true, structId: id });
+  }
+}
+
+function findIsekaiStructures() {
+  const structures = [];
+  const props = [];
+  const occupied = [...CAVES, ...TOTEMS, ...WILD_CAMPFIRES];
+  const buckets = collectBiomeBuckets();
+  const basePlaces = [...ALL_PLACES, ...occupied].map((place) => ({ ...cellOf(place), pad: Math.max(place.w || 4, place.h || 4) / (2 * SCALE) }));
+
+  const isSpotFree = (cx, cy, gapVillage, gapStruct) => {
+    for (const p of basePlaces) {
+      if (Math.hypot(p.cx - cx, p.cy - cy) - p.pad < gapVillage) return false;
+    }
+    for (const s of structures) {
+      if (Math.hypot((s.x - 5) / SCALE - cx, (s.y - 5) / SCALE - cy) < gapStruct) return false;
+    }
+    return true;
+  };
+
+  const pickSpot = (biomes, gapVillage, gapStruct) => {
+    const pool = [];
+    for (const b of biomes) {
+      if (buckets[b]) pool.push(...buckets[b]);
+    }
+    if (pool.length === 0) return null;
+    for (let tries = 0; tries < 200; tries++) {
+      const cand = pool[Math.floor(structRandom() * pool.length)];
+      if (isSpotFree(cand.cx, cand.cy, gapVillage, gapStruct)) {
+        return { cx: cand.cx, cy: cand.cy, biome: cand.biome, land: landOfCell(cand.cx, cand.cy) };
+      }
+    }
+    for (const cand of pool) {
+      if (isSpotFree(cand.cx, cand.cy, gapVillage - 1, Math.max(3, gapStruct - 2))) {
+        return { cx: cand.cx, cy: cand.cy, biome: cand.biome, land: landOfCell(cand.cx, cand.cy) };
+      }
+    }
+    return null;
+  };
+
+  let graveIdx = 0;
+  for (const def of STRUCTURES_50) {
+    for (let i = 0; i < def.count; i++) {
+      const spot = pickSpot(def.biomes, 7, def.gapStruct || 6);
+      if (!spot) continue;
+      const sx = spot.cx * SCALE + 5;
+      const sy = spot.cy * SCALE + 5;
+      const id = def.id + '-' + i;
+      const speciesList = spot.land.species && spot.land.species.length > 0 ? spot.land.species : CAMP_SPECIES[spot.biome] || CAMP_SPECIES.meadow;
+      const entry = {
+        id: id,
+        kind: def.id,
+        structNum: def.num,
+        family: def.family,
+        name: def.id === 'monsterCamp' ? pickWith(structRandom, MONSTER_CAMP_NAMES) + ' #' + (i + 1) : def.name,
+        x: sx,
+        y: sy,
+        w: def.w,
+        h: def.h,
+        biome: spot.biome,
+        action: def.action,
+        rewardItem: def.rewardItem || null,
+        isPortal: Boolean(def.isPortal),
+        species: speciesList,
+        danger: Math.max(1, spot.land.danger),
+        grave: def.id === 'heroGrave' ? graveIdx++ : undefined,
+        text: def.text,
+      };
+      structures.push(entry);
+      addStructureProps(def, id, sx, sy, props, i + def.num);
+    }
+  }
+
+  // Rich scatter of bush shapes, weapon monuments, flowers, greenery and burrows/holes across all biomes!
+  const SCATTER = [
+    // Shaped bushes & thickets (meadow, forest)
+    { biomes: ['meadow', 'forest'], kinds: ['bushHeart', 'bushSpiral', 'bushSword', 'bushCrown', 'bushDragon', 'bushRose', 'bushHydrangea', 'bushBerry', 'bushBerryBlue', 'bushBamboo'], count: 90, walkable: true },
+    // Martial monuments & old battle relics
+    { biomes: ['meadow', 'forest', 'mountain', 'desert'], kinds: ['greatswordStone', 'crossedHalberds', 'knightArmorStand', 'archeryTarget', 'shieldPedestal', 'warDrums', 'anvilHammer', 'cannonDisplay'], count: 48, walkable: true },
+    // Botanical flower patches
+    { biomes: ['meadow', 'forest'], kinds: ['roseBush', 'lavenderRow', 'sunflowerPatch', 'tulipBed', 'bluebells', 'poppies', 'moonflower', 'flowerArch', 'flowerBed'], count: 140, walkable: true },
+    // Desert, coast & waterside flora
+    { biomes: ['desert'], kinds: ['cactusFlower', 'craterPit'], count: 40, walkable: true },
+    { biomes: ['shore', 'coast'], kinds: ['hibiscusBush', 'waterReed', 'groundPuddle', 'cloverPatch'], count: 44, walkable: true },
+    // Woodland greenery
+    { biomes: ['meadow', 'forest'], kinds: ['fernCluster', 'mossyLog', 'reedTuft', 'cloverPatch', 'bambooShoot', 'hedgeRow', 'stoneLantern'], count: 120, walkable: true },
+    // Animal burrows & natural holes (rabbits hop right around rabbitBurrow!)
+    { biomes: ['meadow', 'forest'], kinds: ['rabbitBurrow', 'rabbitBurrow', 'foxDen', 'badgerHole', 'hollowStump', 'groundPuddle', 'craterPit'], count: 76, walkable: true },
+    // Everyday countryside & real-life nature elements across farms, woods, shores, and highland paths
+    { biomes: ['meadow'], kinds: ['hayBale', 'beehive', 'picnicBlanket', 'stoneBench', 'waterPump', 'birdhouse', 'milkChurns', 'scarecrow', 'wheelbarrow', 'doghouse', 'mailbox', 'laundryLine'], count: 96, walkable: true },
+    { biomes: ['forest'], kinds: ['mushroomRing', 'fallenLeafPile', 'anthill', 'woodPile', 'picnicBlanket'], count: 80, walkable: true },
+    { biomes: ['shore', 'coast'], kinds: ['fishingGear', 'reedNest', 'picnicBlanket', 'waterPump', 'coconutPalm'], count: 64, walkable: true },
+    { biomes: ['mountain'], kinds: ['woodPile', 'stoneBench', 'fallenLeafPile'], count: 30, walkable: true },
+    // Wild orchards, Mediterranean groves, vineyards & edible berry/melon/pumpkin beds
+    { biomes: ['meadow', 'forest'], kinds: ['appleTree', 'pearTree', 'cherryTree', 'peachTree', 'plumTree', 'grapeVine', 'pumpkinPatch', 'melonPatch', 'strawberryPatch'], count: 144, walkable: true },
+    { biomes: ['meadow', 'desert'], kinds: ['orangeTree', 'lemonTree', 'figTree', 'oliveTree'], count: 56, walkable: true },
+    { biomes: ['desert'], kinds: ['coconutPalm', 'oliveTree', 'figTree'], count: 24, walkable: true },
+  ];
+
+  for (const batch of SCATTER) {
+    const pool = [];
+    for (const b of batch.biomes) if (buckets[b]) pool.push(...buckets[b]);
+    if (pool.length === 0) continue;
+    for (let i = 0; i < batch.count; i++) {
+      const cand = pool[Math.floor(structRandom() * pool.length)];
+      const kind = batch.kinds[i % batch.kinds.length];
+      const ox = (structRandom() - 0.5) * 6;
+      const oy = (structRandom() - 0.5) * 6;
+      const px = Math.round(cand.cx * SCALE + 5 + ox);
+      const py = Math.round(cand.cy * SCALE + 5 + oy);
+      if (isSpotFree(cand.cx, cand.cy, 3, 1.5)) {
+        props.push({ kind: kind, x: px, y: py, w: 1, h: 1, walkable: batch.walkable });
+      }
+    }
   }
 
   return { structures, props };

@@ -15,6 +15,7 @@ import { daysBeforeRaid } from '../../logic/raid';
 import { partnerOf, childrenOf } from '../../logic/families';
 import { bountyProgress } from '../../logic/society/worldLife';
 import { isVillageUnderAttack, isNpcKidnapped } from '../../logic/war';
+import { ensureGuild, rankInfo, nextRankInfo, guildContractProgress, abandonGuildContract } from '../../logic/guild/ranks';
 
 function nameOf(id) {
   return id === 'player' ? 'you' : npcOf(id).name;
@@ -158,7 +159,7 @@ function PersonLine({ game, npc }) {
 }
 
 // Beautiful tabbed Quests & Journal menu, crafted to feel crisp on both mobile and desktop.
-export default function QuestsPanel({ game }) {
+export default function QuestsPanel({ game, refresh }) {
   const [tab, setTab] = useState('quests');
   const [villageFilter, setVillageFilter] = useState('all');
   const [showCompleted, setShowCompleted] = useState(false);
@@ -166,6 +167,10 @@ export default function QuestsPanel({ game }) {
   const focus = typeOf(game.focus.current);
   const quests = activeQuests(game);
   const readyQuests = quests.filter((q) => isQuestReady(game, q));
+  const guild = ensureGuild(game);
+  const gInfo = rankInfo(guild.rank);
+  const gNext = nextRankInfo(guild.rank);
+  const guildContracts = guild.activeContracts || [];
   const bounties = Object.values(game.society?.bounties || {}).filter((b) => b.active && !b.done);
   const available = NPCS.filter((npc) => game.npcs[npc.id].alive && (game.npcs[npc.id].met || game.npcs[npc.id].talkedDay > 0))
     .map((npc) => offeredQuest(game, npc.id))
@@ -180,7 +185,7 @@ export default function QuestsPanel({ game }) {
   });
 
   const tabs = [
-    { id: 'quests', icon: '📜', label: 'Quests', count: quests.length + bounties.length },
+    { id: 'quests', icon: '📜', label: 'Quests', count: quests.length + bounties.length + guildContracts.length },
     { id: 'focus', icon: '🎯', label: 'Focus' },
     { id: 'villages', icon: '🏰', label: 'Towns', count: VILLAGES.length },
     { id: 'people', icon: '♥', label: 'Bonds', count: met.length },
@@ -208,6 +213,45 @@ export default function QuestsPanel({ game }) {
       {tab === 'quests' && (
         <>
           <StoryBanner game={game} />
+
+          <div className="quest-card" style={{ marginTop: 8 }}>
+            <div className="quest-card-top">
+              <PixelIcon name="crown" size={28} />
+              <div className="grow">
+                <span>Adventurer Guild · {gInfo.title}</span>
+                <span className="small">
+                  Points: {guild.points} {gNext ? `/ ${gNext.minPts} for Rank ${gNext.id}` : '(MAX)'} · Party cap {gInfo.partyCap} · Completed {guild.completed}
+                </span>
+              </div>
+            </div>
+            {gNext && <Bar value={guild.points / gNext.minPts} color="#ffd23f" height={5} />}
+          </div>
+
+          {guildContracts.length > 0 && (
+            <>
+              <span className="section">Active Guild Contracts ({guildContracts.length}/2)</span>
+              {guildContracts.map((c) => {
+                const have = guildContractProgress(game, c);
+                const ready = have >= c.need;
+                return (
+                  <div key={c.id} className={'quest-card' + (ready ? ' quest-card-ready' : '')}>
+                    <div className="quest-card-top">
+                      <PixelIcon name="quests" size={28} />
+                      <div className="grow">
+                        <span>{c.title}</span>
+                        <span className="small">
+                          {c.desc} ({have}/{c.need}) · +{c.lexis} Lexis · +{c.points} pts
+                        </span>
+                      </div>
+                      <button className="px-button" onClick={() => { abandonGuildContract(game, c.id); if (refresh) refresh(); }}>
+                        Drop
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
 
           <span className="section">
             Active Quests {readyQuests.length > 0 ? `· ${readyQuests.length} Ready!` : ''}

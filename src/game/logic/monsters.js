@@ -94,9 +94,10 @@ function isWild(monster) {
 // The monsters of a land; at night the ghosts come out too (and bats in the gentle lands).
 const NIGHT_GUESTS = { meadow: ['bat'], lake: ['bat', 'drowner'], coast: ['drowner'], woods: ['bat', 'banshee'], forest: ['banshee'], heartwood: ['wraith'], oldwood: ['wraith', 'banshee'], watch: ['banshee'], swamp: ['wraith', 'banshee'], oldroad: ['bat'], southshore: ['bat'], storm: ['drowner'] };
 
+const CAMP_KINDS = new Set(['monsterCamp', 'goblinTotem', 'boneCairn', 'abyssRift']);
 const CAMP_SOURCES = [
   ...MONSTER_TOWNS.map((t) => ({ id: t.id, kind: 'monsterTown', x: t.x + t.w / 2, y: t.y + t.h / 2, species: [t.species] })),
-  ...WILD_STRUCTURES.filter((s) => s.kind === 'monsterCamp').map((s) => ({ id: s.id, kind: 'monsterCamp', x: s.x, y: s.y, species: s.species })),
+  ...WILD_STRUCTURES.filter((s) => CAMP_KINDS.has(s.kind)).map((s) => ({ id: s.id, kind: 'monsterCamp', x: s.x, y: s.y, species: s.species })),
   ...DUNGEONS.filter((d) => d.look === 'cave' || d.look === 'ruins').map((d) => ({
     id: d.id,
     kind: 'cave',

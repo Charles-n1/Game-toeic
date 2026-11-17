@@ -1,6 +1,8 @@
 import { VILLAGES, villageOf } from '../data/zones';
 import { MEN_NAMES, WOMEN_NAMES, KID_NAMES, SKINS, HAIRS, CLOTHES, JOB_ORDER, JOB_NAMES } from '../data/villagers';
 import { KINGDOMS } from '../data/kingdoms';
+import { raceMixForVillage, applyRaceToLook } from '../data/races';
+import { zoneAt } from '../data/zones';
 
 import { findPath, followPath } from '../world/paths';
 import { randomOf, pickWith } from '../world/seeded';
@@ -55,7 +57,10 @@ function kingdomColor(village) {
 
 function makeVillager(village, index, random, home, role) {
   const sex = role.sex;
-  const look = lookOf(random, sex, role.kid);
+  const biome = zoneAt(village.x + village.w / 2, village.y + village.h / 2)?.biome;
+  const mix = raceMixForVillage(village, biome);
+  const race = pickWith(random, mix);
+  const look = applyRaceToLook({ ...lookOf(random, sex, role.kid), sex }, race);
   if (role.job === 'knight') Object.assign(look, KNIGHT_LOOK, { trim: kingdomColor(village), scarf: true });
   if (role.job === 'foreman') Object.assign(look, { burly: true, beard: true, outfit: '#6b4a2a' });
   const names = role.kid ? KID_NAMES : sex === 'man' ? MEN_NAMES : WOMEN_NAMES;
@@ -63,6 +68,7 @@ function makeVillager(village, index, random, home, role) {
   return {
     id: village.id + '-' + index,
     village: village.id,
+    race: race,
     name: pickWith(random, names),
     sex: sex,
     kid: Boolean(role.kid),

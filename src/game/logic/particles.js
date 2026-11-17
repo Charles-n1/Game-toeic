@@ -4,6 +4,7 @@
 
 const MAX_PARTICLES = 400;
 const MAX_BLOOD = 80;
+const MAX_TRACKS = 100;
 
 function addParticle(game, particle) {
   if (game.run.particles.length < MAX_PARTICLES) game.run.particles.push({ age: 0, gravity: 0, ...particle });
@@ -101,6 +102,51 @@ export function bolt(game, x, y) {
   burst(game, x, y, '#fff7a8', 16);
 }
 
+// Persistent footprints or hoof tracks left briefly on sand, snow, or rain-soaked ground.
+export function addTrack(game, x, y, dx = 0, dy = 1, kind = 'foot') {
+  if (!game || !game.run) return;
+  if (!Array.isArray(game.run.tracks)) game.run.tracks = [];
+  if (game.run.tracks.length >= MAX_TRACKS) game.run.tracks.shift();
+  const len = Math.hypot(dx, dy) || 1;
+  const side = ((game.run.tracks.length % 2) === 0 ? 1 : -1) * 0.1;
+  const px = -dy / len;
+  const py = dx / len;
+  game.run.tracks.push({
+    x: x + px * side,
+    y: y + py * side,
+    kind: kind,
+    age: 0,
+    life: kind === 'hoof' ? 6.5 : 5.5,
+  });
+}
+
+// Expanding concentric shockwave ring VFX drawn cleanly in scene.js.
+export function spawnRing(game, x, y, maxRadius = 3, color = '#b48cff', width = 2, life = 0.5) {
+  if (!game || !game.run) return;
+  if (!Array.isArray(game.run.vfxRings)) game.run.vfxRings = [];
+  if (game.run.vfxRings.length >= 24) game.run.vfxRings.shift();
+  game.run.vfxRings.push({ x, y, maxRadius, color, width, age: 0, life });
+}
+
+// Jagged obsidian crystal spikes erupting out of the ground around (x, y).
+export function spawnSpikes(game, x, y, radius = 4, count = 12, color = '#b48cff') {
+  if (!game || !game.run) return;
+  if (!Array.isArray(game.run.spikes)) game.run.spikes = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
+    const dist = radius * (0.4 + Math.random() * 0.6);
+    if (game.run.spikes.length >= 48) game.run.spikes.shift();
+    game.run.spikes.push({
+      x: x + Math.cos(angle) * dist,
+      y: y + Math.sin(angle) * dist,
+      h: 12 + Math.floor(Math.random() * 10),
+      color,
+      age: 0,
+      life: 1.05,
+    });
+  }
+}
+
 // Moves the particles and removes the dead ones. dt: seconds since the last frame.
 export function updateParticles(game, dt) {
   for (const particle of game.run.particles) {
@@ -113,5 +159,17 @@ export function updateParticles(game, dt) {
   if (Array.isArray(game.run.blood)) {
     for (const pool of game.run.blood) pool.age += dt;
     game.run.blood = game.run.blood.filter((pool) => pool.age < pool.life);
+  }
+  if (Array.isArray(game.run.tracks)) {
+    for (const track of game.run.tracks) track.age += dt;
+    game.run.tracks = game.run.tracks.filter((track) => track.age < track.life);
+  }
+  if (Array.isArray(game.run.vfxRings)) {
+    for (const r of game.run.vfxRings) r.age += dt;
+    game.run.vfxRings = game.run.vfxRings.filter((r) => r.age < r.life);
+  }
+  if (Array.isArray(game.run.spikes)) {
+    for (const sp of game.run.spikes) sp.age += dt;
+    game.run.spikes = game.run.spikes.filter((sp) => sp.age < sp.life);
   }
 }

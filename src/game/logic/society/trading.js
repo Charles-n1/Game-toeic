@@ -15,6 +15,16 @@ import { burst, floatText } from '../particles';
 import { cue } from '../cues';
 import { pickRandom } from '../../../logic/random';
 import {
+  econVillage,
+  missingInputsFor,
+  refreshContracts,
+  acceptContract,
+  canDeliverContract,
+  deliverContract,
+  sellResourceToTown,
+  ensureEconomy,
+} from '../economy';
+import {
   ensureSociety,
   isVillain,
   addInfamy,
@@ -72,12 +82,52 @@ function buyFromVillager(game, villager, itemId) {
 
 function sellToVillager(game, villager, itemId) {
   const item = ITEMS[itemId];
+  const payout = sellResourceToTown(game, villager.village, itemId, 1);
+  if (payout > 0) {
+    cue(game, 'trade');
+    notify(game, '🪙 Supplied ' + item.name + ' to workshop for +' + payout + ' Lexis.', '#ffd23f');
+    return;
+  }
   const festivalBonus = isFestivalActive(game, villager.village) ? 1.15 : 1;
-  const payout = Math.max(1, Math.round((item.sell || 1) * festivalBonus));
+  const fallbackPay = Math.max(1, Math.round((item.sell || 1) * festivalBonus));
   removeItem(game.player, itemId);
-  earnLexis(game, payout);
+  earnLexis(game, fallbackPay);
   cue(game, 'trade');
-  notify(game, '🪙 Sold ' + item.name + ' for ' + payout + ' Lexis.', '#ffd23f');
+  notify(game, '🪙 Sold ' + item.name + ' for ' + fallbackPay + ' Lexis.', '#ffd23f');
+}
+
+function openEconomyContractMenu(game, villager) {
+  const village = villageOf(villager.village);
+  const vEcon = econVillage(game, villager.village);
+  const econ = ensureEconomy(game);
+  const gaps = missingInputsFor(game, villager.village);
+  const contracts = refreshContracts(game).slice(0, 4);
+  const choices = [];
+
+  if (canDeliverContract(game, villager.village)) {
+    const act = econ.activeContract;
+    choices.push({
+      label: `Deliver Active Contract (${act.qty}× ${ITEMS[act.itemId]?.name}) → +${act.rewardLexis} Lexis`,
+      icon: act.itemId,
+      run: () => deliverContract(game, villager.village),
+    });
+  }
+  if (!econ.activeContract) {
+    for (const c of contracts) {
+      const dest = (villageOf(c.buyerId) || {}).name || c.buyerId;
+      choices.push({
+        label: `Haul ${c.qty}× ${ITEMS[c.itemId]?.name} → ${dest} (+${c.rewardLexis} Lexis)`,
+        icon: c.itemId,
+        run: () => acceptContract(game, c.id),
+      });
+    }
+  }
+  choices.push({ label: 'Back', run: () => openVillagerTradeMenu(game, villager) });
+
+  const needText = gaps.length > 0
+    ? `Workshops need: ${gaps.slice(0, 3).map((g) => ITEMS[g.itemId]?.name).join(', ')}.`
+    : 'Our workshops are well stocked right now.';
+  say(game, null, [`${villager.name}: "${village.name} treasury holds ${vEcon ? vEcon.treasury : 0} Lexis. ${needText}"`], choices);
 }
 
 function negotiateWithVillager(game, villager) {
@@ -147,6 +197,7 @@ function openVillagerTradeMenu(game, villager) {
       run: () => buyFromVillager(game, villager, id),
     });
   }
+  choices.push({ label: 'Workshop & Haulage Contracts', icon: 'quests', run: () => openEconomyContractMenu(game, villager) });
   choices.push({ label: 'Sell items from bag', icon: 'lexis', run: () => openSellMenu(game, villager) });
   choices.push({ label: 'Leave', run: () => {} });
 

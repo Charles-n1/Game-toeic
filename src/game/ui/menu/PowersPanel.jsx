@@ -1,6 +1,7 @@
 import PixelIcon from '../PixelIcon';
 import { maxMana } from '../../logic/player';
 import { knownPowers, isPowerUnlocked, canUsePower, cooldownLeft, usePower, trainObsidianPower, dismissSoldiers, dismissPet, summonSeconds } from '../../logic/powers';
+import { obsidianRankInfo } from '../../logic/obsidian';
 
 // What the player does not know yet, without spoiling it.
 function hints(player) {
@@ -65,6 +66,7 @@ export default function PowersPanel({ game, refresh, onClose }) {
     <>
       <span style={styles.mana}>
         MP {Math.round(player.mana)} / {Math.round(maxMana(player))}
+        {player.powers.includes('obsidian') && ' · 🔮 Gift Lv.' + obsidianRankInfo(player).level + ': ' + obsidianRankInfo(player).title}
       </span>
       <ObsidianFollowers game={game} refresh={refresh} />
       {(player.soldiers > 0 || player.pet) && <span className="section">Powers</span>}

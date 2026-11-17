@@ -15,4 +15,7 @@ export const CAMP_ITEMS = {
   scholarTea: { name: 'Scholar Tea', icon: '🍵', kind: 'food', food: 20, water: 45, heal: 20, sell: 20, text: 'Food +20, water +45, +20 HP · Spell +20, Speed +2 (12h)' },
   honeyPorridge: { name: 'Honey Porridge', icon: '🥣', kind: 'food', food: 60, water: 10, heal: 30, sell: 22, text: 'Food +60, +30 HP · Defense +5, Health +20 (12h)' },
   travelersFeast: { name: "Traveler's Feast", icon: '🍱', kind: 'food', food: 95, water: 30, heal: 60, sell: 45, text: 'Food +95, water +30, +60 HP · All stats boosted (16h)' },
+  roastedFish: { name: 'Grilled River Fish', icon: '🐟', kind: 'food', food: 48, heal: 24, sell: 20, text: 'Food +48, +24 HP · Speed +3 (8h)' },
+  mushroomSoup: { name: 'Wild Mushroom Soup', icon: '🍄', kind: 'food', food: 52, water: 28, heal: 32, sell: 22, text: 'Food +52, water +28, +32 HP · Spell +10 (10h)' },
+  berryTart: { name: 'Honey Berry Tart', icon: '🥧', kind: 'food', food: 65, heal: 38, sell: 28, text: 'Food +65, +38 HP · Speed +4, Health +15 (12h)' },
 };

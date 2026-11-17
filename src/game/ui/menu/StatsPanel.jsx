@@ -11,6 +11,12 @@ import { activeBoosts } from '../../logic/boosts';
 import { STAT_SLOTS, describeStatSlot, statLinkBonus } from '../../logic/statLinks';
 import { customCategoryPercent, setToeicWeight, clearToeicWeights } from '../../logic/learning';
 import { isVillain, ensureSociety } from '../../logic/society/state';
+import { ensureGuild, rankInfo } from '../../logic/guild/ranks';
+import { ensureDoom } from '../../logic/war/demonThreat';
+import { KINGDOMS } from '../../data/kingdoms';
+import { kingdomRep } from '../../logic/kingdomLaws';
+import { WORLD_LANGUAGES, languageLevel } from '../../logic/languages';
+import { obsidianRankInfo } from '../../logic/obsidian';
 
 // The skill (spell) of a type: learned at which level, or who teaches it.
 function skillText(game, type) {
@@ -63,6 +69,8 @@ export default function StatsPanel({ game, refresh }) {
   const boosts = activeBoosts(game);
   const society = ensureSociety(game);
   const villain = isVillain(game);
+  const guild = ensureGuild(game);
+  const doom = ensureDoom(game).silenceDoom || 0;
 
   function changeWeight(categoryId, value) {
     setToeicWeight(game, categoryId, value === '' ? 0 : Number(value));
@@ -85,10 +93,19 @@ export default function StatsPanel({ game, refresh }) {
           {player.accessory && ITEMS[player.accessory] ? ' · ' + ITEMS[player.accessory].name : ''}
         </span>
         <span className="small">
-          Class: {current ? current.title : 'none yet (Menu → Classes)'} · Infamy: {society.infamy}
+          Class: {current ? current.title : 'none yet (Menu → Classes)'} · Guild: {guild.registered ? rankInfo(guild.rank).title + ' (' + guild.points + ' pts)' : 'Unregistered'} · Infamy: {society.infamy}
           {villain ? ' · ☠ Villain' : ''}
           {player.cold?.active ? ' · 🤧 Cold (-2 Spd, -3 Atk)' : ''}
+          {(player.fatigue || 0) >= 85 ? ' · 🥱 Exhausted (-2 Spd)' : ''}
           {player.soldiers > 0 ? ' · ♟️ Soldiers ' + player.soldiers + ' (' + Math.round(player.soldierHp || player.soldiers * 45) + ' Shield HP)' : ''}
+        </span>
+        <span className="small">
+          Silence Threat: {game.bosses?.king ? '0% (Ended)' : doom + '%'} · Kingdoms:{' '}
+          {KINGDOMS.map((k) => `${k.id.slice(0, 3).toUpperCase()} ${kingdomRep(game, k.id)}`).join(' · ')}
+        </span>
+        <span className="small">
+          Obsidian Gift: {player.powers?.includes('obsidian') ? `Lv.${obsidianRankInfo(player).level} ${obsidianRankInfo(player).title}` : 'Dormant'} · Languages:{' '}
+          {WORLD_LANGUAGES.map((l) => `${l.name.split(' ')[1] || l.name} ${languageLevel(game, l.id)}%`).join(' · ')}
         </span>
         <span className="small">Aria can still carry you home {player.blessings} time(s). After that, death is the end.</span>
       </div>

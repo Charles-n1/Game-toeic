@@ -14,6 +14,9 @@ import { dismissSoldiers, dismissPet } from '../../logic/powers';
 import { ensureSociety } from '../../logic/society/state';
 import { interactMountedHorse, interactParkedHorse } from '../../logic/society/horses';
 import { frontTile } from '../../logic/input';
+import { durabilityOf, gearConditionLabel, DURABILITY_SLOTS, useRepairKit, needsRepair } from '../../logic/durability';
+import { encumbranceStatus, itemWeight } from '../../logic/weight';
+import { companionHpOf, companionMaxHp, dailyWageOf } from '../../logic/guild/ranks';
 
 // The torch of the hero: always in hand. One button lights it or puts it out.
 function TorchSwitch({ game, refresh }) {
@@ -69,11 +72,20 @@ function EquipmentSlot({ game, label, itemId }) {
     );
   }
   const item = ITEMS[itemId];
+  const hasWear = DURABILITY_SLOTS.includes(item.kind);
+  const dur = hasWear ? durabilityOf(game, item.kind) : 100;
   return (
     <div className="line">
       <PixelIcon name={itemId} size={28} />
       <div className="grow">
-        <span>{item.name}</span>
+        <span>
+          {item.name}{' '}
+          {hasWear && (
+            <span className="small" style={{ color: dur < 25 ? '#ff7a7a' : dur < 50 ? '#ffb070' : '#7cfc9a' }}>
+              ({dur}% {gearConditionLabel(dur)})
+            </span>
+          )}
+        </span>
         <span className="small">{describe(item)}</span>
         {isStuck(game, itemId) && <span className="small" style={{ color: '#c78bff' }}>💀 Cursed: it drinks your life. Lift it at a goddess shrine or a church.</span>}
       </div>
@@ -124,6 +136,13 @@ function ItemButton({ game, itemId, refresh }) {
       </button>
     );
   }
+  if (item.kind === 'repair') {
+    return (
+      <button className="px-button px-gold" disabled={!needsRepair(game)} onClick={() => run(() => useRepairKit(game))}>
+        Repair
+      </button>
+    );
+  }
   return null;
 }
 
@@ -134,6 +153,7 @@ export default function InventoryPanel({ game, refresh }) {
   const society = ensureSociety(game);
   const nearCamp = isNearCamp(game);
   const campReady = canSetCamp(game);
+  const enc = encumbranceStatus(game);
 
   function useItem(action) {
     action();
@@ -219,14 +239,20 @@ export default function InventoryPanel({ game, refresh }) {
 
       <TorchSwitch game={game} refresh={refresh} />
 
-      <span className="section">Bag</span>
+      <span className="section">
+        Bag ·{' '}
+        <span style={{ color: enc.state === 'Overloaded' ? '#ff7a7a' : enc.state === 'Heavy' ? '#ffb070' : '#7cfc9a' }}>
+          {enc.weight} / {enc.capacity} kg ({enc.state})
+        </span>
+      </span>
       {itemIds.length === 0 && <span className="small">Empty.</span>}
       {itemIds.map((itemId) => (
         <div key={itemId} className="line">
           <PixelIcon name={itemId} size={28} />
           <div className="grow">
             <span>
-              {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>
+              {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>{' '}
+              <span className="small">({Math.round(itemWeight(itemId) * countItem(player, itemId) * 10) / 10} kg)</span>
             </span>
             {(ITEMS[itemId].text || ITEMS[itemId].kind === 'furniture') && <span className="small">{ITEMS[itemId].text || 'Furniture: place it in your home, in front of you.'}</span>}
           </div>
@@ -263,7 +289,7 @@ export default function InventoryPanel({ game, refresh }) {
           <div className="grow">
             <span>{npcOf(npcId).name}</span>
             <span className="small">
-              Rank {companionRank(game, npcId)}/4 · Fatigue {Math.round(companionFatigue(game, npcId))}%
+              HP {companionHpOf(game, npcId)}/{companionMaxHp(game, npcId)} · Rank {companionRank(game, npcId)}/4 · Fatigue {Math.round(companionFatigue(game, npcId))}% · {dailyWageOf(game, npcId)} Lexis/day
             </span>
           </div>
           <button className="px-button" onClick={() => dismiss(npcId)}>

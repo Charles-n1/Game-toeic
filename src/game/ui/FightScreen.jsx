@@ -13,23 +13,29 @@ import { TAGS, TAG_NAMES, TAG_COLORS, TAG_POWER, spellLevel } from '../logic/ski
 import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
 import { battlePlaces, hitMoments } from '../draw/battle';
+import { appraiseOpponent } from '../logic/obsidian';
 
 const AUTO_NEXT = 1100; // milliseconds: after a GOOD answer, the next question comes by itself
-const POTIONS = ['healthPotion', 'bigPotion', 'bread', 'roastMeat', 'herbStew', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
+const POTIONS = ['healthPotion', 'bigPotion', 'antidote', 'bread', 'roastMeat', 'herbStew', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
 const ANSWER_KEYS = ['1', '2', '3', '4', 'a', 'b', 'c', 'd']; // 1 = a, 2 = b...
 
 // One sentence that tells what the last answer did.
 function storyOf(last) {
   const sHit = last.soldierDamage > 0 ? ' · ⚔️ Soldier +' + last.soldierDamage + ' dmg' : '';
   const sShield = last.soldierTaken > 0 ? ' (🛡️ Soldier blocked ' + last.soldierTaken + ')' : '';
-  if (last.fleeFailed) return { good: false, text: 'You could not escape!' + (last.taken > 0 ? ' −' + last.taken + ' HP' : '') + sShield };
+  const cGuard = last.companionTaken > 0 ? ' · 🤝 Ally blocked ' + last.companionTaken : '';
+  const cHeal = last.companionHeal > 0 ? ' · 💚 Ally healed +' + last.companionHeal : '';
+  const dot = last.dotDamage > 0 ? ' · 🔥 Status +' + last.dotDamage + ' dmg' : '';
+  const stunTxt = last.stunned ? ' · ⚡ Stunned!' : '';
+  const extra = sHit + sShield + cGuard + cHeal + dot + stunTxt;
+  if (last.fleeFailed) return { good: false, text: 'You could not escape!' + (last.taken > 0 ? ' −' + last.taken + ' HP' : '') + extra };
   const flair = last.special ? '★ ' + last.special + '! ' : '';
   if (last.isCorrect && last.taken === 0) {
-    return { good: true, text: flair + (last.critical ? 'CRITICAL! ' : '') + (last.first ? 'You struck first! ' : 'Correct! ') + last.damage + ' damage' + sHit + sShield };
+    return { good: true, text: flair + (last.critical ? 'CRITICAL! ' : '') + (last.first ? 'You struck first! ' : 'Correct! ') + last.damage + ' damage' + extra };
   }
-  if (last.isCorrect) return { good: true, text: flair + 'Correct, but slow: it struck too. −' + last.taken + ' HP' + sHit + sShield };
+  if (last.isCorrect) return { good: true, text: flair + 'Correct, but slow: it struck too. −' + last.taken + ' HP' + extra };
   const why = last.index === null ? 'Too slow!' : 'Wrong.';
-  return { good: false, text: (last.taken > 0 ? why + ' −' + last.taken + ' HP' : why) + sHit + sShield };
+  return { good: false, text: (last.taken > 0 ? why + ' −' + last.taken + ' HP' : why) + extra };
 }
 
 // The sparks, the number and the flash on the opponent, when the hero's blow lands.
@@ -232,6 +238,16 @@ function QuestionWindow({ fight, onAnswer, onNext }) {
       <div className="row" style={styles.questionTop}>
         <TagBadge tag={question.difficulty} />
         {fight.combo >= 2 && <span className="result-good" style={styles.combo}>Combo x{fight.combo}</span>}
+        {Object.keys(fight.statuses?.player || {}).map((st) => (
+          <span key={'p-' + st} className="badge" style={{ backgroundColor: '#b8303a' }}>
+            You: {st}
+          </span>
+        ))}
+        {Object.keys(fight.statuses?.opponent || {}).map((st) => (
+          <span key={'o-' + st} className="badge" style={{ backgroundColor: '#e07a1e' }}>
+            Foe: {st}
+          </span>
+        ))}
       </div>
       <span className="question" style={styles.question}>
         {question.question}
@@ -351,6 +367,7 @@ export default function FightScreen({ game, refresh }) {
   const isOver = ['won', 'lost', 'fled'].includes(fight.phase);
   const wide = useScreen().wide;
   const title = titleOf(fight);
+  const appraisal = appraiseOpponent(game, opponent);
 
   return (
     <div className="hud">
@@ -376,6 +393,11 @@ export default function FightScreen({ game, refresh }) {
               </div>
             )}
           </div>
+          {appraisal && (
+            <span className="small" style={{ color: '#d8b4f8' }}>
+              🔮 Obsidian Eye · ATK {appraisal.atk} · SPD {appraisal.spd} · RES {appraisal.res}%/{appraisal.magRes}% · Drops: {appraisal.drops}
+            </span>
+          )}
         </div>
       </div>
 

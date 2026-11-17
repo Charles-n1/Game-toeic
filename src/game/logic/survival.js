@@ -8,13 +8,13 @@ import { notify, say } from './messages';
 import { cue } from './cues';
 import { floatText } from './particles';
 
-// Eating and drinking. The hero gets hungry and thirsty (two bars, 100 = full). Empty, they lose health.
-// Water: a bottle (3 drinks), refilled at a river, a lake, a well or a fountain.
-// Food: what the monsters leave (meat, bones), cooked at a fire or at the stove of the home; bread, carrots...
+// Eating, drinking and sleep fatigue. The hero gets hungry, thirsty and tired.
+// Water from rivers is untreated until boiled at a campfire; wells & fountains provide clean water.
 
 export const BOTTLE_SIZE = 3;
 const HUNGER_PER_HOUR = 2; // a full belly lasts about 2 days of the game (16 real minutes)
 const THIRST_PER_HOUR = 3; // a drink (+40) lasts about 13 hours of the game
+const FATIGUE_PER_HOUR = 2.2;
 const STARVING_HP_PER_HOUR = 4;
 const FIRE_KINDS = ['campfire', 'torch', 'stove'];
 
@@ -22,22 +22,25 @@ function clamp(value) {
   return Math.min(100, Math.max(0, value));
 }
 
-// Time passes: the bars go down. Empty bars hurt (but never kill: they leave 1 HP).
-export function updateSurvival(game, hours) {
+// Time passes: the bars go down. Empty hunger/thirst can eventually drop HP to 0 outside sleep.
+export function updateSurvival(game, hours, allowLethal = true) {
   const player = game.player;
-  const before = { hunger: player.hunger, thirst: player.thirst };
+  const before = { hunger: player.hunger, thirst: player.thirst, fatigue: player.fatigue || 0 };
   player.hunger = clamp(player.hunger - HUNGER_PER_HOUR * hours);
   player.thirst = clamp(player.thirst - THIRST_PER_HOUR * hours);
+  player.fatigue = clamp((player.fatigue || 0) + FATIGUE_PER_HOUR * hours);
   if (player.hunger === 0 || player.thirst === 0) {
     game.run.starveLoss = (game.run.starveLoss || 0) + STARVING_HP_PER_HOUR * hours;
     const drop = Math.floor(game.run.starveLoss);
     if (drop >= 1) {
       game.run.starveLoss -= drop;
-      player.health = Math.max(1, Math.round(player.health) - drop);
+      const minHp = allowLethal ? 0 : 1;
+      player.health = Math.max(minHp, Math.round(player.health) - drop);
     }
   }
   if (before.hunger >= 25 && player.hunger < 25) notify(game, '🍖 You are hungry. Eat something (Menu → Inventory).', '#ffb070');
   if (before.thirst >= 25 && player.thirst < 25) notify(game, '💧 You are thirsty. Drink from your bottle.', '#9fd8ff');
+  if (before.fatigue < 85 && player.fatigue >= 85) notify(game, '🥱 Exhausted (-2 Speed)! Rest at camp, home, or an inn.', '#ffb070');
 }
 
 // ---------- Drinking ----------
@@ -50,6 +53,11 @@ export function drink(game) {
   }
   player.bottle -= 1;
   player.thirst = clamp(player.thirst + 40);
+  if (player.bottleUntreated && Math.random() < 0.25) {
+    player.health = Math.max(0, Math.round(player.health) - 5);
+    notify(game, '🤢 Unboiled river water upset your stomach (−5 HP). Boil it over a fire or use a village well!', '#ff8a95');
+  }
+  if (player.bottle === 0) player.bottleUntreated = false;
   floatText(game, player.x, player.y - 1, '+40 💧', '#9fd8ff');
   return true;
 }
@@ -58,14 +66,29 @@ export function drink(game) {
 export function canRefill(game, front) {
   if (game.player.bottle >= BOTTLE_SIZE) return false;
   if (tileAt(front.x, front.y) === TILE.WATER) return true;
-  return propsAround(game.player.x, game.player.y, 2).some((prop) => prop.kind === 'well' || prop.kind === 'fountain');
+  return propsAround(game.player.x, game.player.y, 2).some((prop) => prop.kind === 'well' || prop.kind === 'fountain' || prop.kind === 'waterPump');
 }
 
 export function refill(game) {
+  const nearCleanFixture = propsAround(game.player.x, game.player.y, 2).some((prop) => prop.kind === 'well' || prop.kind === 'fountain' || prop.kind === 'waterPump');
   game.player.bottle = BOTTLE_SIZE;
+  game.player.bottleUntreated = !nearCleanFixture;
   game.player.thirst = clamp(game.player.thirst + 15); // a sip while filling it
   cue(game, 'coin');
-  notify(game, '💧 Your bottle is full (' + BOTTLE_SIZE + ' drinks).', '#9fd8ff');
+  notify(
+    game,
+    nearCleanFixture ? '💧 Bottle filled with clean well water (' + BOTTLE_SIZE + ' drinks).' : '💧 Bottle filled with river water (' + BOTTLE_SIZE + ' drinks — boil over fire to purify!).',
+    '#9fd8ff'
+  );
+}
+
+export function boilBottle(game) {
+  const player = game.player;
+  if (player.bottle <= 0 || !player.bottleUntreated) return false;
+  player.bottleUntreated = false;
+  cue(game, 'coin');
+  notify(game, '🔥 Boiled your bottle water clean and safe!', '#7cfc9a');
+  return true;
 }
 
 // ---------- Eating ----------
@@ -84,7 +107,7 @@ export function eat(game, itemId) {
   if (item.water) player.thirst = clamp(player.thirst + item.water);
   if (item.heal) heal(player, item.heal);
   applyDishBoosts(game, itemId);
-  if (['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast', 'ramen', 'curryRice'].includes(itemId)) {
+  if (['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast', 'ramen', 'curryRice', 'roastedFish', 'mushroomSoup'].includes(itemId)) {
     cureCold(game, '🍲 That hot dish warmed you up — your cold is cured!');
   }
   if (item.raw && Math.random() < 0.35) {
@@ -122,17 +145,18 @@ export function cook(game, recipe) {
   notify(game, '🔥 You cooked: ' + ITEMS[recipe.id].name + '.', '#ffd086');
 }
 
-// The cooking menu: every recipe the hero can make now.
+// The cooking menu: every recipe the hero can make now (plus boiling raw river water).
 export function offerCooking(game) {
   const ready = RECIPES.filter((recipe) => canCook(game, recipe));
-  if (ready.length === 0) {
+  const choices = ready.map((recipe) => ({ label: 'Cook: ' + ITEMS[recipe.id].name, icon: recipe.id, run: () => cook(game, recipe) }));
+  if (game.player.bottle > 0 && game.player.bottleUntreated) {
+    choices.unshift({ label: 'Boil River Water Clean', icon: 'water', run: () => boilBottle(game) });
+  }
+  if (choices.length === 0) {
     say(game, null, ['The fire crackles. Nothing to cook: bring raw meat (2 bones and water make a broth, meat and an herb a stew).']);
     return;
   }
-  say(game, null, ['The fire is warm. What do you cook?'], [
-    ...ready.map((recipe) => ({ label: 'Cook: ' + ITEMS[recipe.id].name, icon: recipe.id, run: () => cook(game, recipe) })),
-    { label: 'Nothing', run: () => {} },
-  ]);
+  say(game, null, ['The fire is warm. What do you prepare?'], [...choices, { label: 'Nothing', run: () => {} }]);
 }
 
 // The stove of the home (it is a prop of the home, see world/insides.js).

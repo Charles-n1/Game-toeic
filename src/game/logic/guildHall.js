@@ -10,6 +10,8 @@ import { emote } from './emotes';
 import { cue } from './cues';
 import { talkTo } from './people';
 import { interactBoard } from './society/worldLife';
+import { openGuildDesk, openGuildContractsMenu } from './guild';
+import { ensureGuild, boardContractsFor } from './guild/ranks';
 
 // The inside of the Guild of Adventurers: a tavern. Adventurers drink at the tables, two servers carry the drinks
 // from the bar, the guild members wait for work, and the quest board hangs on the wall.
@@ -87,6 +89,9 @@ export function buildGuildHall(game, house) {
     { kind: 'furniture', look: 'plant', color: '#3f9b2f', x: x + 1, y: y + 2, w: 1, h: 1 },
     { kind: 'flowerPot', variant: 0, x: x + 20, y: y + 13, w: 1, h: 1, walkable: true },
     { kind: 'flowerPot', variant: 2, x: x + 1, y: y + 13, w: 1, h: 1, walkable: true },
+    { kind: 'diningTable', x: x + 13, y: y + 12, w: 2, h: 1, fixed: true },
+    { kind: 'toilet', x: x + 20, y: y + 2, w: 1, h: 1, fixed: true },
+    { kind: 'basin', x: x + 20, y: y + 3, w: 1, h: 1, fixed: true },
   ];
 
   const mat = { x: x + 10, y: y + h - 1 };
@@ -150,7 +155,15 @@ function patronsOf(game, x, y) {
     y: y + 4,
     dir: 'down',
   }));
-  return [...drinkers, ...servers, ...members];
+  const receptionist = {
+    kind: 'receptionist',
+    name: 'Guild Clerk',
+    look: { skin: '#f1c9a5', hair: '#3a5a8a', style: 'pony', eyes: '#3a6fd8', outfit: '#3a5a8a', trim: '#ffd23f' },
+    x: x + 5.5,
+    y: y + 4.2,
+    dir: 'down',
+  };
+  return [receptionist, ...drinkers, ...servers, ...members];
 }
 
 export function isInGuildHall(game) {
@@ -224,6 +237,11 @@ function drinkChoices(game) {
 }
 
 function talkToPatron(game, patron) {
+  if (patron.kind === 'receptionist') {
+    const vid = game.run.visitHouse?.house?.village || 'lexia';
+    openGuildDesk(game, { id: null, name: 'Guild Clerk', look: patron.look }, vid);
+    return;
+  }
   if (patron.kind === 'member') {
     talkTo(game, NPCS.find((npc) => npc.id === patron.npcId));
     return;
@@ -236,14 +254,20 @@ function talkToPatron(game, patron) {
   say(game, null, [patron.name + ': "' + pickRandom(DRINKER_LINES) + '"']);
 }
 
-// The quest board of the guild: the bounties of the village where the guild stands.
+// The quest board of the guild: procedural guild contracts + town bounties/projects.
 function readBoard(game) {
   const village = villageOf(game.run.visitHouse.house.village);
   if (!village) {
     say(game, null, ['The board is empty today. Come back tomorrow.']);
     return;
   }
-  interactBoard(game, village);
+  const g = ensureGuild(game);
+  const avail = boardContractsFor(game, village.id).filter((c) => !c.accepted).length;
+  say(game, null, [village.name + ' Guild Notice Board (' + g.rank + '-Rank · ' + avail + ' fresh contracts today)'], [
+    { label: 'Procedural Guild Contracts (' + avail + ' today)', icon: 'quests', run: () => openGuildContractsMenu(game, village.id) },
+    { label: 'Town Bounties & Projects', icon: 'shield', run: () => interactBoard(game, village) },
+    { label: 'Step back', run: () => {} },
+  ]);
 }
 
 // What the action button does inside the guild hall.

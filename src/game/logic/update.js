@@ -1,5 +1,5 @@
 import { zoneAt, HOME_DOOR } from '../data/zones';
-import { isSolid, tileAt, linkAt, TILE, propsAround } from '../world/map';
+import { isSolid, tileAt, biomeAt, linkAt, TILE, propsAround } from '../world/map';
 import { directionOf, facingOf, isRunning, frontTile } from './input';
 import { advanceClock, sleepUntilMorning } from './days';
 import { updateMonsters } from './monsters';
@@ -10,7 +10,7 @@ import { updateGuildHall, actionsOfGuildHall } from './guildHall';
 import { slowSparring } from './sparring';
 import { updateRaid } from './raid';
 import { updateStory } from './chapters';
-import { updateParticles, dust } from './particles';
+import { updateParticles, dust, addTrack } from './particles';
 import { isSoil, workField, dig, chestNear, openChest } from './farm';
 import { saveGame } from './save';
 import { exploreAround } from './explore';
@@ -21,7 +21,8 @@ import { isNight } from './clock';
 import { villageNews } from './villages';
 import { updateVillagers, villagerNear, wakeVillages } from './villagers';
 import { updateVillagerLife } from './villagerLife';
-import { updateAnimals, wakeAnimals } from './animals';
+import { updateAnimals, wakeAnimals, wildAnimalNear, petWildAnimal, strikeWorld, HOSTILE_WILDLIFE } from './animals';
+import { harvestableNear, harvestProp } from './harvest';
 import { updateWeather, knockedOutNear, carry, checkRescue, checkKnockedOut, putDown } from './weather';
 import { updateEncounters } from './encounters';
 import { pushBoulder, wordDoorAt, openWordDoor, obeliskNear, readObelisk, boulderPuzzleAt, offerBoulderReset } from './puzzles';
@@ -39,6 +40,11 @@ import { exitVisitedHouseIfStairs, actionsOfHouses } from './houses';
 import { updateIsekaiStructures, actionsOfStructures } from './isekaiStructures';
 import { updateWorldParties, syncWorldParties, actionsOfParties, onFightEndParties } from './worldParties';
 import { actionsOfIsekai, slowIsekai, updateIsekai } from './isekai';
+import { updateEconomy, slowEconomy } from './economy';
+import { encumbranceStatus } from './weight';
+import { updateBorders } from './kingdomLaws';
+import { kidNear, talkToKid } from './families';
+import { knockOut } from './death';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -80,9 +86,10 @@ function walk(game, input, dt) {
   game.run.walking = direction.x !== 0 || direction.y !== 0;
   if (!game.run.walking || Date.now() < game.run.fadeUntil) return;
 
-  game.run.running = isRunning(input);
+  const enc = encumbranceStatus(game);
+  game.run.running = enc.canSprint && isRunning(input);
   const mount = ridingSpeedMultiplier(game);
-  const distance = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
+  const distance = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * enc.speedMult * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
   const steps = Math.max(1, Math.ceil(distance / MAX_MOVE_STEP));
   const stepDist = distance / steps;
   for (let i = 0; i < steps; i++) {
@@ -98,6 +105,11 @@ function walk(game, input, dt) {
   if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) {
     dust(game, player.x, player.y);
     cue(game, 'step');
+    const under = tileAt(player.x, player.y);
+    const wet = game.weather && (game.weather.kind === 'rain' || game.weather.kind === 'storm');
+    if (under === TILE.SAND || biomeAt(player.x, player.y) === 'mountain' || wet) {
+      addTrack(game, player.x, player.y, direction.x, direction.y, mount > 1 ? 'hoof' : 'foot');
+    }
   }
 }
 
@@ -206,6 +218,7 @@ function actionsOf(game) {
     ...actionsOfSociety(game),
     ...actionsOfCamp(game),
     ...actionsOfStructures(game),
+    { when: () => kidNear(game) !== null, icon: 'people', run: () => talkToKid(game, kidNear(game)) },
     { when: () => villagerNear(game), icon: 'talk', run: () => talkToVillager(game, villagerNear(game)) },
     { when: () => isAtHomeDoor(player), icon: 'quit', run: () => enterHome(game) },
     ...actionsOfGuildHall(game),
@@ -224,6 +237,9 @@ function actionsOf(game) {
     { when: () => isSoil(front.x, front.y), icon: 'carrot', run: () => workField(game, front.x, front.y) },
     { when: () => canRefill(game, front), icon: 'water', run: () => refill(game) },
     { when: () => canGather(game, front.x, front.y), icon: canGather(game, front.x, front.y), run: () => gather(game, front.x, front.y) },
+    { when: () => harvestableNear(game) !== null, icon: harvestableNear(game)?.icon || 'apple', run: () => harvestProp(game, harvestableNear(game).prop) },
+    { when: () => wildAnimalNear(game) !== null && HOSTILE_WILDLIFE.has(wildAnimalNear(game).kind), icon: 'sword', run: () => strikeWorld(game) },
+    { when: () => wildAnimalNear(game) !== null, icon: 'people', run: () => notify(game, '🐾 You gently petted the ' + petWildAnimal(game, wildAnimalNear(game)) + '!', '#ffadd0') },
     { when: () => zoneAt(front.x, front.y).kind !== 'inside', icon: 'dig', run: () => dig(game, front.x, front.y) },
     { when: () => true, icon: 'dots', run: () => {} },
   ];
@@ -276,6 +292,11 @@ function slowUpdates(game, dt) {
     slowIsekai(game);
     updateIsekaiStructures(game);
     syncWorldParties(game);
+    slowEconomy(game);
+    updateBorders(game);
+    if (game.player.health <= 0 && !game.run.fight && game.run.screen === 'play') {
+      knockOut(game);
+    }
   }
   game.run.saveTime += dt;
   if (game.run.saveTime >= SAVE_EVERY) {
@@ -307,6 +328,7 @@ export function updateGame(game, input, dt) {
   updateCamp(game, dt);
   updateBonds(game, dt);
   updateWorldParties(game, dt);
+  updateEconomy(game, dt);
   slowUpdates(game, dt);
 }
 

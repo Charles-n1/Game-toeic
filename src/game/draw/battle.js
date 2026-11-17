@@ -2,6 +2,7 @@ import { typeOf } from '../data/types';
 import { npcOf } from '../data/npcs';
 import { personSprite, swordSprite, obsidianSoldier, obsidianCat } from './people';
 import { monsterSprite } from './monsters';
+import { animalSprite } from './animals';
 import { spriteOf, once } from './pixels';
 import { effectSprite } from './gearArt';
 import { companionRank, companionEffectsList } from '../logic/bonds/training';
@@ -32,6 +33,7 @@ const FADE_TIME = 500; // a beaten opponent disappears
 // The picture of the opponent. pose: 'idle', 'attack', 'death' (the monsters of the sheets have them all).
 // A duel with a person: the person; a duel with a spirit of words (a door, an obelisk, a dummy): a monster shape.
 function foeSprite(opponent, frame, pose = 'idle') {
+  if (opponent.animalKind) return animalSprite(opponent.animalKind, 'left', frame % 2);
   if (opponent.duel && opponent.look) return personSprite(opponent.look, 'left', frame ? 'breath' : 'stand');
   return monsterSprite(opponent, 'left', frame, pose);
 }
@@ -196,6 +198,7 @@ function drawCentered(ctx, canvas, x, y) {
 
 const BLUE_ARC = ['#1f4fd8', '#3a8cff', '#8fd0ff', '#ffffff'];
 const GOLD_ARC = ['#c46a00', '#ff9d1a', '#ffd84a', '#ffffff'];
+const OBSIDIAN_ARC = ['#2b1a42', '#7a3fd1', '#c9a8ff', '#ffffff'];
 
 // A crescent of light: the trace of the sword. The arc goes from the angle `from` to `to` (radians, 0 = forward),
 // thick in its middle and thin at its ends; its outer edge is the brightest. colors: from dark to bright.
@@ -215,7 +218,7 @@ function drawCrescent(ctx, cx, cy, radius, thickness, from, to, colors) {
 }
 
 // The slash of the sword: the crescent grows from the top to the bottom, then its tail catches up.
-function drawSlash(ctx, shoulder, age, last) {
+function drawSlash(ctx, shoulder, age, last, obsidian = false) {
   const start = WIND_UP + DASH - 20;
   const progress = (age - start) / (SLASH + 20);
   if (progress < 0 || progress > 1) return;
@@ -224,8 +227,22 @@ function drawSlash(ctx, shoulder, age, last) {
   const head = top + sweep * Math.min(1, progress * 1.7);
   const tail = top + sweep * Math.max(0, (progress - 0.45) / 0.55);
   if (head - tail < 0.05) return;
-  const big = last.critical ? 1.3 : 1;
-  drawCrescent(ctx, shoulder.x, shoulder.y, Math.round(20 * big), 6 * big, tail, head, last.critical ? GOLD_ARC : BLUE_ARC);
+  const big = last.critical || obsidian ? 1.3 : 1;
+  const colors = last.critical || last.special === 'Holy Sword' ? GOLD_ARC : obsidian ? OBSIDIAN_ARC : BLUE_ARC;
+  drawCrescent(ctx, shoulder.x, shoulder.y, Math.round(20 * big), 6 * big, tail, head, colors);
+}
+
+function drawStatusOrbit(ctx, statuses, cx, cy, time) {
+  const keys = Object.keys(statuses || {});
+  if (keys.length === 0) return;
+  const palette = { burn: '#ff7b3a', poison: '#6ad64a', bleed: '#e8324a', stun: '#ffd23f' };
+  keys.forEach((k, idx) => {
+    const a = time * 4 + idx * 2.1;
+    const sx = Math.round(cx + Math.cos(a) * 14);
+    const sy = Math.round(cy - 12 + Math.sin(a * 1.5) * 4);
+    ctx.fillStyle = palette[k] || '#ffffff';
+    ctx.fillRect(sx - 1, sy - 1, 3, 3);
+  });
 }
 
 // A spell: the hero glows with the color of the spell, then a ball of light flies to the opponent.
@@ -489,7 +506,16 @@ export function drawBattle(ctx, game, camera, time) {
     if (fight.opponents.length > 1 && fight.opponent.health > 0) drawTargetArrow(ctx, foeHome.x, foeHome.y - foeLook.ay - 10, time);
   }
 
-  if (last && last.damage > 0 && last.mode === 'strike') drawSlash(ctx, { x: hero.x + 3, y: hero.y - 13 }, ages.hero, last);
+  if (last && last.damage > 0 && last.mode === 'strike') drawSlash(ctx, { x: hero.x + 3, y: hero.y - 13 }, ages.hero, last, game.player.obsidianBlade > 0);
+  if (game.player.obsidianBlade > 0 || game.player.soldiers > 0) {
+    for (let s = 0; s < 3; s++) {
+      const a = time * 3.8 + (s * Math.PI * 2) / 3;
+      ctx.fillStyle = '#c9a8ff';
+      ctx.fillRect(Math.round(hero.x + Math.cos(a) * 16), Math.round(hero.y - 14 + Math.sin(a) * 5), 2, 2);
+    }
+  }
+  drawStatusOrbit(ctx, fight.statuses?.player, hero.x, hero.y - 6, time);
+  drawStatusOrbit(ctx, fight.statuses?.opponent, middle.x, middle.y, time);
   if (last && last.damage > 0 && last.mode !== 'strike') drawCast(ctx, hero, middle, ages.hero, typeOf(last.mode).color);
   if (last && last.damage > 0) drawImpact(ctx, middle.x - 4, middle.y, ages.foeHit);
   drawCompanionEffects(ctx, game, middle, last, ages);

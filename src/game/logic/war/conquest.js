@@ -140,8 +140,9 @@ export function liberateVillage(game, village) {
   const vState = game.villages[village.id];
   if (!vState || vState.owner === 'people') return false;
   vState.owner = 'people';
-  vState.adults = Math.max(6, vState.adults || 0);
-  vState.kids = Math.max(2, vState.kids || 0);
+  vState.adults = Math.max(3, vState.adults || 0);
+  vState.kids = Math.max(1, vState.kids || 0);
+  vState.rebuilding = true;
   vState.mood = Math.min(100, (vState.mood || 50) + 20);
   const townId = war.conqueredBy[village.id];
   if (townId && war.towns[townId]) {
@@ -153,7 +154,7 @@ export function liberateVillage(game, village) {
   gainXp(game, 40);
   addHappiness(game, 8);
   cue(game, 'warHorn');
-  notify(game, '🏳️ ' + village.name + ' has been liberated! +80 Lexis, +40 XP', '#7CFC9A');
+  notify(game, '🏳️ ' + village.name + ' has been liberated and begins rebuilding! +80 Lexis, +40 XP', '#7CFC9A');
   return true;
 }
 

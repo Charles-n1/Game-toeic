@@ -8,6 +8,8 @@ import { burst, bolt, floatText, bloodSplatter, bloodHit } from './particles';
 import { startFight } from './fight';
 import { makeDuel } from './duels';
 import { saveGame } from './save';
+import { hurtAnimal } from './animals';
+import { soldierUnitMaxHp, emitObsidianShockwave, eruptObsidianSpikes } from './obsidian';
 
 // The powers used on the map: obsidian, lightning, and the elements.
 // A power never kills a big monster: only a good answer can. (And a kill without answer gives no XP.)
@@ -97,7 +99,7 @@ function distance(a, b) {
 function raiseBarrier(game) {
   const centerX = Math.floor(game.player.x);
   const centerY = Math.floor(game.player.y);
-  const until = Date.now() + 10000;
+  const until = Date.now() + 12000;
   for (let dy = -2; dy <= 2; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
       const isRing = Math.abs(dx) === 2 || Math.abs(dy) === 2;
@@ -107,6 +109,7 @@ function raiseBarrier(game) {
       }
     }
   }
+  emitObsidianShockwave(game, game.player.x, game.player.y, 3.2, '#b48cff');
   if (!game.player.obsidianUnlocked) game.player.obsidianUnlocked = ['obsidianBarrier'];
   gainObsidianXp(game, 1);
   return true;
@@ -117,11 +120,12 @@ function summonSoldier(game) {
     notify(game, 'You can not hold more than ' + MAX_SOLDIERS + ' soldiers.');
     return false;
   }
+  const unitHp = soldierUnitMaxHp(game.player);
   game.player.soldiers += 1;
-  game.player.soldierHp = Math.min(game.player.soldiers * SOLDIER_MAX_HP, (game.player.soldierHp || 0) + SOLDIER_MAX_HP);
+  game.player.soldierHp = Math.min(game.player.soldiers * unitHp, (game.player.soldierHp || 0) + unitHp);
   game.player.soldierTime = summonSeconds(game.player); // a new soldier: the whole guard stays longer
-  burst(game, game.player.x, game.player.y, '#3a2f5b', 30);
-  notify(game, '♟️ A tall obsidian soldier rises! Attacks every turn and shields you in front.');
+  emitObsidianShockwave(game, game.player.x, game.player.y, 2.6, '#9f78ff');
+  notify(game, '♟️ Obsidian Sentinel rises (' + unitHp + ' shield HP)! Attacks every turn & shields in front.');
   return true;
 }
 
@@ -132,15 +136,15 @@ function summonPet(game) {
   }
   game.player.pet = true;
   game.player.petTime = summonSeconds(game.player);
-  burst(game, game.player.x, game.player.y, '#3a2f5b', 20);
-  notify(game, '🐈‍⬛ It purrs like breaking glass. It will show the treasures near you.');
+  emitObsidianShockwave(game, game.player.x, game.player.y, 2.2, '#c9a8ff');
+  notify(game, '🐈‍⬛ It purrs like breaking glass. Reveals treasures & boosts rare drops.');
   return true;
 }
 
 function forgeBlade(game) {
   game.player.obsidianBlade = 5;
-  burst(game, game.player.x, game.player.y, '#b48cff', 30);
-  notify(game, '🔪 Obsidian Blade: +20 damage for 5 fights.');
+  emitObsidianShockwave(game, game.player.x, game.player.y, 3.0, '#d8b4f8');
+  notify(game, '🔪 Obsidian Blade active for 5 fights: pierces armor & slashes abyssal shards!');
   return true;
 }
 
@@ -209,8 +213,10 @@ function thunderVerdict(game) {
     const damage = monster.tier === 'small' ? monster.health : Math.ceil(monster.health / 2);
     wound(game, monster, damage);
   }
+  const prey = [...(game.run.wildAnimals || []), ...(game.run.animals || [])].filter((a) => distance(a, game.player) < 4);
+  for (const animal of prey) hurtAnimal(game, animal, 50);
   game.run.flashUntil = Date.now() + 200; // the whole screen turns white for a moment
-  if (near.length === 0) notify(game, 'The thunder falls on nothing.');
+  if (near.length === 0 && prey.length === 0) notify(game, 'The thunder falls on nothing.');
   return true;
 }
 
@@ -268,6 +274,7 @@ const EFFECTS = {
   obsidianSoldier: summonSoldier,
   obsidianPet: summonPet,
   obsidianBlade: forgeBlade,
+  obsidianSpike: (game) => eruptObsidianSpikes(game, (m, dmg) => wound(game, m, dmg), (a, dmg) => hurtAnimal(game, a, dmg)),
   lightningStrike: thunderVerdict,
   lightningField: raiseStorm,
   lightningBall: throwLightningBall,
@@ -279,10 +286,11 @@ const EFFECTS = {
 
 export function usePower(game, powerId) {
   const power = powerOf(powerId);
-  if (!canUsePower(game, power)) return;
-  if (!EFFECTS[powerId](game)) return;
+  if (!canUsePower(game, power)) return false;
+  if (!EFFECTS[powerId](game)) return false;
   game.player.mana -= power.mana;
   game.run.cooldowns[powerId] = Date.now() + power.cooldown * 1000;
+  return true;
 }
 
 // ---------- Every frame ----------
@@ -300,6 +308,12 @@ function moveBall(game, ball, dt) {
   if (hit) {
     wound(game, hit, ball.damage);
     ball.life = 0;
+    return;
+  }
+  const hitAnimal = [...(game.run.wildAnimals || []), ...(game.run.animals || [])].find((a) => distance(a, ball) < 0.8);
+  if (hitAnimal) {
+    hurtAnimal(game, hitAnimal, ball.damage);
+    ball.life = 0;
   }
 }
 
@@ -310,9 +324,27 @@ function regainMana(game, dt) {
   if (game.player.mana < maxMana(game.player)) game.player.mana += 1;
 }
 
+function applyBarrierThorns(game, now) {
+  if (!game.run.barriers || game.run.barriers.length === 0) return;
+  for (const m of [...(game.run.monsters || [])]) {
+    if (m.barrierCd && now < m.barrierCd) continue;
+    const touching = game.run.barriers.find((b) => Math.hypot(b.x + 0.5 - m.x, b.y + 0.5 - m.y) < 0.85);
+    if (!touching) continue;
+    m.barrierCd = now + 1100;
+    const dx = m.x - (touching.x + 0.5);
+    const dy = m.y - (touching.y + 0.5);
+    const len = Math.max(0.1, Math.hypot(dx, dy));
+    m.x += (dx / len) * 0.45;
+    m.y += (dy / len) * 0.45;
+    burst(game, m.x, m.y, '#b48cff', 6);
+    if (m.health > 6 || m.tier === 'small') wound(game, m, 6);
+  }
+}
+
 export function updatePowers(game, dt) {
   const now = Date.now();
   game.run.barriers = game.run.barriers.filter((barrier) => barrier.until > now);
+  applyBarrierThorns(game, now);
   if (game.run.storm && game.run.storm.until < now) game.run.storm = null;
   game.run.balls.forEach((ball) => moveBall(game, ball, dt));
   game.run.balls = game.run.balls.filter((ball) => ball.life > 0);

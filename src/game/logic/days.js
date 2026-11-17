@@ -16,6 +16,9 @@ import { newDayWar } from './war';
 import { newDaySociety } from './society';
 import { newDayCamp } from './camp';
 import { newDayBonds } from './bonds';
+import { newDayEconomy, stepEconomyHours } from './economy';
+import { newDayGuild, healAllCompanions } from './guild/ranks';
+import { advanceClassmatesDay } from './isekai/classmates';
 
 // Time passing: the clock moves, and a new day changes the world.
 
@@ -32,13 +35,17 @@ function newDay(game) {
   newDaySociety(game);
   newDayCamp(game);
   newDayBonds(game);
+  newDayEconomy(game);
+  newDayGuild(game);
+  advanceClassmatesDay(game);
   notify(game, '🌅 Day ' + game.day);
 }
 
-function addHours(game, hours) {
+function addHours(game, hours, allowLethal = true) {
   burnTorch(game, hours); // the rain and the wind put it out (see logic/torch.js)
-  updateSurvival(game, hours);
+  updateSurvival(game, hours, allowLethal);
   drainCurse(game, hours);
+  stepEconomyHours(game, hours);
   game.hour += hours;
   if (game.hour >= 24) {
     game.hour -= 24;
@@ -48,12 +55,12 @@ function addHours(game, hours) {
 
 // Called every frame. dt: seconds since the last frame.
 export function advanceClock(game, dt) {
-  addHours(game, (dt * 24) / DAY_SECONDS);
+  addHours(game, (dt * 24) / DAY_SECONDS, true);
 }
 
 // Something that takes time (a date, a job).
 export function passHours(game, hours) {
-  addHours(game, hours);
+  addHours(game, hours, false);
 }
 
 // Sleeping: the next sunrise, with all the HP and the mana back.
@@ -62,7 +69,9 @@ export function sleepUntilMorning(game) {
   if (!isOutdoors(game)) cureCold(game, '😴 A warm sleep indoors cured your cold!');
   if (game.hour >= SUNRISE) newDay(game); // before midnight: the morning is tomorrow
   game.hour = SUNRISE;
-  updateSurvival(game, hoursSlept * 0.5); // the body slows down while it sleeps
+  updateSurvival(game, hoursSlept * 0.5, false); // the body slows down while it sleeps
+  game.player.fatigue = 0;
   game.player.torchHours = 0; // nobody sleeps with a burning torch
-  healFully(game.player);
+  healFully(game.player, game);
+  healAllCompanions(game);
 }

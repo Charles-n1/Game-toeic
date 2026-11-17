@@ -17,6 +17,9 @@ import { eventTitle } from '../logic/isekai/events';
 import { isCursed } from '../logic/isekai/curses';
 import { isNearCamp } from '../logic/camp';
 import { isVillain, ensureSociety } from '../logic/society/state';
+import { ensureGuild } from '../logic/guild/ranks';
+import { encumbranceStatus } from '../logic/weight';
+import { ensureDoom } from '../logic/war/demonThreat';
 
 const WEATHER_SIGNS = { cloudy: '☁', rain: '🌧', storm: '⛈' };
 
@@ -86,7 +89,7 @@ function Objective({ game, compact }) {
 // Everything drawn on top of the world: the hero, the goal, the map, the clock, the buttons.
 // onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
 // What the action key does now, in a word (for the keyboard help).
-const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', star: 'Pray', shield: 'Build', quests: 'Board', sword: 'Fight', flower: 'Plant', horseFeed: 'Ride', heart: 'Help', bath: 'Bathe', starShard: 'Take', dots: '...' };
+const ACTION_WORDS = { talk: 'Talk', sleep: 'Sleep', chest: 'Open', carrot: 'Farm', dig: 'Dig', fire: 'Light', branch: 'Take', flint: 'Take', ore: 'Mine', crystal: 'Mine', quit: 'Enter', people: 'Carry', map: 'Sail', roastMeat: 'Cook', book: 'Read', woodSword: 'Train', water: 'Fill', inventory: 'Take', star: 'Pray', shield: 'Build', quests: 'Board', sword: 'Hunt', crown: 'Throne', royalPass: 'Pass', repairKit: 'Repair', antidote: 'Cure', flower: 'Pick', horseFeed: 'Ride', heart: 'Rest', bath: 'Bathe', starShard: 'Take', apple: 'Pick', pear: 'Pick', cherry: 'Pick', orange: 'Pick', peach: 'Pick', plum: 'Pick', lemon: 'Pick', fig: 'Pick', olive: 'Pick', coconut: 'Harvest', grapes: 'Harvest', pumpkin: 'Harvest', melon: 'Harvest', strawberry: 'Pick', wildBerries: 'Pick', herb: 'Gather', moonflower: 'Gather', honey: 'Honey', mushroom: 'Forage', egg: 'Gather', feather: 'Gather', milk: 'Take', rawFish: 'Fish', hay: 'Take', firewood: 'Take', bread: 'Take', bone: 'Forage', dots: '...' };
 
 // The help of the keyboard, on a computer (instead of the joystick and the big buttons).
 function KeyHelp({ game }) {
@@ -95,6 +98,9 @@ function KeyHelp({ game }) {
       <span>
         <span className="key">E</span>
         {ACTION_WORDS[actionIcon(game)] || 'Act'}
+      </span>
+      <span>
+        <span className="key">F</span>Hunt
       </span>
       <span>
         <span className="key">M</span>Map
@@ -107,7 +113,7 @@ function KeyHelp({ game }) {
 }
 
 // The joystick and the big buttons, on a touch screen.
-function TouchControls({ game, input, onAction, onMenu }) {
+function TouchControls({ game, input, onAction, onStrike, onMenu }) {
   return (
     <>
       <div style={styles.stick}>
@@ -118,9 +124,16 @@ function TouchControls({ game, input, onAction, onMenu }) {
           <PixelIcon name="menu" size={14} />
           <span>Menu</span>
         </button>
-        <button className="px-button px-action" onClick={onAction} aria-label="action">
-          <PixelIcon name={actionIcon(game)} size={42} />
-        </button>
+        <div className="row" style={{ gap: 10, alignItems: 'flex-end' }}>
+          {onStrike && (
+            <button className="px-button" style={styles.huntBtn} onClick={onStrike} aria-label="hunt">
+              <PixelIcon name="sword" size={24} />
+            </button>
+          )}
+          <button className="px-button px-action" onClick={onAction} aria-label="action">
+            <PixelIcon name={actionIcon(game)} size={42} />
+          </button>
+        </div>
       </div>
     </>
   );
@@ -129,10 +142,13 @@ function TouchControls({ game, input, onAction, onMenu }) {
 // Everything drawn on top of the world: the hero, the goal, the map, the clock, the controls.
 // On a wide screen the goal goes to the top-right, next to the map (like a console RPG).
 // onAction: the big button. onMenu(tab): opens the menu (tab: null = the list).
-export default function Hud({ game, input, onAction, onMenu }) {
+export default function Hud({ game, input, onAction, onStrike, onMenu }) {
   const raid = raidText(game);
   const zone = zoneAt(game.player.x, game.player.y);
   const society = ensureSociety(game);
+  const guild = ensureGuild(game);
+  const enc = encumbranceStatus(game);
+  const doom = ensureDoom(game).silenceDoom || 0;
   const screen = useScreen();
   const showTouch = screen.touch || !screen.wide;
 
@@ -166,6 +182,10 @@ export default function Hud({ game, input, onAction, onMenu }) {
           )}
           {isVillain(game) && <span style={styles.raid}>☠ Villain</span>}
           {game.player.cold?.active && <span style={styles.raid}>🤧 Cold</span>}
+          {enc.state !== 'Normal' && <span style={styles.raid}>🎒 {enc.state} ({enc.weight} kg)</span>}
+          {(game.player.fatigue || 0) >= 85 && <span style={styles.raid}>🥱 Exhausted</span>}
+          {guild.registered && <span style={styles.light}>🪪 Rank {guild.rank}</span>}
+          {!game.bosses?.king && doom >= 40 && <span style={styles.curse}>🌑 Silence {doom}%</span>}
           {game.player.soldiers > 0 && (
             <span style={styles.light}>
               ♟️ Guard ×{game.player.soldiers} · {Math.ceil(game.player.soldierTime)}s
@@ -187,7 +207,7 @@ export default function Hud({ game, input, onAction, onMenu }) {
       <div className="window" style={{ ...styles.zone, bottom: showTouch ? 158 : 12 }}>
         <span>{zone.id === 'visitHouse' && game.run.visitHouse ? game.run.visitHouse.title : zone.name}</span>
       </div>
-      {showTouch ? <TouchControls game={game} input={input} onAction={onAction} onMenu={onMenu} /> : <KeyHelp game={game} />}
+      {showTouch ? <TouchControls game={game} input={input} onAction={onAction} onStrike={onStrike} onMenu={onMenu} /> : <KeyHelp game={game} />}
     </div>
   );
 }
@@ -310,5 +330,11 @@ const styles = {
     gap: 6,
     padding: '6px 10px',
     fontSize: 15,
+  },
+  huntBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    padding: 0,
   },
 };

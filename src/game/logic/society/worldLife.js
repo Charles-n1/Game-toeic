@@ -24,6 +24,9 @@ import {
   villagePriceMultiplier,
   startSocietyFight,
 } from './state';
+import { tryEscapeGuard, arrestPlayer } from '../kingdomLaws';
+import { openGuildContractsMenu } from '../guild';
+import { boardContractsFor } from '../guild/ranks';
 
 // Slave traders & cages, town decorations, turrets, bounty boards, festivals, fireworks, and guard chases.
 
@@ -454,6 +457,12 @@ export function interactBoard(game, zone) {
       },
     });
   }
+  const availGuild = boardContractsFor(game, village.id).filter((c) => !c.accepted).length;
+  choices.unshift({
+    label: 'Guild Contracts Board (' + availGuild + ' fresh today)',
+    icon: 'quests',
+    run: () => openGuildContractsMenu(game, village.id),
+  });
   choices.push({ label: 'Leave', run: () => {} });
 
   const statusLine = village.name + ' Notice Board — Mood: ' + (state.mood ?? 50) + '/100 · Decor: ' + (state.decor || 0) + ' · Turrets: ' + (state.turrets || []).length + '/' + turretSpots(village).length + (isFestivalActive(game, village.id) ? ' · 🎉 FESTIVAL TODAY!' : '');
@@ -462,6 +471,11 @@ export function interactBoard(game, zone) {
 }
 
 export function interactBanditCamp(game, camp) {
+  const cState = game.war?.camps?.[camp.id];
+  if (cState && cState.chiefAlive === false) {
+    say(game, null, ['The bandit chief’s tent lies ransacked and abandoned.']);
+    return;
+  }
   const clan = BANDIT_CLANS.find((item) => item.id === camp.clan) || BANDIT_CLANS[0];
   say(game, null, ['Banner of ' + clan.name + '! ' + clan.chief + ' and a band of thugs guard the camp.'], [
     {
@@ -621,12 +635,21 @@ function confrontWithGuard(game, knight) {
       run: () => launchGuardFight(game, knight),
     },
     {
-      label: 'Break away and run',
+      label: 'Break away and run (Speed check)',
       icon: 'step',
       run: () => {
-        game.run.guardCooldownUntil = Date.now() + 12000;
-        notify(game, '🏃 You slipped past the guard!', '#ffd23f');
+        if (tryEscapeGuard(game)) {
+          game.run.guardCooldownUntil = Date.now() + 12000;
+          notify(game, '🏃 You slipped past the guard!', '#ffd23f');
+        } else {
+          arrestPlayer(game, knight.village, knight.name, 'Attempted escape');
+        }
       },
+    },
+    {
+      label: 'Surrender peacefully (Jail / Parole)',
+      icon: 'shield',
+      run: () => arrestPlayer(game, knight.village, knight.name, 'Surrendered to town watch'),
     },
   ]);
 }

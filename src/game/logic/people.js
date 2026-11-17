@@ -4,6 +4,9 @@ import { propsAround } from '../world/map';
 import { findPath, followPath } from '../world/paths';
 import { isEncountered } from './encounters';
 import { guildChoice } from './guild';
+import { maxPartySize, dailyWageOf } from './guild/ranks';
+import { rulerChoices } from './kingdomLaws';
+import { studyLanguageChoices, translateForHero } from './languages';
 import { LESSON_PRICE, LESSON_FRIENDSHIP, POWERS } from '../data/powers';
 import { ITEMS } from '../data/items';
 import { pickRandom } from '../../logic/random';
@@ -36,7 +39,6 @@ export const FRIEND_STEPS = [0, 20, 50, 80]; // the friendship needed to hear ea
 const RECRUIT_FRIENDSHIP = 50;
 const DATE_FRIENDSHIP = 50;
 const PROPOSE_FRIENDSHIP = 80;
-const MAX_PARTY = 2;
 const TALK_RANGE = 1.5; // tiles
 
 // ---------- Where they are ----------
@@ -289,17 +291,28 @@ function lessonChoice(game, npc) {
 
 function recruitChoice(game, npc) {
   if (!npc.fighter) return null;
+  const isCloseFriend = game.player.spouse === npc.id || (game.npcs[npc.id]?.friendship || 0) >= 85;
+  const retainer = isCloseFriend ? 0 : Math.round((npc.fee || 150) * 0.25);
+  const wage = dailyWageOf(game, npc.id);
   function recruit() {
+    const cap = maxPartySize(game);
     if (game.npcs[npc.id].friendship < RECRUIT_FRIENDSHIP) {
-      say(game, npc.id, ['I do not follow strangers into battle. Earn my trust first.']);
-    } else if (game.player.party.length >= MAX_PARTY) {
-      say(game, npc.id, ['You already have ' + MAX_PARTY + ' companions. Send one home first.']);
+      say(game, npc.id, ['I do not follow strangers into battle. Earn my trust first (Friendship 50) or hire through the Guild.']);
+    } else if (game.player.party.length >= cap) {
+      say(game, npc.id, ['You already have ' + cap + ' companions for your Guild Rank. Raise your Guild Rank or send someone home.']);
+    } else if (game.player.lexis < retainer) {
+      say(game, npc.id, ['Even among friends, supplies cost coin. I need ' + retainer + ' Lexis up front.']);
     } else {
+      game.player.lexis -= retainer;
       game.player.party.push(npc.id);
-      notify(game, '⚔️ ' + npc.name + ' joins you! +10 damage in every fight.', '#7CFC9A');
+      notify(game, '⚔️ ' + npc.name + ' joins you!' + (retainer > 0 ? ' (-' + retainer + ' Lexis retainer)' : '') + (wage > 0 ? ' · ' + wage + ' Lexis/day' : ''), '#7CFC9A');
     }
   }
-  return { label: 'Fight by my side', icon: 'woodSword', run: recruit };
+  return {
+    label: retainer > 0 ? 'Recruit ally (' + retainer + ' Lexis, ' + wage + '/day)' : 'Fight by my side (' + (wage > 0 ? wage + '/day' : 'Free') + ')',
+    icon: 'woodSword',
+    run: recruit,
+  };
 }
 
 // She is free if she has no family, or if her family is the player.
@@ -429,13 +442,17 @@ export function talkTo(game, npc) {
   const mood = isVillain(game) || state.friendship < 0 ? 'anger' : game.player.spouse === npc.id ? 'love' : 'joy';
   setExpression(game, npc.id, mood);
   cue(game, voiceSoundFor(npc.id));
+  const greetingLine = npc.teachesLanguage ? translateForHero(game, npc.teachesLanguage, greeting(game, npc)) : greeting(game, npc);
+  const studyChoice = studyLanguageChoices(game, npc);
   const choices = [
+    ...rulerChoices(game, npc),
+    ...(studyChoice ? [studyChoice] : []),
     ...CHOICE_MAKERS.map((make) => make(game, npc)).filter((choice) => choice !== null),
     ...npcBondChoices(game, npc),
     strikeNpcChoice(game, npc),
   ];
   choices.push({ label: 'Leave', run: () => {} });
-  say(game, npc.id, [greeting(game, npc)], choices);
+  say(game, npc.id, [greetingLine], choices);
 }
 
 // A companion goes back home.

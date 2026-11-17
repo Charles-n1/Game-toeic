@@ -9,6 +9,7 @@ import GameOver from './GameOver';
 import { drawScene } from '../draw/scene';
 import { makeInput, releaseAll, normalizeKey, ACTION_KEYS } from '../logic/input';
 import { updateGame, updateEffects, act } from '../logic/update';
+import { strikeWorld } from '../logic/animals';
 import { saveGame } from '../logic/save';
 import { toggleTorch } from '../logic/torch';
 import { takeCues } from '../logic/cues';
@@ -83,6 +84,7 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
       input.keys[key] = true;
       input.keys.Shift = Boolean(event.shiftKey);
       if (ACTION_KEYS.includes(key) && !event.repeat) doAction();
+      if (key === 'f' && !event.repeat) doStrike();
       if (SHORTCUTS[key]) openMenu(SHORTCUTS[key]);
       if (key === 't' && !event.repeat) switchTorch();
       if (key === 'Escape') openMenu(null);
@@ -99,6 +101,12 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
 
   function doAction() {
     act(game);
+    refresh();
+  }
+
+  function doStrike() {
+    if (game.run.screen !== 'play') return;
+    strikeWorld(game);
     refresh();
   }
 
@@ -127,8 +135,8 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
 
   return (
     <div className="screen">
-      <canvas ref={canvasRef} className="game-canvas" />
-      {screen === 'play' && <Hud game={game} input={input} onAction={doAction} onMenu={openMenu} />}
+      <canvas ref={canvasRef} className="game-canvas" onClick={doStrike} />
+      {screen === 'play' && <Hud game={game} input={input} onAction={doAction} onStrike={doStrike} onMenu={openMenu} />}
       {screen === 'dialog' && (
         <div className="ui-layer">
           <DialogBox game={game} refresh={refresh} />

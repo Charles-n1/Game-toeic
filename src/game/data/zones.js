@@ -8,6 +8,7 @@ import { landOfTile } from '../world/regions';
 import { LANDS } from './lands';
 import { STORY_DUNGEONS, DOOR_FROM_BOTTOM } from './dungeons';
 import { KINGDOMS } from './kingdoms';
+import { STRUCTURES_50, STRUCTURE_BY_ID } from './structures50';
 
 // The world: an island of 2560 x 2560 tiles, from the painting art/MAP2.png (see world/size.js, world/ground.js).
 // Under it, out of sight, the INSIDES: the floors of the dungeons and of the caves, the home of the player.
@@ -262,7 +263,7 @@ function fencesOf(pen) {
 
 // The things of the wild: obelisks, grey totems, campfires, Isekai structures, the lonely homes.
 export const WILD_PROPS = [...WILD_OBELISKS, ...TOTEMS, ...WILD_CAMPFIRES, ...WILD_STRUCTURE_PROPS, ...WILD_HOMES.map((home) => ({ kind: home.prop, x: home.x + 2, y: home.y - 1, w: home.prop === 'hut' ? 2 : 1, h: 1, home: home.id }))];
-export { WILD_HOMES, WILD_STRUCTURES };
+export { WILD_HOMES, WILD_STRUCTURES, STRUCTURES_50, STRUCTURE_BY_ID };
 
 // The things standing on the ground that never change: nobody walks through them.
 // (The walls of the villages change with their level: see logic/villages.js.)

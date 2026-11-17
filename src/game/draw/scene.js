@@ -26,6 +26,12 @@ import { campDrawings, drawCampEffects } from './campArt';
 import { bondsDrawings, drawBondsEffects } from './bondsArt';
 import { partyDrawings, drawPartyEffects } from './partiesArt';
 import * as isekaiArt from './isekaiArt';
+import * as structuresArt from './structuresArt';
+import * as decorArt from './decorArt';
+import { FLAT_DECORS } from '../data/decorations';
+import { isPropHarvested } from '../logic/harvest';
+import { economyDrawings } from './economyArt';
+import { familyKidsList } from '../logic/families';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
 // then the buffer is drawn 2 to 4 times bigger on the screen, without smoothing: crisp pixel art.
@@ -362,6 +368,7 @@ function propSprite(prop, time, game) {
     toilet: () => buildings.toilet(),
     basin: () => buildings.basin(),
     diningTable: () => buildings.diningTable(),
+    throne: () => buildings.throne(),
     barCounter: () => buildings.barCounter(prop.w),
     tavernTable: () => buildings.tavernTable(),
     wardrobe: () => buildings.wardrobe(),
@@ -428,11 +435,15 @@ function propSprite(prop, time, game) {
   }
   if (prop.kind === 'portalRuins') return props.portalRuins(blink);
   if (prop.kind === 'monsterBanner') return props.monsterBanner();
+  const decorSprite = decorArt.decorSprite(prop.kind, time, isPropHarvested(game, prop));
+  if (decorSprite) return decorSprite;
+  const structSprite = structuresArt.structureSprite(prop.kind, time, !game || game.hour >= 18 || game.hour < 6);
+  if (structSprite) return structSprite;
   return props.fence();
 }
 
-// The props on the floor (plates, rugs, bones, rubble, traps, bedrolls) are drawn under everything; the others stand.
-const FLAT = ['plate', 'window', 'bones', 'rubble', 'spikeTrap', 'tripwire', 'bedroll'];
+// The props on the floor (plates, rugs, bones, rubble, traps, bedrolls, flowers/burrows) are drawn under everything; the others stand.
+const FLAT = ['plate', 'window', 'bones', 'rubble', 'spikeTrap', 'tripwire', 'bedroll', 'fairyRing', 'abyssRift', 'coralTidepool', 'moonMirror', ...FLAT_DECORS];
 
 // The props around the view (the tall ones whose feet are just below are drawn too).
 function propsOfView(view, game = null) {
@@ -527,9 +538,9 @@ function personDrawing(look, place, view, time, salt, extra) {
   };
 }
 
-// The people inside the guild hall (logic/guildHall.js): drinkers lift their mugs, servers walk.
+// The people inside guild halls & palaces (logic/guildHall.js, logic/houses.js): drinkers lift mugs, servers walk, rulers hold court.
 function guildPatronDrawings(game, view, time) {
-  const patrons = game.run.visitHouse && game.run.visitHouse.guild ? game.run.visitHouse.patrons : [];
+  const patrons = game.run.visitHouse && Array.isArray(game.run.visitHouse.patrons) ? game.run.visitHouse.patrons : [];
   return patrons.map((patron, i) => {
     if (!patron.drinking) {
       return personDrawing(patron.look, patron, view, time, i, (ctx) => {
@@ -610,16 +621,54 @@ function villagerDrawings(game, view, time) {
     });
 }
 
-function animalDrawings(game, view) {
-  return game.run.animals
+function childDrawings(game, view, time) {
+  return familyKidsList(game)
+    .filter((kid) => isNear(view, kid.x - 1, kid.y - 2, 2, 2))
+    .map((kid, i) => personDrawing(kid.look, kid, view, time, 200 + i));
+}
+
+function drawAnimalHp(ctx, animal, x, y, sprite, view) {
+  if (!animal.maxHp || animal.hp === undefined || animal.hp >= animal.maxHp) return;
+  const px = Math.round(x - view.x);
+  const py = Math.round(y - sprite.ay - view.y) - 4;
+  const w = 14;
+  const fill = Math.max(1, Math.round((Math.max(0, animal.hp) / animal.maxHp) * w));
+  ctx.fillStyle = '#1c1726';
+  ctx.fillRect(px - 7, py, w, 3);
+  ctx.fillStyle = '#ff4d6d';
+  ctx.fillRect(px - 7, py, fill, 2);
+}
+
+function animalDrawings(game, view, time) {
+  const HOP_KINDS = new Set(['rabbit', 'rabbitBrown', 'frog', 'squirrel', 'fawn', 'piglet', 'lamb', 'sparrow', 'crow', 'pheasant']);
+  const farm = (game.run.animals || [])
     .filter((animal) => isNear(view, animal.x - 1, animal.y - 1, 2, 2))
     .map((animal) => ({
       y: animal.y,
       draw: (ctx) => {
+        const sp = animalSprite(animal.kind, animal.dir, Math.floor(animal.step) % 2);
         put(ctx, shadow(), animal.x * T, animal.y * T, view);
-        put(ctx, animalSprite(animal.kind, animal.dir, Math.floor(animal.step) % 2), animal.x * T, animal.y * T, view);
+        put(ctx, sp, animal.x * T, animal.y * T, view);
+        drawAnimalHp(ctx, animal, animal.x * T, animal.y * T, sp, view);
       },
     }));
+  const wild = (game.run.wildAnimals || [])
+    .filter((w) => isNear(view, w.x - 1, w.y - 1, 2, 2))
+    .map((w) => {
+      const moving = w.walkX !== 0 || w.walkY !== 0;
+      const frame = moving ? Math.floor(w.step) % 2 : Math.floor(time * 2 + w.x) % 2;
+      const hop = moving && HOP_KINDS.has(w.kind) ? -Math.abs(Math.sin(w.step * 2.2)) * 3 : 0;
+      const sp = animalSprite(w.kind, w.dir, frame);
+      return {
+        y: w.y,
+        draw: (ctx) => {
+          put(ctx, shadow(), w.x * T, w.y * T, view);
+          put(ctx, sp, w.x * T, w.y * T + hop, view);
+          drawAnimalHp(ctx, w, w.x * T, w.y * T + hop, sp, view);
+        },
+      };
+    });
+  return [...farm, ...wild];
 }
 
 // The boats of the harbors, rocking on the water with gentle ripples.
@@ -764,10 +813,85 @@ function drawBalls(ctx, game, view) {
   for (const ball of game.run.balls) {
     const x = Math.round(ball.x * T - view.x);
     const y = Math.round(ball.y * T - view.y - 10);
+    for (let t = 3; t >= 1; t--) {
+      ctx.globalAlpha = 0.22 * (4 - t) / 3;
+      ctx.fillStyle = ball.color;
+      const tx = Math.round((ball.x - ball.dx * t * 0.22) * T - view.x);
+      const ty = Math.round((ball.y - ball.dy * t * 0.22) * T - view.y - 10);
+      ctx.fillRect(tx - 2, ty - 2, 4, 4);
+    }
+    ctx.globalAlpha = 1;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(x - 3, y - 3, 6, 6);
     ctx.fillStyle = ball.color;
     ctx.fillRect(x - 2, y - 2, 4, 4);
+  }
+}
+
+function drawVfxRings(ctx, game, view) {
+  for (const ring of game.run.vfxRings || []) {
+    const t = Math.min(1, ring.age / ring.life);
+    const r = (0.4 + ring.maxRadius * t) * T;
+    ctx.globalAlpha = Math.max(0, 1 - t) * 0.85;
+    ctx.strokeStyle = ring.color || '#b48cff';
+    ctx.lineWidth = Math.max(1, (ring.width || 2) * (1 - t * 0.5));
+    ctx.beginPath();
+    ctx.arc(Math.round(ring.x * T - view.x), Math.round(ring.y * T - view.y - 4), r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1;
+}
+
+function drawObsidianSpikes(ctx, game, view) {
+  for (const sp of game.run.spikes || []) {
+    const p = sp.age / sp.life;
+    const grow = Math.min(1, p * 4.5);
+    const fade = p > 0.7 ? Math.max(0, (1 - p) / 0.3) : 1;
+    const h = Math.round(sp.h * grow);
+    const x = Math.round(sp.x * T - view.x);
+    const y = Math.round(sp.y * T - view.y);
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = '#1c1428';
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y);
+    ctx.lineTo(x, y - h);
+    ctx.lineTo(x + 4, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = sp.color || '#b48cff';
+    ctx.fillRect(x - 1, y - h + 2, 2, Math.max(2, h - 4));
+    ctx.fillStyle = '#f3d8ff';
+    ctx.fillRect(x, y - h, 1, 3);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBarrierAuras(ctx, game, view, time) {
+  for (const b of game.run.barriers || []) {
+    const bx = Math.round((b.x + 0.5) * T - view.x);
+    const by = Math.round((b.y + 0.7) * T - view.y);
+    ctx.fillStyle = 'rgba(180, 140, 255, ' + (0.16 + Math.sin(time * 7 + b.x) * 0.08).toFixed(2) + ')';
+    ctx.fillRect(bx - 7, by - 4, 14, 7);
+  }
+}
+
+function drawHeroAura(ctx, game, view, time) {
+  const player = game.player;
+  if (!player.powers?.includes('obsidian')) return;
+  const blade = player.obsidianBlade > 0;
+  const active = blade || player.soldiers > 0 || player.obsidianResonance;
+  const shards = blade || player.obsidianResonance ? 4 : active ? 3 : 1;
+  const cx = player.x * T - view.x;
+  const cy = player.y * T - view.y - 10;
+  for (let i = 0; i < shards; i++) {
+    const angle = time * (blade ? 4.2 : 2.5) + (i * Math.PI * 2) / shards;
+    const sx = Math.round(cx + Math.cos(angle) * (blade ? 13 : 10));
+    const sy = Math.round(cy + Math.sin(angle) * 5);
+    ctx.fillStyle = '#1c1428';
+    ctx.fillRect(sx - 2, sy - 2, 4, 4);
+    ctx.fillStyle = blade || player.obsidianResonance ? '#e8c8ff' : '#9f78ff';
+    ctx.fillRect(sx - 1, sy - 1, 2, 2);
   }
 }
 
@@ -854,9 +978,14 @@ function lightsOf(game, view, time = 0) {
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
-  for (const prop of propsOfView(view, game).filter((item) => LIGHT_KINDS[item.kind] && isNear(view, item.x, item.y, item.w, item.h))) {
+  for (const prop of propsOfView(view, game)) {
+    if (!isNear(view, prop.x, prop.y, prop.w, prop.h)) continue;
+    const spec = structuresArt.structureLightSpec(prop.kind) || decorArt.decorLightSpec(prop.kind);
+    const radius = LIGHT_KINDS[prop.kind] || (spec ? spec.radius : 0);
+    if (!radius) continue;
     const flick = Math.round(Math.sin(time * 6 + prop.x * 1.7 + prop.y) * 3);
-    lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: LIGHT_KINDS[prop.kind] + flick, warm: !COLD_LIGHTS.includes(prop.kind) });
+    const warm = LIGHT_KINDS[prop.kind] ? !COLD_LIGHTS.includes(prop.kind) : !spec.cold;
+    lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: radius + flick, warm: warm });
   }
   for (const house of burningHouses(game, view)) {
     lights.push({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h * 0.3) * T - view.y, radius: Math.max(70, house.w * 8), warm: true });
@@ -1005,6 +1134,50 @@ function drawBloodPools(ctx, game, view) {
   ctx.globalAlpha = 1;
 }
 
+// Temporary footprints & herd hoof tracks fading gently in sand, snow or rain-wet soil.
+function drawTracks(ctx, game, view) {
+  const tracks = game && game.run && Array.isArray(game.run.tracks) ? game.run.tracks : [];
+  if (tracks.length === 0) return;
+  for (const track of tracks) {
+    if (!isNear(view, track.x - 1, track.y - 1, 2, 2)) continue;
+    const fade = Math.max(0, Math.min(1, 1 - track.age / track.life));
+    const cx = Math.round(track.x * T - view.x);
+    const cy = Math.round(track.y * T - view.y);
+    ctx.globalAlpha = fade * 0.42;
+    ctx.fillStyle = '#302820';
+    if (track.kind === 'hoof') {
+      ctx.fillRect(cx - 1, cy - 1, 1, 2);
+      ctx.fillRect(cx + 1, cy - 1, 1, 2);
+    } else {
+      ctx.fillRect(cx - 1, cy, 2, 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHeroSlash(ctx, game, view) {
+  const left = game.run.slashUntil ? game.run.slashUntil - Date.now() : 0;
+  if (left <= 0) return;
+  const cx = Math.round(game.player.x * T - view.x);
+  const cy = Math.round(game.player.y * T - view.y - 8);
+  const dir = game.run.slashDir || game.player.dir;
+  const angles = { right: [-0.95, 0.95], left: [Math.PI - 0.95, Math.PI + 0.95], down: [Math.PI / 2 - 0.95, Math.PI / 2 + 0.95], up: [-Math.PI / 2 - 0.95, -Math.PI / 2 + 0.95] };
+  const [a0, a1] = angles[dir] || angles.down;
+  const alpha = Math.min(1, left / 150).toFixed(2);
+  const obsidian = game.player.obsidianBlade > 0;
+  ctx.strokeStyle = obsidian ? 'rgba(180, 110, 255, ' + alpha + ')' : 'rgba(130, 210, 255, ' + alpha + ')';
+  ctx.lineWidth = obsidian ? 5 : 4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, obsidian ? 16 : 14, a0, a1);
+  ctx.stroke();
+  ctx.strokeStyle = obsidian ? 'rgba(255, 225, 255, ' + alpha + ')' : 'rgba(255, 250, 210, ' + alpha + ')';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, obsidian ? 15 : 13, a0 + 0.15, a1 - 0.15);
+  ctx.stroke();
+  ctx.lineWidth = 1;
+}
+
 // The world around the player. width, height: the size of the screen canvas. time: seconds.
 export function drawScene(ctx, game, width, height, time) {
   const scale = game.run.fight ? fightScale(width, height) : pixelScale(width, height);
@@ -1013,15 +1186,23 @@ export function drawScene(ctx, game, width, height, time) {
   const fight = game.run.fight;
 
   drawGround(art, game, view, time);
+  drawTracks(art, game, view);
   drawWaterLife(art, view, time);
   drawBloodPools(art, game, view);
+  drawBarrierAuras(art, game, view, time);
   drawStorm(art, game, view, time);
   drawTreasureHint(art, game, view, time);
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
-  const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
+  const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...childDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
-  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time));
+  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
+  if (!fight) {
+    drawHeroAura(art, game, view, time);
+    drawHeroSlash(art, game, view);
+    drawObsidianSpikes(art, game, view);
+    drawVfxRings(art, game, view);
+  }
   if (!fight) drawEmotes(art, game, view);
   if (fight) drawBattle(art, game, view, time);
   drawBalls(art, game, view);
@@ -1034,6 +1215,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawBondsEffects(art, game, view, time);
   drawPartyEffects(art, game, view);
   isekaiArt.drawIsekaiEffects(art, game, view, time);
+  structuresArt.drawStructureAmbience(art, game, view, time);
   drawWeather(art, game, view, time);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));
   drawFade(art, game);

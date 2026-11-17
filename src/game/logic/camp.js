@@ -12,7 +12,10 @@ import { cue } from './cues';
 import { burst, dust, floatText } from './particles';
 import { emote } from './emotes';
 import { canGather } from './torch';
-import { canRefill, fireToCookNear } from './survival';
+import { canRefill, fireToCookNear, boilBottle } from './survival';
+import { recipesForStation, canPlayerCraft, craftPlayerItem } from './craftingPlayer';
+import { healAllCompanions } from './guild/ranks';
+import { makeMonster } from './monsters';
 import { isSoil, closestTreasure, dig } from './farm';
 import { obeliskNear } from './puzzles';
 import { priceOf } from './shop';
@@ -236,14 +239,26 @@ export function restAtCamp(game, hours = null) {
   if (hours === null) {
     sleepUntilMorning(game);
     addCompanionFatigue(game, wasLit ? -80 : -50);
+    healAllCompanions(game);
+    const z = zoneAt(player.x, player.y);
+    const ambushChance = (z.danger || 0) >= 2 ? ((player.party || []).length > 0 ? 0.08 : 0.22) : 0;
+    if (ambushChance > 0 && Math.random() < ambushChance && !game.run.fight) {
+      const prowler = z.species?.length > 0 ? z.species[Math.floor(Math.random() * z.species.length)] : 'wolf';
+      const ambusher = makeMonster(game, prowler, player.x + 1.5, player.y);
+      game.run.monsters.push(ambusher);
+      notify(game, '⚠️ A nocturnal ' + ambusher.name + ' prowled into camp while you slept!', '#ff8a95');
+    } else {
+      notify(game, wasLit ? '💤 Slept warmly until morning. HP, MP and party energy restored!' : '💤 Slept until morning. HP and MP restored.', '#9fd8ff');
+    }
     saveGame(game);
-    notify(game, wasLit ? '💤 Slept warmly until morning. HP, MP and party energy restored!' : '💤 Slept until morning. HP and MP restored.', '#9fd8ff');
   } else {
     passHours(game, hours);
+    player.fatigue = Math.max(0, (player.fatigue || 0) - Math.round(hours * 12));
     const ratio = wasLit ? 0.5 : 0.3;
     heal(player, Math.ceil(maxHealth(player) * ratio));
     restoreMana(player, Math.ceil(maxMana(player) * ratio));
     addCompanionFatigue(game, wasLit ? -40 : -20);
+    healAllCompanions(game);
     notify(game, '⛺ Rested ' + hours + 'h at camp. HP/MP recovered and fatigue eased.', '#9fd8ff');
   }
   cue(game, 'campPitch');
@@ -547,6 +562,34 @@ export function openCampMenu(game) {
   }
   if (Object.keys(player.bag).some((id) => ITEMS[id] && ITEMS[id].kind === 'food' && id !== 'rawMeat')) {
     choices.push({ label: 'Eat / Share a Dish from Bag', icon: 'roastMeat', run: () => openBagMealsMenu(game) });
+  }
+  if (camp.lit && player.bottle > 0 && player.bottleUntreated) {
+    choices.push({
+      label: 'Boil River Water Clean',
+      icon: 'water',
+      run: () => {
+        boilBottle(game);
+        openCampMenu(game);
+      },
+    });
+  }
+  const craftable = recipesForStation('camp');
+  if (craftable.length > 0) {
+    choices.push({
+      label: 'Field Craft & Alchemy (' + craftable.filter((r) => canPlayerCraft(game, r)).length + ' ready)',
+      icon: 'antidote',
+      run: () => {
+        const list = craftable.map((r) => ({
+          label: ITEMS[r.id].name + (canPlayerCraft(game, r) ? ' ✓' : '') + ' · ' + Object.entries(r.needs).map(([k, v]) => ITEMS[k].name + '×' + v).join(', '),
+          icon: r.id,
+          run: () => {
+            craftPlayerItem(game, r.id);
+            openCampMenu(game);
+          },
+        }));
+        say(game, null, ['Field alchemy & leatherwork at camp:'], [...list, { label: 'Back', run: () => openCampMenu(game) }]);
+      },
+    });
   }
 
   choices.push({ label: 'Rest at Camp (HP/MP & Fatigue)', icon: 'sleep', run: () => openRestMenu(game) });

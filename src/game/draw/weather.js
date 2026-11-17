@@ -132,19 +132,120 @@ function drawFireflies(ctx, game, width, height, time) {
   ctx.globalAlpha = 1;
 }
 
-function drawBirds(ctx, width, height, time) {
+// The sky of the birds and of the mist belongs to the world (not to the screen): when the hero walks,
+// they stay where they are in the world. A pattern of SKY_SPAN pixels repeats everywhere.
+const SKY_SPAN = 800; // wider than the widest view, so nothing pops at the edges
+
+// Where a thing of the world is on the screen, on one axis. The pattern repeats every span pixels, so the
+// sky is full everywhere. margin: lets the thing leave by one edge before it comes back by the other.
+function wrapToView(worldPos, viewPos, span, margin) {
+  return ((((worldPos - viewPos) % span) + span) % span) - margin;
+}
+
+// A few small birds flying slowly across the land.
+function drawBirds(ctx, view, time) {
   const cycle = time * 14;
-  for (let i = 0; i < 4; i++) {
-    const x = Math.round((fixed(i, 41) * width + cycle + i * 11) % (width + 80)) - 40;
-    const y = Math.round((fixed(i, 42) * height * 0.55 + Math.sin(time * 1.6 + i) * 6 + cycle * 0.15) % (height + 20)) - 10;
+  ctx.fillStyle = '#1c2440';
+  for (let i = 0; i < 10; i++) {
+    const worldX = fixed(i, 41) * SKY_SPAN + cycle + i * 11;
+    const worldY = fixed(i, 42) * SKY_SPAN + Math.sin(time * 1.6 + i) * 6 + cycle * 0.15;
+    const x = Math.round(wrapToView(worldX, view.x, SKY_SPAN, 40));
+    const y = Math.round(wrapToView(worldY, view.y, SKY_SPAN, 40));
     const flap = Math.sin(time * 10 + i * 1.4) > 0 ? -1 : 1;
-    ctx.fillStyle = '#1c2440';
     ctx.fillRect(x, y, 1, 1);
     ctx.fillRect(x - 1, y + flap, 1, 1);
     ctx.fillRect(x + 1, y + flap, 1, 1);
     ctx.fillRect(x - 2, y + flap, 1, 1);
     ctx.fillRect(x + 2, y + flap, 1, 1);
   }
+}
+
+// A V-formation flock of 7 wild geese migrating across the land.
+function drawVFlock(ctx, view, time) {
+  const span = SKY_SPAN * 2; // one flock is rarer than the small birds
+  const leadX = Math.round(wrapToView(time * 18, view.x, span, 90));
+  const leadY = Math.round(wrapToView(span * 0.3 + Math.sin(time * 0.25) * 14, view.y, span, 90));
+  const offsets = [[0, 0], [-7, -5], [-7, 5], [-14, -10], [-14, 10], [-21, -15], [-21, 15]];
+  ctx.fillStyle = '#263048';
+  for (let i = 0; i < offsets.length; i++) {
+    const bx = leadX + offsets[i][0];
+    const by = leadY + offsets[i][1];
+    const flap = Math.sin(time * 8 + i * 0.8) > 0 ? -1 : 1;
+    ctx.fillRect(bx, by, 2, 1);
+    ctx.fillRect(bx - 1, by + flap, 1, 1);
+    ctx.fillRect(bx + 2, by + flap, 1, 1);
+  }
+}
+
+// Raptors circling slowly over a spot of the land, with faint shadows gliding below.
+function drawSoaringHawks(ctx, view, time) {
+  for (let i = 0; i < 2; i++) {
+    const cx = wrapToView(fixed(i, 71) * SKY_SPAN, view.x, SKY_SPAN, 60);
+    const cy = wrapToView(fixed(i, 72) * SKY_SPAN, view.y, SKY_SPAN, 60);
+    const angle = time * 0.42 + i * Math.PI;
+    const x = Math.round(cx + Math.cos(angle) * 38);
+    const y = Math.round(cy + Math.sin(angle) * 20);
+    ctx.fillStyle = 'rgba(15, 20, 32, 0.16)';
+    ctx.fillRect(x - 1, y + 26, 4, 2); // shadow far below
+    ctx.fillStyle = '#3b2c20';
+    ctx.fillRect(x - 3, y, 7, 1);
+    ctx.fillRect(x - 1, y - 1, 2, 3);
+  }
+}
+
+// Floating white dandelion fluff & pollen gently drifting on sunny days.
+function drawPollenSeeds(ctx, width, height, time) {
+  ctx.fillStyle = 'rgba(255, 252, 232, 0.72)';
+  for (let i = 0; i < 16; i++) {
+    const x = Math.round(((fixed(i, 81) * width + time * (6 + fixed(i, 82) * 5) + Math.sin(time * 1.3 + i) * 12) % (width + 16)) - 8);
+    const y = Math.round(((fixed(i, 83) * height + Math.cos(time * 0.9 + i * 2) * 8) % (height + 16)) - 8);
+    ctx.fillRect(x, y, 1, 1);
+    if (i % 3 === 0) ctx.fillRect(x + 1, y - 1, 1, 1);
+  }
+}
+
+// Iridescent dragonflies darting over reed beds and shorelines.
+function drawDragonflies(ctx, width, height, time) {
+  for (let i = 0; i < 5; i++) {
+    const hover = Math.floor(time * 1.8 + i) % 3 === 0 ? 0 : time * 32;
+    const x = Math.round(((fixed(i, 91) * width + Math.sin(hover * 0.15 + i * 2) * 22) % (width + 16)) - 8);
+    const y = Math.round(((fixed(i, 92) * height + Math.cos(hover * 0.2 + i) * 14) % (height + 16)) - 8);
+    ctx.fillStyle = i % 2 === 0 ? '#5fe6ff' : '#96ff6b';
+    ctx.fillRect(x, y, 2, 1);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.fillRect(x, y - 1, 1, 1);
+  }
+}
+
+// Gentle early-morning ground mist between 5:00 and 9:00. The banks lie on the land and drift slowly.
+function drawMorningMist(ctx, game, view, time) {
+  if (game.hour < 5 || game.hour >= 9) return;
+  const strength = game.hour < 7.5 ? 0.09 : 0.04;
+  ctx.fillStyle = `rgba(228, 240, 255, ${strength})`;
+  for (let i = 0; i < 12; i++) {
+    const w = 80 + fixed(i, 101) * 70;
+    const worldX = fixed(i, 102) * SKY_SPAN + time * (4 + i);
+    const worldY = fixed(i, 103) * SKY_SPAN + Math.sin(time * 0.5 + i) * 4;
+    const x = Math.round(wrapToView(worldX, view.x, SKY_SPAN, 160));
+    const y = Math.round(wrapToView(worldY, view.y, SKY_SPAN, 20));
+    ctx.fillRect(x, y, Math.round(w), 14);
+  }
+}
+
+// Rare brief shooting stars sliding across clear night skies.
+function drawShootingStars(ctx, width, height, time) {
+  const slot = Math.floor(time / 7);
+  const phase = (time % 7) / 0.55;
+  if (phase > 1 || fixed(slot, 111) > 0.45) return;
+  const x0 = fixed(slot, 112) * width * 0.7 + width * 0.1;
+  const y0 = fixed(slot, 113) * height * 0.35 + 10;
+  const x = Math.round(x0 + phase * 44);
+  const y = Math.round(y0 + phase * 18);
+  ctx.strokeStyle = `rgba(255, 252, 224, ${(1 - phase).toFixed(2)})`;
+  ctx.beginPath();
+  ctx.moveTo(x - 8, y - 3);
+  ctx.lineTo(x, y);
+  ctx.stroke();
 }
 
 // The shadows of the clouds, gliding slowly over the land. They belong to the world (not to the screen):
@@ -156,8 +257,8 @@ function drawCloudShadows(ctx, view, time, strength) {
   for (let i = 0; i < 6; i++) {
     const worldX = fixed(i, 51) * CLOUD_SPAN + time * 9;
     const worldY = fixed(i, 52) * CLOUD_SPAN + time * 2;
-    const x = ((((worldX - view.x) % CLOUD_SPAN) + CLOUD_SPAN) % CLOUD_SPAN) - 160;
-    const y = ((((worldY - view.y) % CLOUD_SPAN) + CLOUD_SPAN) % CLOUD_SPAN) - 120;
+    const x = wrapToView(worldX, view.x, CLOUD_SPAN, 160);
+    const y = wrapToView(worldY, view.y, CLOUD_SPAN, 120);
     const w = 90 + fixed(i, 53) * 90;
     const h = 30 + fixed(i, 54) * 26;
     ctx.beginPath();
@@ -194,8 +295,16 @@ export function drawWeather(ctx, game, view, time) {
   else if (kind === 'storm') drawRain(ctx, width, height, time, 170);
   if ((biome === 'forest' || zone.id === 'woods') && kind !== 'storm') drawLeaves(ctx, width, height, time);
   if (dark < 0.35 && kind === 'clear' && biome !== 'demon' && biome !== 'mountain') drawButterflies(ctx, width, height, time);
-  if (kind !== 'storm' && dark < 0.45) drawBirds(ctx, width, height, time);
+  if (dark < 0.35 && kind === 'clear' && biome !== 'demon' && biome !== 'mountain') drawPollenSeeds(ctx, width, height, time);
+  if (dark < 0.35 && kind !== 'storm' && (biome === 'shore' || biome === 'coast' || biome === 'lake')) drawDragonflies(ctx, width, height, time);
+  if (kind !== 'storm' && dark < 0.45) {
+    drawBirds(ctx, view, time);
+    drawVFlock(ctx, view, time);
+    if (biome === 'mountain' || biome === 'meadow' || biome === 'coast') drawSoaringHawks(ctx, view, time);
+  }
+  if (kind === 'clear' || kind === 'cloudy') drawMorningMist(ctx, game, view, time);
   drawFireflies(ctx, game, width, height, time);
+  if (dark >= 0.55 && (kind === 'clear' || kind === 'cloudy')) drawShootingStars(ctx, width, height, time);
   if (game.weather.windy) drawWindGusts(ctx, width, height, time);
   drawStarShower(ctx, game, width, height, time);
   drawBolts(ctx, game, view);

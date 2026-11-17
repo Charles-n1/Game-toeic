@@ -4,6 +4,8 @@ import { isSolid, propsAround } from '../world/map';
 import { pickRandom } from '../../logic/random';
 import { killNpc, addFriendship, addHappiness } from './village';
 import { addBoost, clearBoostSource } from './boosts';
+import { seasonOf } from './clock';
+import { accessoryStat } from './player';
 import { say, notify } from './messages';
 import { burst } from './particles';
 import { cue } from './cues';
@@ -135,7 +137,9 @@ function updateCold(game, dt) {
     player.cold.exposure = Math.max(0, player.cold.exposure - dt * 0.6);
     return;
   }
-  player.cold.exposure += dt * (game.weather.kind === 'storm' ? 1.6 : 1.0);
+  const winterMod = seasonOf(game) === 'Winter' ? 1.45 : 1;
+  const resist = Math.max(0.25, 1 - (accessoryStat(player, 'coldResist') || 0));
+  player.cold.exposure += dt * (game.weather.kind === 'storm' ? 1.6 : 1.0) * winterMod * resist;
   if (!player.cold.active && player.cold.exposure >= 22) {
     player.cold.active = true;
     addBoost(game, 'speed', -2, null, 'cold');

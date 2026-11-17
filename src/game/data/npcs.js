@@ -142,7 +142,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'rin', name: 'Rin', role: 'Fox merchant', at: ['port', 'market'], shop: 'market', romance: true, likes: ['gem', 'oldCoin'], bonds: { dorian: 'friend' },
+    id: 'rin', name: 'Rin', role: 'Fox merchant', race: 'beastkin', at: ['port', 'market'], shop: 'market', romance: true, likes: ['gem', 'oldCoin'], bonds: { dorian: 'friend' },
     look: { skin: '#fde0c8', hair: '#ff9a3c', style: 'long', eyes: '#f2c200', outfit: '#2f8f83', trim: '#ffe9c2', ears: true },
     hello: ['Maps, rings, secrets. Two of them are for sale.', 'A good deal has a subject, a verb and a price.', 'Nya... I mean, welcome.'],
     life: [
@@ -187,7 +187,7 @@ export const NPCS = [
     ],
   },
   {
-    id: 'nyx', name: 'Nyx', role: 'Girl from the north', at: ['wild', 'nyx'], fighter: true, romance: true, nightOnly: true, likes: ['flower', 'bread'], bonds: { vespera: 'friend' },
+    id: 'nyx', name: 'Nyx', role: 'Girl from the north', race: 'demon', at: ['wild', 'nyx'], fighter: true, romance: true, nightOnly: true, likes: ['flower', 'bread'], bonds: { vespera: 'friend' },
     look: { skin: '#e6d5e8', hair: '#6a3fb5', style: 'long', eyes: '#e0304e', outfit: '#1c1c28', trim: '#6a3fb5', horns: true },
     hello: ['Do not scream. I am tired of screams.', 'You smell like another world.', 'The night is the only time I can be here.'],
     life: [
@@ -397,6 +397,130 @@ export const NPCS = [
       'You sat two rows in front of me. You fell asleep on your desk before the listening part.',
       'My mother here is a fisherwoman. She does not know. I love her. Is that strange?',
       'I do not want to go back. Here, my life has a taste. Do not tell Lea.',
+    ],
+  },
+
+  // ---------- The Kingdom Rulers: real heads of state at their capital palaces ----------
+  {
+    id: 'queenSera', name: 'Queen Sera', role: 'Queen of Lexia', at: ['capital-lexia', 'palace', 3], rulerOf: 'lexia', likes: ['gem', 'flower', 'starShard'],
+    bonds: { lea: 'mentor', lyra: 'friend' },
+    look: { skin: '#fde0c8', hair: '#f2d27a', style: 'long', eyes: '#3a7bd5', outfit: '#8a1c34', trim: '#ffd23f' },
+    hello: ['The crown grows heavier each week the Silence spreads.', 'Lexhaven still remembers every word ever spoken beneath its banners.', 'Speak plainly, adventurer. Actions weigh as much as grammar.'],
+    life: [
+      'I summoned Lea when the border forts stopped answering our dispatches.',
+      'My father swore never to seal the library doors, even if winter starved us.',
+      'Kharsa raids our southern roads, yet Solecis is the shadow behind us all.',
+      'Bring peace to the roads and Lexia will open every vault to you.',
+    ],
+  },
+  {
+    id: 'kingAldric', name: 'King Aldric', role: 'King of Verdania', at: ['capital-verdania', 'palace', 3], rulerOf: 'verdania', likes: ['honey', 'antler', 'herbStew'],
+    bonds: { sylvia: 'friend' },
+    look: { skin: '#e8c49a', hair: '#5a3a1e', style: 'short', eyes: '#3f9b2f', outfit: '#2f6b32', trim: '#e8b83a', beard: true },
+    hello: ['Verdania feeds on timber and ancient roots, not empty boasts.', 'Watch Thornvale spears if you cross south without papers.', 'Good steel needs seasoned woodmiths and steady hands.'],
+    life: [
+      'My woodcutters respect the old oaks only when hunger is kept at bay.',
+      'Thornvale wants our western logging valleys. Tell Lord Edmund I will not budge.',
+      'Sylvia warned me that the Silent Isle wakes old monsters beneath the canopy.',
+      'A hunter who keeps the packs thin earns Verdania’s seal.',
+    ],
+  },
+  {
+    id: 'jarlIngrid', name: 'Jarl Ingrid', role: 'Jarl of Frosthold', at: ['capital-frosthold', 'palace', 3], rulerOf: 'frosthold', likes: ['roastMeat', 'pelt', 'ore'],
+    bonds: { arthur: 'friend' },
+    look: { skin: '#f9e4d4', hair: '#f0e2a8', style: 'pony', eyes: '#5fb8ff', outfit: '#3b6a9a', trim: '#e8eef7' },
+    hello: ['Frosthold measures courage by who stands outside in a gale.', 'Aurelia sends ships to raid our harbors while the north freezes.', 'Warm yourself by our hearth, traveler, if your purse is honest.'],
+    life: [
+      'Here we lose sheep to wolves and ships to Aurelian privateers.',
+      'Wear fur in winter, or the storm will claim you before the monsters do.',
+      'The Chrono Warden locks the high pass and stalls our iron caravans.',
+      'Break that frozen watchtower and every clan of Frosthold will hail you.',
+    ],
+  },
+  {
+    id: 'sultanRashid', name: 'Sultan Rashid', role: 'Sultan of Kharsa', at: ['capital-kharsa', 'palace', 3], rulerOf: 'kharsa', likes: ['rareSpice', 'silkBolt', 'gem'],
+    bonds: { dorian: 'rival' },
+    look: { skin: '#c98e62', hair: '#1c1726', style: 'short', eyes: '#d9a030', outfit: '#c46a18', trim: '#ffd23f', beard: true },
+    hello: ['Coins cross the dunes faster than armies, traveler.', 'Do not mistake hospitality for weakness at our oasis gates.', 'Our caravans bled for years because General Barbarism armed the sandclans.'],
+    life: [
+      'Lexia accuses Kharsa of hoarding grain while closing its own border posts.',
+      'Crush the Dune Jackals on the southern road and trade will flow again.',
+      'No border stays shut to a courier carrying stamped papers—or deep pockets.',
+      'Gold keeps cities alive when speeches fail.',
+    ],
+  },
+  {
+    id: 'dukeCassian', name: 'Duke Cassian', role: 'Duke of Aurelia', at: ['capital-aurelia', 'palace', 3], rulerOf: 'aurelia', likes: ['crystal', 'silverBrooch', 'roastedFish'],
+    bonds: { rin: 'friend' },
+    look: { skin: '#f2d4bc', hair: '#6e3a8a', style: 'short', eyes: '#e05a8a', outfit: '#5a2f7a', trim: '#d8dee8' },
+    hello: ['Harbors, blue crystal, and salted wind—that is Aurelia’s wealth.', 'Smugglers pay fines or wear irons in Port Aurel.', 'Every ship in our docks tracks the price of ore and herbs.'],
+    life: [
+      'Our cliff mines feed half the mages and smiths on the eastern coast.',
+      'Frosthold calls our fleets pirates; we call theirs stubborn.',
+      'Keep sea lanes busy and crystal prices steady, and you are always welcome.',
+      'The eastern coves hide ruins older than any kingdom banner.',
+    ],
+  },
+  {
+    id: 'lordEdmund', name: 'Lord Edmund', role: 'Lord of Thornvale', at: ['capital-thornvale', 'palace', 3], rulerOf: 'thornvale', likes: ['warTrophy', 'warShield', 'apple'],
+    bonds: { hinata: 'friend' },
+    look: { skin: '#e5c09e', hair: '#3a3442', style: 'short', eyes: '#8a5ad6', outfit: '#4e2f68', trim: '#e8b83a', beard: true },
+    hello: ['Discipline separates a knight from an armed bandit.', 'Thornvale borders stay guarded day and night.', 'Show me a warrior with a high guild rank and I will show you trust.'],
+    life: [
+      'My knights hold the southern forest trails against bandits and Verdania alike.',
+      'We do not trust unvetted strangers wandering near our granaries.',
+      'Clear local monster towns and Thornvale will stamp any pass you ask.',
+      'A weak border invites disaster before winter even begins.',
+    ],
+  },
+  {
+    id: 'captainMaren', name: 'Captain Maren', role: 'Captain of Skyreach', at: ['capital-isles', 'palace', 3], rulerOf: 'isles', likes: ['rawFish', 'goldenChalice', 'gem'],
+    bonds: { kai: 'friend' },
+    look: { skin: '#d8a278', hair: '#8a2a24', style: 'long', eyes: '#3fc6c0', outfit: '#1c5468', trim: '#ffd23f' },
+    hello: ['Out here the sea makes the laws, not inland crowns.', 'No war between us and the mainland—unless you cheat my sailors.', 'Wind, salt, and sharp steel keep Skyreach free.'],
+    life: [
+      'Every merchant vessel crossing the strait pays a fair harbor due.',
+      'Harpies nest near the cliffs when storms blow north from the Silent Isle.',
+      'Even isolated islands feel the Silence when supply galleons arrive empty.',
+      'Sailors respect someone who carries supplies when storms roll in.',
+    ],
+  },
+
+  // ---------- Non-Human Peoples: Elves, Dwarves & Beastkin sages ----------
+  {
+    id: 'thalindra', name: 'Thalindra', role: 'Sylvan Elf Lorekeeper', race: 'elf', at: ['capital-verdania', 'library', 2], teachesLanguage: 'elvish', teachesSkills: ['prepositions'], fighter: true, fee: 220, romance: true, likes: ['flower', 'honey', 'herb'],
+    bonds: { sylvia: 'friend', kingAldric: 'friend' },
+    look: { skin: '#f6e4d0', hair: '#9ee898', style: 'long', eyes: '#3fa036', outfit: '#2d6e3a', trim: '#e8d27a', elfEars: true },
+    hello: ['Mae govannen—ah, you do not speak Sylvan Elvish yet. Let us fix that.', 'Humans rush their verbs like axes. Forests speak patiently.', 'Our fletchers only trade their finest bows to those who learn our tongue.'],
+    life: [
+      'Sylvan elves remember the world before the seven human crowns existed.',
+      'When Silence crept into Verbwood, ancient oak rings stopped humming.',
+      'Speak Sylvan Elvish well and our markets will halve their suspicion.',
+      'I walk beside those who protect roots as fiercely as towns.',
+    ],
+  },
+  {
+    id: 'thorin', name: 'Thorin', role: 'Mountain Dwarf Forgemaster', race: 'dwarf', at: ['capital-frosthold', 'forge', 2], shop: 'forge', teachesLanguage: 'dwarvish', likes: ['ore', 'crystal', 'roastMeat'],
+    bonds: { darius: 'friend', jarlIngrid: 'friend' },
+    look: { skin: '#e6bfa0', hair: '#b85028', style: 'short', eyes: '#3a3442', outfit: '#5a4a3a', trim: '#c9883a', beard: true, burly: true, dwarfBrow: true },
+    hello: ['Iron remembers every hammer blow! Speak Khazad or bring decent ore.', 'Elves sing to trees; dwarves argue with steel until it obeys.', 'Learn Dwarvish and I’ll shave the price off any forge work.'],
+    life: [
+      'The deep mountain veins under Frosthold used to supply every forge on the continent.',
+      'A dwarf’s hammer sings even when the sky tries to freeze your hands off.',
+      'Bring me blue crystal and pure iron, and I will teach you proper smithwork.',
+      'If Solecis falls, we will dig the eastern pass open again!',
+    ],
+  },
+  {
+    id: 'khalid', name: 'Khalid', role: 'Beastkin Sand-Blade', race: 'beastkin', at: ['capital-kharsa', 'arena', 2], fighter: true, fee: 185, teachesLanguage: 'beast', likes: ['rawMeat', 'roastMeat', 'rareSpice'],
+    bonds: { sultanRashid: 'friend', dorian: 'friend' },
+    look: { skin: '#d8a274', hair: '#c87a2a', style: 'spiky', eyes: '#f2c200', outfit: '#b85828', trim: '#ffd23f', ears: true },
+    hello: ['Hmph. Sharp eyes for a flat-ear! Ready to earn sand-blood in the pit?', 'Beastkin hear a caravan bell three dunes before humans spot dust.', 'Learn Beastkin Cant and the dune traders will share their shortcuts.'],
+    life: [
+      'Our clans ran the desert mail long before Kharsa raised sandstone towers.',
+      'Rin left the dunes for the coast, yet she still smells salt like a fox.',
+      'In the Qadira pit, excuses bleed faster than flesh.',
+      'Watch my flank and nothing leaps out of the dark unnoticed.',
     ],
   },
 

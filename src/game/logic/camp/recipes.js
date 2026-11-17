@@ -37,18 +37,27 @@ export const DISH_BOOSTS = {
     { stat: 'spell', amount: 15, hours: 16 },
     { stat: 'defense', amount: 3, hours: 16 },
   ],
+  roastedFish: [{ stat: 'speed', amount: 3, hours: 8 }],
+  mushroomSoup: [{ stat: 'spell', amount: 10, hours: 10 }],
+  berryTart: [
+    { stat: 'speed', amount: 4, hours: 12 },
+    { stat: 'health', amount: 15, hours: 12 },
+  ],
 };
 
 // Camp cooking recipes. pot: true requires the cooking pot (hero has it by default).
 export const CAMP_RECIPES = [
   { id: 'roastMeat', needs: { rawMeat: 1 }, water: 0, pot: false },
+  { id: 'roastedFish', needs: { rawFish: 1 }, water: 0, pot: false },
   { id: 'broth', needs: { bone: 2 }, water: 1, pot: true },
+  { id: 'mushroomSoup', needs: { mushroom: 2 }, water: 1, pot: true },
   { id: 'herbStew', needs: { rawMeat: 1, herb: 1 }, water: 1, pot: true },
   { id: 'hunterSkewer', needs: { rawMeat: 1, carrot: 1 }, water: 0, pot: false },
   { id: 'spicedStew', needs: { rawMeat: 1, herb: 1, carrot: 1 }, water: 1, pot: true },
   { id: 'heartySoup', needs: { bone: 1, carrot: 1, wheat: 1 }, water: 1, pot: true },
   { id: 'scholarTea', needs: { herb: 1, flower: 1 }, water: 1, pot: true },
   { id: 'honeyPorridge', needs: { wheat: 2, flower: 1 }, water: 1, pot: true },
+  { id: 'berryTart', needs: { wildBerries: 2, wheat: 1, honey: 1 }, water: 0, pot: true },
   { id: 'travelersFeast', needs: { rawMeat: 1, carrot: 1, wheat: 1, herb: 1 }, water: 1, pot: true },
 ];
 

@@ -13,6 +13,8 @@ import { monsterCategory } from '../learning';
 import { TAG_POWER, TAG_ATTACK, tagOf, higherTag } from '../skills';
 import { startFight } from '../fight';
 import { addInfamy, changeVillageMood } from '../society/state';
+import { ensureEconomy } from '../economy/state';
+import { completeShipment } from '../economy/traffic';
 import {
   dist,
   centerOfPlace,
@@ -224,12 +226,25 @@ export function slowCaravans(game) {
 
   for (const caravan of game.run.caravans) {
     if (!caravan.attackedOnce && !caravan.underAttack && zoneAt(caravan.x, caravan.y).kind === 'land' && dist(caravan, game.player) < 45) {
-      if (Math.random() < 0.08) triggerCaravanAttack(game, caravan);
+      const guarded = (ensureEconomy(game).patrols || []).some((p) => dist(p, caravan) < 75);
+      if (Math.random() < (guarded ? 0.02 : 0.08)) triggerCaravanAttack(game, caravan);
     }
   }
 }
 
 function continueCaravanRoute(game, caravan) {
+  if (caravan.shipmentId) {
+    const shipment = (ensureEconomy(game).shipments || []).find((s) => s.id === caravan.shipmentId);
+    if (shipment) {
+      completeShipment(game, shipment, !caravan.plundered);
+      if (dist(caravan, game.player) < 35 && !caravan.plundered) {
+        const toName = caravanDestinationName(caravan);
+        const itemLabel = ITEMS[shipment.itemId]?.name || shipment.itemId;
+        notify(game, `🛒 ${caravan.name} delivered ${shipment.qty}× ${itemLabel} to ${toName} (+${shipment.feeLexis} Lexis fee).`, '#e8d8a8');
+      }
+      return false;
+    }
+  }
   if (caravan.legCount >= 2 || caravan.plundered) return false;
   const friendly = VILLAGES.filter(
     (v) => v.id !== caravan.toId && v.id !== caravan.fromId && game.villages[v.id] && game.villages[v.id].owner === 'people'
@@ -258,9 +273,45 @@ function continueCaravanRoute(game, caravan) {
   return true;
 }
 
+function syncEconomyShipmentsOnScreen(game) {
+  const econ = ensureEconomy(game);
+  for (const s of econ.shipments || []) {
+    if (!s.alive || s.plundered || dist(s, game.player) > 180) continue;
+    if (game.run.caravans.some((c) => c.shipmentId === s.id)) continue;
+    game.run.caravans.push({
+      id: nextWarId(game, 'caravan'),
+      shipmentId: s.id,
+      name: s.merchantName || 'Merchant Hauler',
+      fromId: s.fromId,
+      toId: s.toId,
+      x: s.x,
+      y: s.y,
+      dir: s.dir || 'right',
+      step: 0,
+      horseStep: 0,
+      hp: s.hp || 70,
+      maxHp: s.maxHp || 70,
+      alive: true,
+      underAttack: Boolean(s.underAttack),
+      attackedOnce: false,
+      rewarded: false,
+      plundered: false,
+      legCount: 0,
+      pauseUntil: 0,
+      wagonColor: s.wagonColor || '#d9cbb0',
+      merchantLook: merchantLook(),
+      targetX: s.targetX,
+      targetY: s.targetY,
+      cargo: { itemId: s.itemId, qty: s.qty, feeLexis: s.feeLexis },
+      despawnAt: Date.now() + 260000,
+    });
+  }
+}
+
 export function updateCaravans(game, dt) {
   const runWar = ensureRunWar(game);
   if (zoneAt(game.player.x, game.player.y).kind !== 'inside') {
+    syncEconomyShipmentsOnScreen(game);
     runWar.caravanTimer -= dt;
     if (runWar.caravanTimer <= 0) {
       runWar.caravanTimer = CARAVAN_SPAWN_EVERY;
@@ -268,10 +319,17 @@ export function updateCaravans(game, dt) {
     }
   }
 
+  const econ = ensureEconomy(game);
   const now = Date.now();
   const remaining = [];
   for (const caravan of game.run.caravans) {
-    if (!caravan.alive) continue;
+    if (!caravan.alive) {
+      if (caravan.shipmentId) {
+        const s = (econ.shipments || []).find((x) => x.id === caravan.shipmentId);
+        if (s) completeShipment(game, s, false);
+      }
+      continue;
+    }
     if (caravan.underAttack) {
       updateCaravanAttackers(game, caravan, dt);
       if (caravan.alive) remaining.push(caravan);
@@ -282,6 +340,15 @@ export function updateCaravans(game, dt) {
       continue;
     }
     const arrived = stepCaravanAlongRoad(game, caravan, dt);
+    if (caravan.shipmentId) {
+      const s = (econ.shipments || []).find((x) => x.id === caravan.shipmentId);
+      if (s) {
+        s.x = caravan.x;
+        s.y = caravan.y;
+        s.dir = caravan.dir;
+        if (caravan.plundered) s.plundered = true;
+      }
+    }
     if (!arrived || continueCaravanRoute(game, caravan)) remaining.push(caravan);
   }
   game.run.caravans = remaining;
@@ -340,18 +407,29 @@ export function handleCaravanFightEnd(game, fight) {
   const caravan = (game.run.caravans || []).find((c) => c.id === opponent.caravanId);
   if (fight.phase === 'won' && caravan) {
     caravan.plundered = true;
+    if (caravan.shipmentId) {
+      const s = (ensureEconomy(game).shipments || []).find((x) => x.id === caravan.shipmentId);
+      if (s) {
+        s.plundered = true;
+        completeShipment(game, s, false);
+      }
+    }
     bloodSplatter(game, caravan.x, caravan.y, 14);
     burst(game, caravan.x, caravan.y, '#ffd23f', 20);
     const lexis = 35 + Math.floor(Math.random() * 30);
     earnLexis(game, lexis);
     addItem(game.player, 'mysteryCrate', 1);
+    if (caravan.cargo && caravan.cargo.qty > 0 && ITEMS[caravan.cargo.itemId]) {
+      addItem(game.player, caravan.cargo.itemId, caravan.cargo.qty);
+    }
     if (Math.random() < 0.45) addItem(game.player, 'mysteryRelic', 1);
     if (Math.random() < 0.5) addItem(game.player, 'caravanParcel', 1);
     addInfamy(game, 22);
     changeVillageMood(game, caravan.fromId, -10);
     changeVillageMood(game, caravan.toId, -10);
     cue(game, 'victory');
-    notify(game, '🏴‍☠️ Plundered ' + caravan.name + '! Found a Mystery Supply Crate & +' + lexis + ' Lexis! (+22 Infamy)', '#ff8a3d');
+    const cargoNote = caravan.cargo && caravan.cargo.qty > 0 && ITEMS[caravan.cargo.itemId] ? ` +${caravan.cargo.qty} ${ITEMS[caravan.cargo.itemId].name},` : '';
+    notify(game, '🏴‍☠️ Plundered ' + caravan.name + '! Found' + cargoNote + ' a Mystery Supply Crate & +' + lexis + ' Lexis! (+22 Infamy)', '#ff8a3d');
   }
   return true;
 }
@@ -408,7 +486,32 @@ export function interactCaravan(game, caravan) {
     { label: 'Wish them safe travels', run: () => {} },
   ];
 
-  say(game, null, ['🛒 ' + caravan.name + ' waves from atop the horse leading a loaded wagon.\n"Hauling goods from ' + fromName + ' to ' + toName + '!"'], choices);
+  const cargo = caravan.cargo && caravan.cargo.qty > 0 && ITEMS[caravan.cargo.itemId] ? caravan.cargo : null;
+  if (cargo) {
+    const unitPrice = Math.max(4, Math.round((ITEMS[cargo.itemId].sell || 6) * 1.4));
+    choices.unshift({
+      label: `Buy Cargo: 1× ${ITEMS[cargo.itemId].name} (${cargo.qty} in wagon · ${unitPrice} Lexis)`,
+      icon: cargo.itemId,
+      run: () => {
+        if (game.player.lexis < unitPrice) {
+          notify(game, `Need ${unitPrice} Lexis.`, '#ff8a95');
+          return;
+        }
+        game.player.lexis -= unitPrice;
+        cargo.qty -= 1;
+        addItem(game.player, cargo.itemId, 1);
+        const s = caravan.shipmentId && (ensureEconomy(game).shipments || []).find((x) => x.id === caravan.shipmentId);
+        if (s) s.qty = Math.max(0, cargo.qty);
+        cue(game, 'trade');
+        notify(game, `📦 Bought 1× ${ITEMS[cargo.itemId].name} from the caravan.`, '#7cfc9a');
+      },
+    });
+  }
+
+  const cargoLine = cargo
+    ? `Hauling ${cargo.qty}× ${ITEMS[cargo.itemId].name} from ${fromName} to ${toName} (paid ${cargo.feeLexis} Lexis freight).`
+    : `Hauling goods from ${fromName} to ${toName}!`;
+  say(game, null, ['🛒 ' + caravan.name + ' waves from atop the horse leading a loaded wagon.\n"' + cargoLine + '"'], choices);
 }
 
 // ---------- Corpses & Burying ----------

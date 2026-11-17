@@ -7,6 +7,8 @@ import { notify } from './messages';
 import { burst, floatText } from './particles';
 import { dropCursedThing } from './isekai/curses';
 import { lexisBonus, countEventKill } from './isekai/events';
+import { awardGuildPoints } from './guild/ranks';
+import { onBossDefeated } from './war/demonThreat';
 
 // What happens when a monster dies: it leaves the map, and leaves things behind.
 
@@ -44,5 +46,7 @@ export function lootMonster(game, monster) {
   game.counts.kills += 1;
   countKill(game, monster.species);
   countEventKill(game);
+  if (monster.boss) onBossDefeated(game, monster.species);
+  else awardGuildPoints(game, monster.tier === 'small' ? 2 : 5);
   removeMonster(game, monster);
 }
