@@ -15,8 +15,8 @@ import { ANIMAL_DROPS, FIGHT_ANIMALS, herdBackupsFor, isFighterAnimal, makeAnima
 // real-life behavioral AI patterns, anti-one-shot resilience, burrow escapes, and counter-attack fights.
 
 const KINDS = ['cow', 'pig', 'horse', 'chicken'];
-const MAX_SHOWN = 6; // per kind and per pen
-const MAX_WILD_ANIMALS = 36;
+const MAX_SHOWN = 3; // per kind and per pen
+const MAX_WILD_ANIMALS = 18;
 const WILD_META = Object.fromEntries(WILD_ANIMALS_CATALOG.map((w) => [w.id, w]));
 const FARM_META = {
   cow: { name: 'Village Cow', speed: 0.4, fleeSpeed: 3.0, pattern: 'heavyCharge', hp: 290 },
@@ -31,16 +31,16 @@ export const HOSTILE_WILDLIFE = new Set(['wolf', 'bear', 'boar', 'bison']);
 
 export const HERD_TEMPLATES = {
   deerHerd: { label: 'Deer Herd', members: ['deer', 'doe', 'doe', 'fawn', 'fawn'], shy: true, walkSpeed: 0.72, fleeSpeed: 6.5, grazeChance: 0.55 },
-  boarHerd: { label: 'Boar Sounder', members: ['boar', 'boar', 'piglet', 'piglet', 'piglet'], shy: true, walkSpeed: 0.68, fleeSpeed: 4.9, grazeChance: 0.5 },
-  wildHorseHerd: { label: 'Wild Horse Herd', members: ['wildHorse', 'wildHorse', 'wildHorse', 'foal', 'foal'], shy: true, walkSpeed: 0.95, fleeSpeed: 7.4, grazeChance: 0.45 },
-  sheepFlock: { label: 'Sheep Flock', members: ['sheep', 'sheep', 'sheep', 'lamb', 'lamb', 'shepherdDog'], shy: false, walkSpeed: 0.48, fleeSpeed: 2.8, grazeChance: 0.65 },
-  goatHerd: { label: 'Alpine Goat Herd', members: ['goat', 'goat', 'goat', 'goat'], shy: true, walkSpeed: 0.58, fleeSpeed: 4.5, grazeChance: 0.55 },
-  waterfowlFlock: { label: 'Waterfowl Flock', members: ['swan', 'duck', 'duck', 'duckling', 'goose', 'heron'], shy: true, walkSpeed: 0.45, fleeSpeed: 4.8, grazeChance: 0.55 },
-  rabbitWarren: { label: 'Rabbit Family', members: ['rabbit', 'rabbitBrown', 'rabbit', 'rabbitBrown'], shy: true, walkSpeed: 0.78, fleeSpeed: 5.7, grazeChance: 0.6 },
-  birdFlock: { label: 'Bird Flock', members: ['sparrow', 'sparrow', 'pheasant', 'crow'], shy: true, walkSpeed: 0.85, fleeSpeed: 5.5, grazeChance: 0.5 },
-  wolfPack: { label: 'Wolf Pack', members: ['wolf', 'wolf', 'wolf', 'wolf'], shy: false, walkSpeed: 1.15, fleeSpeed: 6.0, grazeChance: 0.3 },
-  bisonHerd: { label: 'Bison Herd', members: ['bison', 'bison', 'bison', 'bison'], shy: false, walkSpeed: 0.58, fleeSpeed: 5.2, grazeChance: 0.6 },
-  gooseGaggle: { label: 'Goose Gaggle', members: ['goose', 'goose', 'goose', 'duck'], shy: true, walkSpeed: 0.52, fleeSpeed: 5.0, grazeChance: 0.55 },
+  boarHerd: { label: 'Boar Sounder', members: ['boar', 'piglet', 'piglet'], shy: true, walkSpeed: 0.68, fleeSpeed: 4.9, grazeChance: 0.5 },
+  wildHorseHerd: { label: 'Wild Horse Herd', members: ['wildHorse', 'wildHorse', 'foal'], shy: true, walkSpeed: 0.95, fleeSpeed: 7.4, grazeChance: 0.45 },
+  sheepFlock: { label: 'Sheep Flock', members: ['sheep', 'sheep', 'lamb', 'shepherdDog'], shy: false, walkSpeed: 0.48, fleeSpeed: 2.8, grazeChance: 0.65 },
+  goatHerd: { label: 'Alpine Goat Herd', members: ['goat', 'goat', 'goat'], shy: true, walkSpeed: 0.58, fleeSpeed: 4.5, grazeChance: 0.55 },
+  waterfowlFlock: { label: 'Waterfowl Flock', members: ['swan', 'duck', 'duckling', 'goose'], shy: true, walkSpeed: 0.45, fleeSpeed: 4.8, grazeChance: 0.55 },
+  rabbitWarren: { label: 'Rabbit Family', members: ['rabbit', 'rabbitBrown', 'rabbit'], shy: true, walkSpeed: 0.78, fleeSpeed: 5.7, grazeChance: 0.6 },
+  birdFlock: { label: 'Bird Flock', members: ['sparrow', 'pheasant', 'crow'], shy: true, walkSpeed: 0.85, fleeSpeed: 5.5, grazeChance: 0.5 },
+  wolfPack: { label: 'Wolf Pack', members: ['wolf', 'wolf', 'wolf'], shy: false, walkSpeed: 1.15, fleeSpeed: 6.0, grazeChance: 0.3 },
+  bisonHerd: { label: 'Bison Herd', members: ['bison', 'bison', 'bison'], shy: false, walkSpeed: 0.58, fleeSpeed: 5.2, grazeChance: 0.6 },
+  gooseGaggle: { label: 'Goose Gaggle', members: ['goose', 'goose', 'duck'], shy: true, walkSpeed: 0.52, fleeSpeed: 5.0, grazeChance: 0.55 },
 };
 
 let nextHerdSeq = 1;
@@ -220,7 +220,7 @@ export function wakeAnimals(game) {
       if (!['rabbitBurrow', 'foxDen', 'hollowStump', 'doghouse'].includes(prop.kind)) continue;
       const key = prop.kind + ':' + prop.x + ',' + prop.y;
       if (game.run.wildAnimals.some((w) => w.homeKey === key)) continue;
-      if (prop.kind === 'rabbitBurrow' && game.run.wildAnimals.length <= MAX_WILD_ANIMALS - 4) {
+      if (prop.kind === 'rabbitBurrow' && game.run.wildAnimals.length <= MAX_WILD_ANIMALS - 3) {
         spawnHerd(game, 'rabbitWarren', prop.x + 0.5, prop.y + 0.8, key);
       } else {
         const kind = prop.kind === 'rabbitBurrow' ? (Math.random() < 0.5 ? 'rabbit' : 'rabbitBrown') : prop.kind === 'foxDen' ? 'fox' : prop.kind === 'doghouse' ? 'shepherdDog' : 'squirrel';
@@ -243,9 +243,9 @@ export function wakeAnimals(game) {
   }
 
   const herdCount = Object.keys(game.run.herds).length;
-  for (let tries = 0; tries < 10 && herdCount + tries < 4 && game.run.wildAnimals.length <= MAX_WILD_ANIMALS - 5; tries++) {
+  for (let tries = 0; tries < 6 && herdCount + tries < 2 && game.run.wildAnimals.length <= MAX_WILD_ANIMALS - 3; tries++) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = 7 + Math.random() * 14;
+    const dist = 10 + Math.random() * 16;
     const x = game.player.x + Math.cos(angle) * dist;
     const y = game.player.y + Math.sin(angle) * dist;
     if (!canWalkCell(x, y)) continue;
@@ -254,9 +254,9 @@ export function wakeAnimals(game) {
     spawnHerd(game, herdKind, x, y);
   }
 
-  for (let tries = 0; tries < 6 && game.run.wildAnimals.length < MAX_WILD_ANIMALS; tries++) {
+  for (let tries = 0; tries < 3 && game.run.wildAnimals.length < MAX_WILD_ANIMALS; tries++) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = 5 + Math.random() * 15;
+    const dist = 8 + Math.random() * 16;
     const x = game.player.x + Math.cos(angle) * dist;
     const y = game.player.y + Math.sin(angle) * dist;
     if (!canWalkCell(x, y)) continue;

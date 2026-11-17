@@ -4,7 +4,7 @@ import { npcOf } from '../../data/npcs';
 import { usePotion, canUsePotion, countItem, openMysteryItem } from '../../logic/player';
 import { wear, isStuck } from '../../logic/isekai/curses';
 import { sendHome } from '../../logic/people';
-import { drink, eat, canEat, BOTTLE_SIZE } from '../../logic/survival';
+import { drink, eat, canEat, bottleUpgradeView, upgradeBottle } from '../../logic/survival';
 import { placeFurniture, isAtHome } from '../../logic/home';
 import { refreshWorld } from '../../logic/worldState';
 import { hasLight, torchBlocker, torchTimeLeft, toggleTorch } from '../../logic/torch';
@@ -146,6 +146,28 @@ function ItemButton({ game, itemId, refresh }) {
   return null;
 }
 
+// Shared bottle-upgrade row used by Inventory and Forge/Market shops.
+export function BottleUpgradeRow({ game, onUpgrade }) {
+  const { next, ready, matsText } = bottleUpgradeView(game);
+  if (!next) return null;
+  return (
+    <div className="line">
+      <PixelIcon name="water" size={28} />
+      <div className="grow">
+        <span>
+          Upgrade: {next.name} <span className="gold">({next.cap} drinks)</span>
+        </span>
+        <span className="small">
+          {next.desc} ({matsText} · {next.fee} Lexis)
+        </span>
+      </div>
+      <button className="px-button px-gold" disabled={!ready} onClick={onUpgrade}>
+        Upgrade
+      </button>
+    </div>
+  );
+}
+
 // The equipment, camp/horse controls, the bag, and the friends who fight with the hero.
 export default function InventoryPanel({ game, refresh }) {
   const player = game.player;
@@ -154,6 +176,7 @@ export default function InventoryPanel({ game, refresh }) {
   const nearCamp = isNearCamp(game);
   const campReady = canSetCamp(game);
   const enc = encumbranceStatus(game);
+  const bottle = bottleUpgradeView(game);
 
   function useItem(action) {
     action();
@@ -228,14 +251,17 @@ export default function InventoryPanel({ game, refresh }) {
         <PixelIcon name="water" size={28} />
         <div className="grow">
           <span>
-            Water bottle <span className="gold">{player.bottle} / {BOTTLE_SIZE}</span>
+            {bottle.tier.name} <span className="gold">{player.bottle} / {bottle.cap}</span>
           </span>
-          <span className="small">Thirst {Math.round(player.thirst)} / 100 · Food {Math.round(player.hunger)} / 100. Fill it at a river, a well, a fountain.</span>
+          <span className="small">
+            {bottle.tier.desc} Thirst {Math.round(player.thirst)} / 100 · Food {Math.round(player.hunger)} / 100.
+          </span>
         </div>
         <button className="px-button" disabled={player.bottle === 0} onClick={() => useItem(() => drink(game))}>
           Drink
         </button>
       </div>
+      <BottleUpgradeRow game={game} onUpgrade={() => useItem(() => upgradeBottle(game))} />
 
       <TorchSwitch game={game} refresh={refresh} />
 

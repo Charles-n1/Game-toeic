@@ -3,7 +3,7 @@ import Portrait from './Portrait';
 import PixelIcon from './PixelIcon';
 import useScreen from './useScreen';
 import { maxHealth, maxMana } from '../logic/player';
-import { BOTTLE_SIZE } from '../logic/survival';
+import { bottleSize, bottleTierOf } from '../logic/survival';
 
 // One compact stat line: "HP 48/70" and its bar.
 function StatLine({ label, value, max, color, wide }) {
@@ -36,6 +36,8 @@ function NeedBar({ icon, value, color, wide }) {
 export default function StatusPanel({ game }) {
   const player = game.player;
   const wide = useScreen().wide;
+  const maxBottle = bottleSize(player);
+  const tier = bottleTierOf(player);
   return (
     <div className="row" style={styles.panel}>
       <div className="window" style={styles.face}>
@@ -53,8 +55,8 @@ export default function StatusPanel({ game }) {
         <div className="row between" style={styles.needs}>
           <NeedBar icon="roastMeat" value={player.hunger} color="#e8a050" wide={wide} />
           <NeedBar icon="water" value={player.thirst} color="#5aa8ee" wide={wide} />
-          <span style={styles.bottle} title={`Water ${player.bottle}/${BOTTLE_SIZE}`}>
-            💧{player.bottle}
+          <span style={styles.bottle} title={`${tier.name}: ${player.bottle}/${maxBottle}`}>
+            {wide ? `💧${player.bottle}/${maxBottle}` : `💧${player.bottle}`}
           </span>
         </div>
       </div>
@@ -77,7 +79,7 @@ const styles = {
     padding: '2px 5px',
   },
   statsWide: {
-    width: 118,
+    width: 128,
     padding: '3px 7px',
   },
   header: {

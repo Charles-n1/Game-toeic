@@ -5,6 +5,7 @@ import { isFestivalActive } from '../logic/society';
 import { visibleVillagers } from '../logic/villagers';
 import { TILE_PX } from './tiles';
 import { personSprite, walkPose } from './people';
+import { animalSprite } from './animals';
 import { caravanWagonSprite } from './warArt';
 import { makeGrid, dot, fillRect, fillBall, fillTriangle, toneOf, addOutline, mirrored, toCanvas, once } from './pixels';
 import { OUTLINE, STONE_RAMP, WOOD_RAMP, WOOD } from './palette';
@@ -438,8 +439,8 @@ export function societyDrawings(game, view, time) {
           const hx = horse.x * T;
           const hy = horse.y * T;
           const bob = Math.round(Math.sin((horse.step || 0) * Math.PI) * 1.1);
-          put(ctx, horseSprite(horse.color, false, horiz ? dir : 'right', frame), hx, hy, view);
-          put(ctx, personSprite(horse.riderLook, dir, 'stand'), hx, hy - 10 + bob, view);
+          put(ctx, animalSprite(horse.color === 'black' ? 'wildHorse' : 'horse', horiz ? dir : 'right', frame), hx, hy, view);
+          put(ctx, personSprite(horse.riderLook, dir, 'stand'), hx, hy - 9 + bob, view);
         },
       });
       const escorts = horse.escortCount || 0;

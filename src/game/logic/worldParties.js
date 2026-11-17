@@ -2,6 +2,7 @@ import { VILLAGES, zoneAt } from '../data/zones';
 import { MEN_NAMES, WOMEN_NAMES, SKINS, HAIRS } from '../data/villagers';
 import { WAR_SENTENCES } from '../data/sentences/war';
 import { isSolid, ROAD_CELLS } from '../world/map';
+import { bestGateOf, stepSmart } from '../world/paths';
 import { CELLS, SCALE } from '../world/size';
 import { pickRandom } from '../../logic/random';
 import { heal, restoreMana, maxMana, earnLexis, gainXp, addItem } from './player';
@@ -156,22 +157,11 @@ export function syncWorldParties(game) {
 }
 
 function stepToward(entity, tx, ty, speed, dt) {
-  const dx = tx - entity.x;
-  const dy = ty - entity.y;
-  const far = Math.hypot(dx, dy);
-  if (far < 0.08) {
+  if (Math.hypot(tx - entity.x, ty - entity.y) < 0.08) {
     entity.walking = false;
     return;
   }
-  const ux = dx / far;
-  const uy = dy / far;
-  const nx = entity.x + ux * speed * dt;
-  const ny = entity.y + uy * speed * dt;
-  if (!isSolid(nx, entity.y)) entity.x = nx;
-  if (!isSolid(entity.x, ny)) entity.y = ny;
-  entity.walking = true;
-  entity.step += dt * 6;
-  entity.dir = Math.abs(ux) > Math.abs(uy) ? (ux < 0 ? 'left' : 'right') : uy < 0 ? 'up' : 'down';
+  stepSmart(entity, tx, ty, speed, dt);
 }
 
 function closestHostile(game, pos, maxRange) {
@@ -224,7 +214,7 @@ function finishMonsterKill(game, party, monster) {
   burst(game, monster.x, monster.y, '#ffd23f', 16);
   bloodSplatter(game, monster.x, monster.y, 13);
   spawnWarEffect(game, 'hit', monster.x, monster.y, '#ff5a6e');
-  if (dist(party, game.player) < 24) {
+  if (dist(party, game.player) < 12) {
     party.chat = { memberIndex: 0, text: 'Monster down!', until: Date.now() + 2600 };
     if (Math.random() < 0.35) {
       earnLexis(game, 5);
@@ -353,19 +343,17 @@ function updatePartyBehavior(game, party, dt) {
     return;
   }
 
-  // Marching along roads from town to town
-  if (dist(party, { x: party.destX, y: party.destY }) < 10) {
+  // Marching cleanly along outside town gates from town to town
+  const destZone = zoneAt(party.destX, party.destY);
+  const destGate = destZone.kind === 'village' ? bestGateOf(destZone, party)?.outside : null;
+  if (dist(party, { x: party.destX, y: party.destY }) < 10 || (destGate && dist(party, destGate) < 4.5)) {
     const next = pickPartyDest(party, party.destVillageId);
     party.destVillageId = next.id;
     party.destName = next.name;
     party.destX = next.x;
     party.destY = next.y;
   }
-  const ang = Math.atan2(party.destY - party.y, party.destX - party.x);
-  const nextX = party.x + Math.cos(ang) * 1.45 * dt;
-  const nextY = party.y + Math.sin(ang) * 1.45 * dt;
-  if (!isSolid(nextX, party.y)) party.x = nextX;
-  if (!isSolid(party.x, nextY)) party.y = nextY;
+  stepSmart(party, party.destX, party.destY, 1.45, dt, { stopAtGate: true });
 
   party.members.forEach((m, i) => {
     const ox = (i - 1) * 1.05;

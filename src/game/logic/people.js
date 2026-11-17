@@ -102,12 +102,10 @@ function strollPerson(game, npc, dt) {
     place.walkX = (home.x - place.x) / fromHome;
     place.walkY = (home.y - place.y) / fromHome;
   }
-  const x = place.x + place.walkX * 0.7 * dt;
-  const y = place.y + place.walkY * 0.7 * dt;
-  if (!isSolid(x, y)) {
-    place.x = x;
-    place.y = y;
-  }
+  const nx = place.x + place.walkX * 0.7 * dt;
+  const ny = place.y + place.walkY * 0.7 * dt;
+  if (!isSolid(nx, place.y)) place.x = nx;
+  if (!isSolid(place.x, ny)) place.y = ny;
   place.walking = place.walkX !== 0 || place.walkY !== 0;
   if (place.walking) {
     place.step += dt * 6;

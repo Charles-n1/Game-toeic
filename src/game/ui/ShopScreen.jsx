@@ -1,7 +1,7 @@
 import Window from './Window';
 import PixelIcon from './PixelIcon';
 import Portrait from './Portrait';
-import { describe } from './menu/InventoryPanel';
+import { describe, BottleUpgradeRow } from './menu/InventoryPanel';
 import { ITEMS } from '../data/items';
 import { npcOf } from '../data/npcs';
 import { shopItems, shopStock, priceOf, buy, sellableItems, sell, townEconomyView } from '../logic/shop';
@@ -9,6 +9,7 @@ import { acceptContract } from '../logic/economy';
 import { villageOf } from '../data/zones';
 import { negotiate } from '../logic/duels';
 import { countItem } from '../logic/player';
+import { upgradeBottle, nextBottleUpgrade } from '../logic/survival';
 import { notify } from '../logic/messages';
 
 function dealText(game) {
@@ -150,6 +151,13 @@ export default function ShopScreen({ game, refresh, onClose }) {
                 </div>
               );
             })}
+          </>
+        )}
+
+        {(shop.kind === 'forge' || shop.kind === 'market') && nextBottleUpgrade(player) && (
+          <>
+            <span className="section">Water Bottle Upgrade</span>
+            <BottleUpgradeRow game={game} onUpgrade={() => { upgradeBottle(game); refresh(); }} />
           </>
         )}
 

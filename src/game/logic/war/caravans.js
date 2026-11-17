@@ -1,7 +1,7 @@
 import { VILLAGES, zoneAt } from '../../data/zones';
 import { ITEMS } from '../../data/items';
 import { MEN_NAMES, SKINS, HAIRS } from '../../data/villagers';
-import { TILE, tileAt } from '../../world/map';
+import { bestGateOf, stepSmart } from '../../world/paths';
 import { pickRandom } from '../../../logic/random';
 import { makeMonster } from '../monsters';
 import { earnLexis, gainXp, addItem } from '../player';
@@ -147,7 +147,7 @@ export function triggerCaravanAttack(game, caravan) {
     });
     game.run.monsters.push(raider);
   }
-  if (dist(caravan, game.player) < 55) {
+  if (dist(caravan, game.player) < 28) {
     cue(game, 'warHorn');
     notify(game, '🛒 Caravan under attack! Help ' + caravan.name + '!', '#ffd23f');
   }
@@ -159,32 +159,18 @@ function stepCaravanAlongRoad(game, caravan, dt) {
   const far = dist(caravan, dest);
   if (far < 10) return true; // arrived at destination
 
-  const baseAngle = Math.atan2(dest.y - caravan.y, dest.x - caravan.x);
-  const offsets = [0, 0.4, -0.4, 0.85, -0.85, 1.3, -1.3];
-  let best = null;
-  let bestScore = -Infinity;
-
-  for (const offset of offsets) {
-    const angle = baseAngle + offset;
-    const nx = caravan.x + Math.cos(angle) * CARAVAN_SPEED * dt;
-    const ny = caravan.y + Math.sin(angle) * CARAVAN_SPEED * dt;
-    if (!canStep(game, nx, ny)) continue;
-    const lookX = caravan.x + Math.cos(angle) * 2.2;
-    const lookY = caravan.y + Math.sin(angle) * 2.2;
-    const t = tileAt(lookX, lookY);
-    const roadBonus = t === TILE.PATH || t === TILE.BRIDGE ? 2.5 : 0;
-    const score = roadBonus - Math.abs(offset);
-    if (score > bestScore) {
-      bestScore = score;
-      best = { x: nx, y: ny, dx: Math.cos(angle), dy: Math.sin(angle) };
-    }
+  const destZone = zoneAt(dest.x, dest.y);
+  if (destZone.kind === 'village') {
+    const entry = bestGateOf(destZone, caravan);
+    if (entry && dist(caravan, entry.outside) < 5) return true;
   }
 
-  if (best) {
-    caravan.x = best.x;
-    caravan.y = best.y;
-    caravan.dir = Math.abs(best.dx) > Math.abs(best.dy) ? (best.dx < 0 ? 'left' : 'right') : best.dy < 0 ? 'up' : 'down';
-    caravan.step += dt * 6;
+  const baseAngle = Math.atan2(dest.y - caravan.y, dest.x - caravan.x);
+  const moved = stepSmart(caravan, dest.x, dest.y, CARAVAN_SPEED, dt, {
+    canWalk: (x, y) => canStep(game, x, y),
+    stopAtGate: true,
+  });
+  if (moved) {
     caravan.horseStep += dt * 5;
   } else {
     moveSlide(game, caravan, Math.cos(baseAngle) * CARAVAN_SPEED * 0.5 * dt, Math.sin(baseAngle) * CARAVAN_SPEED * 0.5 * dt);
@@ -192,10 +178,13 @@ function stepCaravanAlongRoad(game, caravan, dt) {
   return false;
 }
 
+const RESCUE_REWARD_RANGE = 12;
+
 function rewardCaravanRescue(game, caravan) {
   caravan.underAttack = false;
   caravan.rewarded = true;
-  if (dist(caravan, game.player) > 65) return;
+  // Money and loot are only awarded when the hero is actually nearby the merchant
+  if (dist(caravan, game.player) > RESCUE_REWARD_RANGE) return;
 
   const lexis = 40 + Math.floor(Math.random() * 25);
   earnLexis(game, lexis);
@@ -271,7 +260,7 @@ export function slowCaravans(game) {
   game.run.caravans = game.run.caravans.filter((c) => c.alive && now < c.despawnAt && dist(c, game.player) < 240);
 
   for (const caravan of game.run.caravans) {
-    if (!caravan.attackedOnce && !caravan.underAttack && zoneAt(caravan.x, caravan.y).kind === 'land' && dist(caravan, game.player) < 45) {
+    if (!caravan.attackedOnce && !caravan.underAttack && zoneAt(caravan.x, caravan.y).kind === 'land' && dist(caravan, game.player) < 28) {
       const guarded = (ensureEconomy(game).patrols || []).some((p) => dist(p, caravan) < 75);
       if (Math.random() < (guarded ? 0.02 : 0.08)) triggerCaravanAttack(game, caravan);
     }

@@ -3,6 +3,7 @@ import { KINGDOMS, areEnemies } from '../../data/kingdoms';
 import { ITEMS } from '../../data/items';
 import { SKINS, HAIRS, MEN_NAMES } from '../../data/villagers';
 import { TILE, tileAt, PORTS, isSolid } from '../../world/map';
+import { bestGateOf, stepSmart } from '../../world/paths';
 import { pickRandom } from '../../../logic/random';
 import { removeItem, countItem, earnLexis, gainXp } from '../player';
 import { notify } from '../messages';
@@ -169,8 +170,8 @@ function stepShipment(game, shipment, dt, isNearPlayer) {
   const step = SHIPMENT_SPEED * dt;
   const dx = ((shipment.targetX - shipment.x) / far) * step;
   const dy = ((shipment.targetY - shipment.y) / far) * step;
-  shipment.x += dx;
-  shipment.y += dy;
+  if (!isSolid(shipment.x + dx, shipment.y) && tileAt(shipment.x + dx, shipment.y) !== TILE.WATER) shipment.x += dx;
+  if (!isSolid(shipment.x, shipment.y + dy) && tileAt(shipment.x, shipment.y + dy) !== TILE.WATER) shipment.y += dy;
   shipment.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
 }
 
@@ -394,16 +395,18 @@ function syncPatrols(game) {
     const b = towns[1];
     const ca = centerOf(a);
     const cb = centerOf(b);
+    const startGate = bestGateOf(a, cb)?.outside || ca;
+    const endGate = bestGateOf(b, startGate)?.outside || cb;
     econ.patrols.push({
       id: nextEconId(game, 'patrol'),
       kingdom: k.id,
       color: k.color,
       fromId: a.id,
       toId: b.id,
-      x: ca.x,
-      y: ca.y,
-      targetX: cb.x,
-      targetY: cb.y,
+      x: startGate.x,
+      y: startGate.y,
+      targetX: endGate.x,
+      targetY: endGate.y,
       dir: cb.x >= ca.x ? 'right' : 'left',
       step: 0,
     });
@@ -418,20 +421,38 @@ function updatePatrols(game, dt) {
       const towns = VILLAGES.filter((v) => v.kingdom === p.kingdom && game.villages[v.id]?.owner === 'people' && v.id !== p.toId);
       const nextTown = towns.length > 0 ? pickRandom(towns) : villageOf(p.fromId);
       if (nextTown) {
-        const c = centerOf(nextTown);
+        const destGate = bestGateOf(nextTown, p)?.outside || centerOf(nextTown);
         p.fromId = p.toId;
         p.toId = nextTown.id;
-        p.targetX = c.x;
-        p.targetY = c.y;
+        p.targetX = destGate.x;
+        p.targetY = destGate.y;
+        p._navPath = null;
       }
       continue;
     }
-    const dx = ((p.targetX - p.x) / far) * PATROL_SPEED * dt;
-    const dy = ((p.targetY - p.y) / far) * PATROL_SPEED * dt;
-    if (!isSolid(p.x + dx, p.y) && tileAt(p.x + dx, p.y) !== TILE.WATER) p.x += dx;
-    if (!isSolid(p.x, p.y + dy) && tileAt(p.x, p.y + dy) !== TILE.WATER) p.y += dy;
-    p.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-    p.step = (p.step || 0) + dt * 6;
+    const moved = stepSmart(p, p.targetX, p.targetY, PATROL_SPEED, dt, {
+      stopAtGate: true,
+      canWalk: (x, y) => !isSolid(x, y) && tileAt(x, y) !== TILE.WATER,
+    });
+    if (moved) {
+      p._stuck = 0;
+    } else {
+      p._stuck = (p._stuck || 0) + dt;
+      if (p._stuck > 2.5) {
+        p._stuck = 0;
+        const back = villageOf(p.fromId);
+        if (back) {
+          const destGate = bestGateOf(back, p)?.outside || centerOf(back);
+          const oldTo = p.toId;
+          p.toId = p.fromId;
+          p.fromId = oldTo;
+          p.targetX = destGate.x;
+          p.targetY = destGate.y;
+          p._navPath = null;
+          p._steerSign = -(p._steerSign || 1);
+        }
+      }
+    }
   }
 }
 
@@ -442,6 +463,23 @@ const GATHERER_ROLES = [
   { job: 'woodcutter', itemId: 'firewood', wage: 1, dx: -7, dy: 5, outfit: '#7a4a24' },
   { job: 'forager', itemId: 'herb', wage: 1, dx: 6, dy: 6, outfit: '#3d7048' },
 ];
+
+function findWalkableOutsideGate(village, spec) {
+  const gate = bestGateOf(village, { x: village.x + village.w / 2 + spec.dx * 15, y: village.y + village.h / 2 + spec.dy * 15 });
+  if (!gate) return { home: centerOf(village), node: centerOf(village) };
+  const baseX = gate.outside.x;
+  const baseY = gate.outside.y;
+  for (let r = 4; r <= 12; r += 2) {
+    for (const [ox, oy] of [[spec.dx, spec.dy], [r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r]]) {
+      const cx = baseX + Math.sign(ox || gate.gate.dx) * r;
+      const cy = baseY + Math.sign(oy || gate.gate.dy) * r;
+      if (!isSolid(cx, cy) && zoneAt(cx, cy).kind === 'land') {
+        return { home: gate.inside, node: { x: cx, y: cy } };
+      }
+    }
+  }
+  return { home: gate.inside, node: gate.outside };
+}
 
 export function syncGatherers(game) {
   if (!Array.isArray(game.run.gatherers)) game.run.gatherers = [];
@@ -455,21 +493,19 @@ export function syncGatherers(game) {
     const existing = game.run.gatherers.filter((g) => g.villageId === id);
     if (existing.length >= 2) continue;
     const spec = GATHERER_ROLES[(existing.length + v.w) % GATHERER_ROLES.length];
-    const center = centerOf(v);
-    const nodeX = v.x + (spec.dx > 0 ? v.w + 4 : -4);
-    const nodeY = v.y + Math.floor(v.h / 2) + spec.dy;
+    const spots = findWalkableOutsideGate(v, spec);
     game.run.gatherers.push({
       id: 'gth-' + id + '-' + existing.length,
       villageId: id,
       job: spec.job,
       itemId: spec.itemId,
       wage: spec.wage,
-      homeX: center.x,
-      homeY: center.y,
-      nodeX: !isSolid(nodeX, nodeY) ? nodeX : center.x + spec.dx,
-      nodeY: !isSolid(nodeX, nodeY) ? nodeY : center.y + spec.dy,
-      x: center.x,
-      y: center.y,
+      homeX: spots.home.x,
+      homeY: spots.home.y,
+      nodeX: spots.node.x,
+      nodeY: spots.node.y,
+      x: spots.home.x,
+      y: spots.home.y,
       state: 'toNode',
       wait: 0.6,
       carrying: false,
@@ -515,14 +551,10 @@ function updateGatherers(game, dt) {
           craftWorkshops(game, g.villageId, 1);
         }
       }
+      g._navPath = null;
       continue;
     }
-    const dx = ((tx - g.x) / far) * GATHERER_SPEED * dt;
-    const dy = ((ty - g.y) / far) * GATHERER_SPEED * dt;
-    g.x += dx;
-    g.y += dy;
-    g.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-    g.step = (g.step || 0) + dt * 5.5;
+    stepSmart(g, tx, ty, GATHERER_SPEED, dt);
   }
 }
 

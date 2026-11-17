@@ -4,7 +4,7 @@ import { KINGDOMS } from '../data/kingdoms';
 import { raceMixForVillage, applyRaceToLook } from '../data/races';
 import { zoneAt } from '../data/zones';
 
-import { findPath, followPath } from '../world/paths';
+import { bestGateOf, findPath, followPath } from '../world/paths';
 import { randomOf, pickWith } from '../world/seeded';
 import { pickRandom } from '../../logic/random';
 import { isNight } from './clock';
@@ -171,7 +171,10 @@ function workSpotOf(villager) {
     merchant: () => randomTileIn(plan.square || village),
     knight: () => {
       const gate = pickRandom(plan.gates);
-      return { x: gate.x - gate.dx * 2 + (gate.dx === 0 ? 1 : 0), y: gate.y - gate.dy * 2 + (gate.dy === 0 ? 1 : 0) };
+      return {
+        x: gate.dx === 0 ? gate.x + 1.5 : gate.x - gate.dx * 2.5,
+        y: gate.dy === 0 ? gate.y + 1.5 : gate.y - gate.dy * 2.5,
+      };
     },
     foreman: () => (field && Math.random() < 0.5 ? { x: field.x - 1, y: field.y + 1 } : randomTileIn(plan.square || village)),
     kid: () => randomTileIn(plan.square || village),
@@ -180,7 +183,24 @@ function workSpotOf(villager) {
 }
 
 function goTo(villager, spot) {
-  villager.path = findPath(villager.x, villager.y, spot.x, spot.y, 5000);
+  const direct = findPath(villager.x, villager.y, spot.x, spot.y, 6000);
+  if (direct) {
+    villager.path = direct;
+    return;
+  }
+  // If exiting a walled village to cut wood or quarry stone, route cleanly via the best open gate first
+  const village = villageOf(villager.village);
+  const gate = bestGateOf(village, spot);
+  if (gate) {
+    const toGate = findPath(villager.x, villager.y, gate.outside.x, gate.outside.y, 4000);
+    const fromGate = toGate && findPath(gate.outside.x, gate.outside.y, spot.x, spot.y, 4000);
+    if (toGate && fromGate) {
+      villager.path = [...toGate, ...fromGate.slice(1)];
+      return;
+    }
+  }
+  const square = village?.plan?.square ? randomTileIn(village.plan.square) : village?.plan?.center;
+  villager.path = square ? findPath(villager.x, villager.y, square.x, square.y, 3500) : null;
 }
 
 function isWorkTime(game) {

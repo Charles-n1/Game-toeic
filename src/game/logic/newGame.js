@@ -190,6 +190,7 @@ function firstPlayer(hero) {
     thirst: 80,
     fatigue: 0,
     bottle: 3, // the drinks left in the water bottle
+    bottleLevel: 1, // bottle tier (see logic/survival.js)
     bottleUntreated: false,
     carrying: null, // a KO person on the back of the hero (see logic/weather.js)
   };
@@ -352,6 +353,7 @@ function addMissing(game) {
   const npcIds = new Set(NPCS.map((n) => n.id));
   p.party = Array.isArray(p.party) ? p.party.filter((id) => npcIds.has(id)) : [];
   if (p.hunger === undefined) Object.assign(p, { hunger: 80, thirst: 80, bottle: 3, carrying: null });
+  if (typeof p.bottleLevel !== 'number' || p.bottleLevel < 1) p.bottleLevel = 1;
   if (typeof p.fatigue !== 'number') p.fatigue = 0;
   if (typeof p.bottleUntreated !== 'boolean') p.bottleUntreated = false;
   ensureDurability(game);

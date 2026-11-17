@@ -1,7 +1,8 @@
 import { ITEMS } from '../../data/items';
 import { VILLAGES, villageOf, zoneAt, isInsideWorld } from '../../data/zones';
 import { MEN_NAMES, SKINS, HAIRS } from '../../data/villagers';
-import { isSolid, ROAD_CELLS, TILE, tileAt } from '../../world/map';
+import { isSolid, ROAD_CELLS } from '../../world/map';
+import { bestGateOf, stepSmart } from '../../world/paths';
 import { CELLS, SCALE } from '../../world/size';
 import { pickRandom } from '../../../logic/random';
 import { gameHours } from '../boosts';
@@ -76,33 +77,22 @@ function pickRoadDestination(fromPos, excludeId = null) {
 function stepRoadMerchantCaravan(horse, dt) {
   const dest = { x: horse.destX, y: horse.destY };
   const far = Math.hypot(dest.x - horse.x, dest.y - horse.y);
-  if (far < 9) {
+  const destZone = zoneAt(dest.x, dest.y);
+  const entryGate = destZone.kind === 'village' ? bestGateOf(destZone, horse)?.outside : null;
+  if (far < 9 || (entryGate && Math.hypot(entryGate.x - horse.x, entryGate.y - horse.y) < 4.5)) {
     const next = pickRoadDestination(horse, horse.destVillageId);
     horse.destVillageId = next.id;
     horse.destName = next.name;
     horse.destX = next.x + next.w / 2;
     horse.destY = next.y + next.h / 2;
+    horse._navPath = null;
     return;
   }
-  const speed = 1.65;
-  const baseAngle = Math.atan2(dest.y - horse.y, dest.x - horse.x);
-  const offsets = [0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35];
-  for (const off of offsets) {
-    const ang = baseAngle + off;
-    const nx = horse.x + Math.cos(ang) * speed * dt;
-    const ny = horse.y + Math.sin(ang) * speed * dt;
-    if (isSolid(nx, ny)) continue;
-    const lx = horse.x + Math.cos(ang) * 2;
-    const ly = horse.y + Math.sin(ang) * 2;
-    const t = tileAt(lx, ly);
-    if (off !== 0 && t !== TILE.PATH && t !== TILE.BRIDGE && Math.random() < 0.4) continue;
-    horse.x = nx;
-    horse.y = ny;
-    horse.step += dt * 5.5;
-    horse.walkX = Math.cos(ang);
-    horse.walkY = Math.sin(ang);
-    horse.dir = Math.abs(horse.walkX) > Math.abs(horse.walkY) ? (horse.walkX < 0 ? 'left' : 'right') : horse.walkY < 0 ? 'up' : 'down';
-    return;
+  const prevX = horse.x;
+  const prevY = horse.y;
+  if (stepSmart(horse, dest.x, dest.y, 1.65, dt, { stopAtGate: true })) {
+    horse.walkX = horse.x - prevX;
+    horse.walkY = horse.y - prevY;
   }
 }
 

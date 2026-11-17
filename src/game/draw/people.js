@@ -758,6 +758,7 @@ function drawTorsoSide(grid, c, look, bx, by) {
 function drawLegs(grid, c, look, bx, by, gait, dir) {
   const sw = look.sword;
   const skirt = look.skirt;
+  const child = look.small;
   const stepL = gait === 'strideA' ? -1 : gait === 'strideB' ? 1 : 0;
   const stepR = gait === 'strideA' ? 1 : gait === 'strideB' ? -1 : 0;
 
@@ -765,22 +766,13 @@ function drawLegs(grid, c, look, bx, by, gait, dir) {
     const legC = sw ? 'M' : 'P';
     const legD = sw ? 'm' : 'p';
     const topY = skirt ? by + 11 : by + 8;
-    const rows = skirt ? [
-      `..${legD}${legC}..`,
-      '..BBB.',
-      '..fFF.',
-      '..fFF.',
-      '..hhh.',
-    ] : [
-      `.${legD}${legC}P.`,
-      `.${legD}${legC}P.`,
-      `.${legD}${legC}P.`,
-      `.${legD}${legC}P.`,
-      `.BBB.`,
-      `.fFF.`,
-      `.fFF.`,
-      `.hhh.`,
-    ];
+    const rows = skirt
+      ? (child
+        ? [`..${legD}${legC}..`, '..BBB.', '..fFF.', '..hhh.']
+        : [`..${legD}${legC}..`, `..${legD}${legC}..`, '..BBB.', '..fFF.', '..fFF.', '..hhh.'])
+      : (child
+        ? [`.${legD}${legC}P.`, `.${legD}${legC}P.`, `.BBB.`, `.fFF.`, `.hhh.`]
+        : [`.${legD}${legC}P.`, `.${legD}${legC}P.`, `.${legD}${legC}P.`, `.${legD}${legC}P.`, `.${legD}${legC}P.`, `.BBB.`, `.fFF.`, `.fFF.`, `.hhh.`]);
     stamp(grid, rows, c, bx - 6, topY + Math.max(0, stepL));
     stamp(grid, rows, c, bx + 1, topY + Math.max(0, stepR));
     return;
@@ -788,9 +780,16 @@ function drawLegs(grid, c, look, bx, by, gait, dir) {
 
   const topY = skirt ? by + 10 : by + 8;
   if (gait === 'lunge') {
-    stamp(grid, [
+    stamp(grid, child ? [
       '.pPP.....PPq.',
       'pPP.......PPq',
+      'BBB.......BBB',
+      'fFF.......fFF',
+      'hhh.......hhh',
+    ] : [
+      '.pPP.....PPq.',
+      'pPP.......PPq',
+      'pP.........Pq',
       'pP.........Pq',
       'pP.........Pq',
       'BBB.......BBB',
@@ -799,8 +798,15 @@ function drawLegs(grid, c, look, bx, by, gait, dir) {
       'hhh.......hhh',
     ], c, bx - 7, topY);
   } else if (gait === 'strideA') {
-    stamp(grid, [
+    stamp(grid, child ? [
       '..pPP...PPq..',
+      '.pPP.....PPq.',
+      '.BBB.....BBB.',
+      '.fFF.....fFF.',
+      '.hhh.....hhh.',
+    ] : [
+      '..pPP...PPq..',
+      '.pPP.....PPq.',
       '.pPP.....PPq.',
       '.pPP.....PPq.',
       '.pPP.....PPq.',
@@ -810,8 +816,15 @@ function drawLegs(grid, c, look, bx, by, gait, dir) {
       '.hhh.....hhh.',
     ], c, bx - 7, topY);
   } else if (gait === 'strideB') {
-    stamp(grid, [
+    stamp(grid, child ? [
       '..PPq...pPP..',
+      '.PPq.....pPP.',
+      '.BBB.....BBB.',
+      '.fFF.....fFF.',
+      '.hhh.....hhh.',
+    ] : [
+      '..PPq...pPP..',
+      '.PPq.....pPP.',
       '.PPq.....pPP.',
       '.PPq.....pPP.',
       '.PPq.....pPP.',
@@ -821,7 +834,14 @@ function drawLegs(grid, c, look, bx, by, gait, dir) {
       '.hhh.....hhh.',
     ], c, bx - 7, topY);
   } else {
-    stamp(grid, [
+    stamp(grid, child ? [
+      '...pPP.PPq...',
+      '...pPP.PPq...',
+      '...BBB.BBB...',
+      '...fFF.fFF...',
+      '...hhh.hhh...',
+    ] : [
+      '...pPP.PPq...',
       '...pPP.PPq...',
       '...pPP.PPq...',
       '...pPP.PPq...',
@@ -923,10 +943,10 @@ function personGrid(look, dir, poseName) {
   const pose = POSES[poseName] || POSES[SAME_AS[poseName]] || POSES.stand;
   const c = colorsOf(look);
   const grid = makeGrid(W, H);
-  const childShift = look.small ? 6 : 0;
+  const childShift = look.small ? 5 : 0;
   const lean = dir === 'side' ? pose.lean : 0;
   const bx = CX + lean;
-  const headY = 10 + pose.lift + childShift; // Hair top sits cleanly at y=2!
+  const headY = 9 + pose.lift + childShift; // Full Hero/Luna stature (~36px tall), grounded via lowestRow(outlined)
   const by = headY + 6; // Collar hugs chin with zero seam gap!
   const style = look.style || 'short';
   const expr = pose.eyes || 'normal';
@@ -1025,18 +1045,19 @@ function lyingSprite(look) {
 export function personSprite(look, dir, pose = 'stand') {
   if (usesHeroArt(look) && isHeroArtReady()) return heroArtSprite(dir, pose);
   if (look.sheet && hasCharacterArt(look.sheet) && isCharacterArtReady()) return characterSprite(look.sheet, dir, pose);
-  return once('personV6_' + lookId(look) + dir + pose, () => {
+  return once('personV7_' + lookId(look) + dir + pose, () => {
     if (pose === 'ko') return lyingSprite(look);
     const view = dir === 'left' || dir === 'right' ? 'side' : dir;
     const picture = personGrid(look, view, pose);
     const isMirror = dir === 'left';
     const grid = isMirror ? mirrored(picture.grid) : picture.grid;
+    const outlined = addOutline(grid, OUTLINE);
     const hand = picture.hand && (isMirror ? [W - 1 - picture.hand[0], picture.hand[1]] : picture.hand);
     const angle = (POSES[pose] || POSES[SAME_AS[pose]] || POSES.stand).sword;
     return {
-      canvas: toCanvas(addOutline(grid, OUTLINE)),
+      canvas: toCanvas(outlined),
       ax: isMirror ? W - 1 - PERSON_ANCHOR.x : PERSON_ANCHOR.x,
-      ay: PERSON_ANCHOR.y,
+      ay: lowestRow(outlined),
       hand,
       sword: angle === undefined ? undefined : isMirror ? 180 - angle : angle,
     };
