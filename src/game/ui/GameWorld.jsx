@@ -4,11 +4,13 @@ import Hud from './Hud';
 import DialogBox from './DialogBox';
 import FightScreen from './FightScreen';
 import ShopScreen from './ShopScreen';
+import ChestScreen from './ChestScreen';
 import MenuScreen from './menu/MenuScreen';
 import GameOver from './GameOver';
 import { drawScene } from '../draw/scene';
 import { makeInput, releaseAll, normalizeKey, ACTION_KEYS } from '../logic/input';
 import { updateGame, updateEffects, act } from '../logic/update';
+import { closeChest } from '../logic/chest';
 import { strikeWorld } from '../logic/animals';
 import { saveGame } from '../logic/save';
 import { toggleTorch } from '../logic/torch';
@@ -88,6 +90,9 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
       if (SHORTCUTS[key]) openMenu(SHORTCUTS[key]);
       if (key === 't' && !event.repeat) switchTorch();
       if (key === 'Escape') openMenu(null);
+    } else if (current === 'chest' && key === 'Escape') {
+      closeChest(game);
+      refresh();
     } else if ((current === 'menu' || current === 'shop') && key === 'Escape') {
       close();
     }
@@ -133,9 +138,19 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
     onQuit();
   }
 
+  const showIntroBanner = Boolean(game.run.introAnimUntil && game.run.introAnimUntil > Date.now());
+
   return (
     <div className="screen">
       <canvas ref={canvasRef} className="game-canvas" onClick={doStrike} />
+      {showIntroBanner && (
+        <div style={introBannerStyle}>
+          <span className="gold" style={introTitleStyle}>
+            ✦ SUMMONED TO LEXIA ✦
+          </span>
+          <span className="small">A new isekai chapter begins...</span>
+        </div>
+      )}
       {screen === 'play' && <Hud game={game} input={input} onAction={doAction} onStrike={doStrike} onMenu={openMenu} />}
       {screen === 'dialog' && (
         <div className="ui-layer">
@@ -144,8 +159,30 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
       )}
       {screen === 'fight' && <FightScreen game={game} refresh={refresh} />}
       {screen === 'shop' && <ShopScreen game={game} refresh={refresh} onClose={close} />}
+      {screen === 'chest' && <ChestScreen game={game} refresh={refresh} />}
       {screen === 'menu' && <MenuScreen game={game} refresh={refresh} onClose={close} onQuit={quit} />}
       {screen === 'over' && <GameOver game={game} onRestart={onRestart} onQuit={onQuit} />}
     </div>
   );
 }
+
+const introBannerStyle = {
+  position: 'absolute',
+  top: 18,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  padding: '8px 20px',
+  background: 'rgba(14, 18, 42, 0.88)',
+  border: '2px solid #ffd86b',
+  borderRadius: 8,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  pointerEvents: 'none',
+  zIndex: 30,
+};
+
+const introTitleStyle = {
+  fontSize: 18,
+  letterSpacing: 1.5,
+};

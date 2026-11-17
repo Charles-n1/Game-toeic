@@ -276,6 +276,24 @@ function caravanDrawings(game, view, time) {
         }
       },
     });
+
+    // 3. Armed escort guards walking alongside the caravan
+    const aliveEscorts = (c.escorts || []).filter((e) => e.hp > 0);
+    aliveEscorts.forEach((escort, idx) => {
+      const side = escort.side || (idx === 0 ? -1 : 1);
+      const ex = horiz ? c.x - fx * 0.45 : c.x + side * 0.9;
+      const ey = horiz ? c.y + side * 0.72 : c.y - fy * 0.45;
+      list.push({
+        y: ey,
+        draw: (ctx) => {
+          const sx = ex * T;
+          const sy = ey * T;
+          put(ctx, shadowSprite(), sx, sy, view);
+          put(ctx, personSprite(escort.look, dir, walkPose(c.step || time * 4, true, time, idx)), sx, sy, view);
+          put(ctx, knightShieldSprite('#e0a22a'), sx + (horiz ? 0 : side * 5), sy - 9, view);
+        },
+      });
+    });
   }
   return list;
 }

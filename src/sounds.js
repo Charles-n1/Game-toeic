@@ -30,16 +30,16 @@ let musicGain = null;
 const soundBuffers = {}; // the sounds, already decoded: they play instantly
 const musicElement = new Audio();
 musicElement.loop = true; // restart at the end
-let musicUrl = null; // the music file, as a local copy
+let musicUrl = null; // the music file currently assigned to musicElement
 let wanted = { music: MUSICS[0], musicVolume: 0.3, soundVolume: 1 };
 let appMusicMuted = false; // true while the game is open: the game plays its own music
 
-// The events that count as a "real tap" for the browser (pointerdown does NOT, with a finger).
-const TAP_EVENTS = ['pointerup', 'touchend', 'click', 'keydown'];
+// Events browsers accept as a valid user activation to start Web Audio & HTMLAudioElement playback.
+const TAP_EVENTS = ['pointerdown', 'pointerup', 'mousedown', 'touchend', 'click', 'keydown'];
 
 // Called once, when the app opens.
-// Browsers block sound until a first tap. So: we download everything NOW,
-// we try to play NOW (some browsers allow it), and every tap wakes the sound up.
+// Browsers block sound until a first tap. So: assign the music URL synchronously,
+// try to play immediately, and resume/start on the very first tap or keystroke.
 export function startAudio(settings) {
   wanted = { music: settings.music, musicVolume: settings.musicVolume, soundVolume: settings.soundVolume };
   // iPhone: play even when the silent switch is on 🔕
@@ -65,12 +65,18 @@ export function startAudio(settings) {
   document.addEventListener('visibilitychange', pauseWhenHidden);
 }
 
-// On each tap: if the sound is still asleep, wake it up. (Already awake: nothing happens.)
+// On each tap: wake AudioContext and start the TOEIC music if it is still paused.
 function wakeUpAudio() {
-  if (context.state === 'suspended') context.resume();
-  if (!appMusicMuted && wanted.music.file && musicElement.src && musicElement.paused) {
-    musicElement.play().catch(() => {});
+  if (!context) return;
+  const tryPlay = () => {
+    if (!appMusicMuted && wanted.music.file && musicElement.src && musicElement.paused) {
+      musicElement.play().catch(() => {});
+    }
+  };
+  if (context.state === 'suspended') {
+    context.resume().then(tryPlay).catch(() => {});
   }
+  tryPlay();
 }
 
 async function loadSound(name, url) {
@@ -97,7 +103,7 @@ export function audioContext() {
 export function muteAppMusic(muted) {
   appMusicMuted = muted;
   if (muted) musicElement.pause();
-  else if (wanted.music.file && musicElement.src) musicElement.play().catch(() => {});
+  else wakeUpAudio();
 }
 
 // volume: from 0 (mute) to 1 (max)
@@ -111,23 +117,21 @@ export function setSoundVolume(volume) {
   if (soundGain) soundGain.gain.value = volume;
 }
 
-export async function playMusic(music) {
+export function playMusic(music) {
   wanted.music = music;
   if (!context) return; // startAudio() not called yet
 
   if (music.file === null) {
+    musicUrl = null;
     musicElement.pause();
     return;
   }
-  // We download the whole file first: the offline mode can then keep a copy of it.
-  const response = await fetch(music.file);
-  const blob = await response.blob();
-  if (wanted.music !== music) return; // another music was chosen meanwhile
-  if (musicUrl) URL.revokeObjectURL(musicUrl);
-  musicUrl = URL.createObjectURL(blob);
-  musicElement.src = musicUrl;
+  if (musicUrl !== music.file) {
+    musicUrl = music.file;
+    musicElement.src = music.file;
+  }
   if (appMusicMuted) return;
-  musicElement.play().catch(() => {}); // refused before the first tap: wakeUpAudio() will retry
+  wakeUpAudio();
 }
 
 // name: 'success' | 'wrong' | 'victory' | 'loose1' | 'loose3'

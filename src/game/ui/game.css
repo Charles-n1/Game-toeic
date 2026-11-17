@@ -289,10 +289,11 @@
 
 /* ---------- Bars (HP, MP, time) ---------- */
 .bar {
+  box-sizing: content-box;
   height: 10px;
-  border: 2px solid #0e1430;
+  border: 1px solid #0e1430;
   border-radius: 3px;
-  background: #3a1d2a;
+  background: #2c1926;
   overflow: hidden;
 }
 

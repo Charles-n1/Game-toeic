@@ -1,4 +1,4 @@
-import { CATEGORIES, totalAnswers } from '../../data/categories';
+import { CATEGORIES, totalAnswers, defaultCategoryStats } from '../../data/categories';
 import { NPCS, HERO_LOOK } from '../data/npcs';
 import { heroLook } from '../data/hero';
 import { SPAWN, zoneAt } from '../data/zones';
@@ -87,6 +87,8 @@ export function makeRun() {
     slashDir: 'down',
     sealToldUntil: 0, // the message of a closed seal is not repeated before this time
     shakeUntil: 0, // the screen shakes until this time (a hard hit)
+    introAnimUntil: 0, // opening summoning lightbeam animation
+    chest: null, // open Minecraft-style chest view state
     walking: false, // the hero is walking right now
     zoneId: null, // the zone the player is in (to announce a new one)
     questions: [], // the questions of the app (given by GamePage)
@@ -101,8 +103,8 @@ export function makeRun() {
 // The level of the player in each category when the game starts: { gerunds: { good: 4, bad: 6 }, ... }
 // `score` is the TARGET TOEIC score: when starting without app stats or explicit %, start modestly below it so
 // the hero grows by fighting & training. `currentPcts` overrides categories with the player's inserted current %.
-function firstMastery(stats, score, customWeights = null, currentPcts = null) {
-  const hasAppStats = totalAnswers(stats) > 0;
+function firstMastery(stats, customWeights = null, currentPcts = null) {
+  const hasAppStats = stats && totalAnswers(stats) > 0;
   let mastery;
   if (hasAppStats) {
     mastery = JSON.parse(JSON.stringify(stats));
@@ -110,10 +112,7 @@ function firstMastery(stats, score, customWeights = null, currentPcts = null) {
       if (!mastery[category.id]) mastery[category.id] = { good: 0, bad: 0 };
     }
   } else {
-    const startRatio = Math.max(0.2, Math.min(0.6, (score / 495) * 0.55));
-    const good = Math.round(startRatio * 10);
-    mastery = {};
-    for (const category of CATEGORIES) mastery[category.id] = { good: good, bad: 10 - good };
+    mastery = defaultCategoryStats();
   }
   if (currentPcts && typeof currentPcts === 'object') {
     for (const [catId, pct] of Object.entries(currentPcts)) {
@@ -197,21 +196,22 @@ function firstPlayer(hero) {
 
 // goalId: 'hero' | 'guardian' | 'peaceful' | 'wanderer'. score: the target TOEIC reading score (5 to 495).
 // stats: the category stats of the app. hero: the name and the avatar. slot: the save slot (1 to 3).
-export function newGame(goalId, score, stats, hero, slot, customWeights = null, currentPcts = null) {
+export function newGame(goalId, score = 450, stats = {}, hero, slot, customWeights = null, currentPcts = null) {
+  const effectiveScore = Number.isFinite(score) && score >= 5 ? score : 450;
   const cleanedWeights = {};
   if (customWeights) {
     for (const [catId, val] of Object.entries(customWeights)) {
       if (val > 0) cleanedWeights[catId] = Math.max(1, Math.min(100, Math.round(val)));
     }
   }
-  const mastery = firstMastery(stats, score, cleanedWeights, currentPcts);
-  const goalRate = Math.max(55, Math.min(96, Math.round((score / 495) * 100)));
+  const mastery = firstMastery(stats, cleanedWeights, currentPcts);
+  const goalRate = Math.max(55, Math.min(96, Math.round((effectiveScore / 495) * 100)));
   const game = {
     version: GAME_VERSION,
     slot: slot,
     goal: goalId,
-    score: score,
-    targetScore: score,
+    score: effectiveScore,
+    targetScore: effectiveScore,
     goalRate: goalRate,
     chapter: 0, // position in the chapters of the goal
     ended: false,
@@ -232,7 +232,7 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
     deal: { day: 0, factor: 1 }, // the result of the last negotiation
     quests: {},
     kills: {}, // { slime: 12, ... }
-    counts: { kills: 0, answers: 0, correct: 0, harvested: 0, helped: 0 },
+    counts: { kills: 0, answers: 0, correct: 0, harvested: 0, helped: 0, wallsRepaired: 0 },
     flags: {}, // the scenes already played
     visited: {}, // the zones already seen
     crops: {},
@@ -246,6 +246,7 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
     weather: firstWeather(),
     home: firstHome(), // the furniture and the colors of the home (see logic/home.js)
     chests: {},
+    chestLoots: {},
     bosses: {}, // the bosses already dead
     cleared: {}, // the dungeon guards dead today
     raid: { nextDay: 7, count: 0, perfect: 0, active: false, deaths: 0 },
@@ -266,6 +267,7 @@ export function newGame(goalId, score, stats, hero, slot, customWeights = null, 
   wakeUp(game);
   exploreAround(game);
   tellIntro(game);
+  game.run.introAnimUntil = Date.now() + 2600;
   return game;
 }
 
@@ -307,12 +309,14 @@ function addMissing(game) {
   if (!game.gathered) game.gathered = {};
   if (!game.quests) game.quests = {};
   if (!game.kills) game.kills = {};
-  if (!game.counts) game.counts = { kills: 0, answers: 0, correct: 0, harvested: 0, helped: 0 };
+  if (!game.counts) game.counts = { kills: 0, answers: 0, correct: 0, harvested: 0, helped: 0, wallsRepaired: 0 };
+  if (typeof game.counts.wallsRepaired !== 'number') game.counts.wallsRepaired = 0;
   if (!game.flags) game.flags = {};
   if (!game.visited) game.visited = {};
   if (!game.crops) game.crops = {};
   if (!game.dug) game.dug = {};
   if (!game.chests) game.chests = {};
+  if (!game.chestLoots) game.chestLoots = {};
   if (!game.bosses) game.bosses = {};
   if (!game.cleared) game.cleared = {};
   if (!game.deal) game.deal = { day: 0, factor: 1 };

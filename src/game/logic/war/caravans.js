@@ -46,6 +46,24 @@ function merchantLook() {
   };
 }
 
+function buildCaravanEscorts() {
+  if (Math.random() >= 0.82) return []; // 82% majority of merchants hire armed escorts
+  const count = Math.random() < 0.45 ? 2 : 1;
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    list.push({
+      id: 'esc_' + i + '_' + Math.floor(Math.random() * 9999),
+      name: count > 1 ? `Merchant Escort #${i + 1}` : 'Merchant Escort',
+      hp: 65,
+      maxHp: 65,
+      attackCd: 0,
+      side: i === 0 ? -1 : 1,
+      look: { skin: pickRandom(SKINS), hair: pickRandom(HAIRS), style: 'short', eyes: '#3a6fd8', outfit: '#6a748c', trim: '#ffd23f', helmet: true, sword: true },
+    });
+  }
+  return list;
+}
+
 export function spawnCaravan(game, originVillage = null, destVillage = null) {
   const runWar = ensureRunWar(game);
   const friendly = VILLAGES.filter((v) => game.villages[v.id] && game.villages[v.id].owner === 'people');
@@ -96,6 +114,7 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
     pauseUntil: 0,
     wagonColor: pickRandom(['#d9cbb0', '#b8483c', '#3d7a58', '#3c68a0']),
     merchantLook: merchantLook(),
+    escorts: buildCaravanEscorts(),
     targetX: toCenter.x,
     targetY: toCenter.y,
     despawnAt: Date.now() + 260000,
@@ -193,7 +212,27 @@ function updateCaravanAttackers(game, caravan, dt) {
     if (caravan.alive && caravan.underAttack) rewardCaravanRescue(game, caravan);
     return;
   }
+  // Escort guards actively fight attackers off & absorb frontline blows for the merchant!
+  const aliveEscorts = (caravan.escorts || []).filter((e) => e.hp > 0);
+  for (const escort of aliveEscorts) {
+    escort.attackCd = Math.max(0, (escort.attackCd || 0) - dt);
+    const targetM = attackers.find((m) => m.health > 0);
+    if (targetM && escort.attackCd <= 0) {
+      escort.attackCd = 0.95;
+      const eDmg = 14 + Math.floor(Math.random() * 6);
+      targetM.health = Math.max(0, targetM.health - eDmg);
+      targetM.hitAt = Date.now();
+      spawnWarEffect(game, 'slash', targetM.x, targetM.y, '#ffd23f');
+      floatText(game, targetM.x, targetM.y - 0.6, '-' + eDmg, '#ffd23f');
+      if (targetM.health <= 0) {
+        bloodSplatter(game, targetM.x, targetM.y, 8);
+      }
+    }
+  }
+  game.run.monsters = game.run.monsters.filter((m) => m.caravanId !== caravan.id || m.health > 0);
+
   for (const m of attackers) {
+    if (m.health <= 0) continue;
     m.attackCd = Math.max(0, (m.attackCd || 0) - dt);
     const goal = dist(m, game.player) < 4.5 ? game.player : caravan;
     m.target = goal;
@@ -204,6 +243,13 @@ function updateCaravanAttackers(game, caravan, dt) {
     } else if (goal === caravan && m.attackCd <= 0) {
       m.attackCd = 1.2;
       const dmg = Math.max(7, Math.round((m.attack || 14) * 0.55));
+      const defender = (caravan.escorts || []).find((e) => e.hp > 0);
+      if (defender) {
+        defender.hp = Math.max(0, defender.hp - dmg);
+        spawnWarEffect(game, 'slash', caravan.x, caravan.y, '#9fd8ff');
+        floatText(game, caravan.x, caravan.y - 0.6, '🛡-' + dmg, '#9fd8ff');
+        continue;
+      }
       caravan.hp = Math.max(0, caravan.hp - dmg);
       spawnWarEffect(game, 'slash', caravan.x, caravan.y, '#ff5a6e');
       floatText(game, caravan.x, caravan.y - 0.5, '-' + dmg, '#ff8a95');
@@ -300,6 +346,7 @@ function syncEconomyShipmentsOnScreen(game) {
       pauseUntil: 0,
       wagonColor: s.wagonColor || '#d9cbb0',
       merchantLook: merchantLook(),
+      escorts: buildCaravanEscorts(),
       targetX: s.targetX,
       targetY: s.targetY,
       cargo: { itemId: s.itemId, qty: s.qty, feeLexis: s.feeLexis },
@@ -478,13 +525,24 @@ export function interactCaravan(game, caravan) {
       icon: 'sword',
       run: () => {
         const escort = makeCaravanEscort(game, caravan);
+        const aliveEscorts = (caravan.escorts || []).filter((e) => e.hp > 0);
+        const backups = aliveEscorts.slice(1).map((_, idx) => ({
+          ...makeCaravanEscort(game, caravan),
+          name: `${caravan.name}'s Escort #${idx + 2}`,
+        }));
+        if (aliveEscorts.length > 0) {
+          notify(game, `🛡️ ${aliveEscorts.length} armed escort(s) move to defend ${caravan.name}!`, '#ffd23f');
+        }
         const runWar = ensureRunWar(game);
-        startFight(game, escort, []);
+        startFight(game, escort, backups);
         runWar.trackedFight = game.run.fight;
       },
     },
     { label: 'Wish them safe travels', run: () => {} },
   ];
+
+  const escortCount = (caravan.escorts || []).filter((e) => e.hp > 0).length;
+  const escortNote = escortCount > 0 ? `\n🛡️ Guarded by ${escortCount} hired escort(s).` : '\n(Unescorted merchant wagon.)';
 
   const cargo = caravan.cargo && caravan.cargo.qty > 0 && ITEMS[caravan.cargo.itemId] ? caravan.cargo : null;
   if (cargo) {
@@ -511,7 +569,7 @@ export function interactCaravan(game, caravan) {
   const cargoLine = cargo
     ? `Hauling ${cargo.qty}× ${ITEMS[cargo.itemId].name} from ${fromName} to ${toName} (paid ${cargo.feeLexis} Lexis freight).`
     : `Hauling goods from ${fromName} to ${toName}!`;
-  say(game, null, ['🛒 ' + caravan.name + ' waves from atop the horse leading a loaded wagon.\n"' + cargoLine + '"'], choices);
+  say(game, null, ['🛒 ' + caravan.name + ' waves from atop the horse leading a loaded wagon.\n"' + cargoLine + '"' + escortNote], choices);
 }
 
 // ---------- Corpses & Burying ----------

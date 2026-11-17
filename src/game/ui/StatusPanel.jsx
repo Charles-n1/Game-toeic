@@ -24,9 +24,9 @@ function StatLine({ label, value, max, color, wide }) {
 function NeedBar({ icon, value, color, wide }) {
   return (
     <div className="row" style={styles.need}>
-      <PixelIcon name={icon} size={10} />
-      <div style={{ width: wide ? 26 : 19 }}>
-        <Bar value={value / 100} color={value < 25 ? '#ff5a6e' : color} height={4} />
+      <PixelIcon name={icon} size={11} />
+      <div style={{ width: wide ? 30 : 22 }}>
+        <Bar value={value / 100} color={value < 25 ? '#ff5a6e' : color} height={6} />
       </div>
     </div>
   );

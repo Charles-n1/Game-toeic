@@ -36,17 +36,21 @@ export const GOAL_BLESSING = {
 // reward: Lexis given at the end of the chapter.
 const MEET_ARIA = { id: 'meet', place: { npc: 'aria' }, title: 'A new world', text: 'Talk to Aria, the girl who found you.', reward: 10, done: (game) => game.npcs.aria.talkedDay > 0 };
 const FIRST_WORDS = { id: 'firstWords', place: { zone: 'meadow' }, title: 'First words', text: 'Defeat 5 monsters in Whisper Meadow.', reward: 30, done: (game) => game.counts.kills >= 5 };
+const HELP_NEIGHBORS = { id: 'helpVillagers', place: { npc: 'orin' }, title: 'Help the villagers', text: 'Complete 2 side quests for the folk of Eldermoor.', reward: 60, done: (game) => (game.counts.helped || 0) >= 2 };
+const FORTIFY_TOWN = { id: 'fortify', place: { zone: 'lexia' }, title: 'Renovate the walls', text: 'Repair or reinforce 2 village wall sections in Eldermoor (or bring supplies to help).', reward: 80, done: (game) => (game.counts.wallsRepaired || 0) >= 2 || (game.counts.helped || 0) >= 4 };
 const NIGHT_OF_SILENCE = { id: 'night', place: { zone: 'lexia' }, title: 'The Night of Silence', text: 'Survive the first attack on Eldermoor (night 7).', reward: 100, done: (game) => game.raid.count >= 1 };
-const CRYPT = { id: 'crypt', place: { zone: 'crypt' }, title: 'The Crystal Cave', text: 'North-east, past the rivers: defeat the Gerund Lich at the bottom of the Crystal Cave.', reward: 150, done: (game) => game.bosses.lich === true };
+const CRYPT = { id: 'crypt', place: { zone: 'crypt' }, title: 'The Crystal Cave', text: 'When you are well-geared, venture north-east to defeat the Gerund Lich in the Crystal Cave.', reward: 180, done: (game) => game.bosses.lich === true };
 const GENERAL = { id: 'general', place: { zone: 'fort' }, title: 'The teacher of war', text: 'In the desert of the south-west: defeat General Barbarism in the Sandbandit Camp.', reward: 500, done: (game) => game.bosses.general === true };
 
 export const CHAPTERS = {
   hero: [
     MEET_ARIA,
     FIRST_WORDS,
-    { id: 'blade', place: { npc: 'mira' }, title: 'A real blade', text: 'Earn Lexis and buy the Iron Sword from Mira.', reward: 40, done: (game) => game.player.weapon !== 'woodSword' },
-    CRYPT,
+    { id: 'blade', place: { npc: 'mira' }, title: 'A real blade', text: 'Earn Lexis and buy or craft a stronger weapon.', reward: 40, done: (game) => game.player.weapon !== 'woodSword' },
+    HELP_NEIGHBORS,
+    FORTIFY_TOWN,
     NIGHT_OF_SILENCE,
+    CRYPT,
     { id: 'tower', place: { zone: 'tower' }, title: 'The Frozen Castle', text: 'In Frostpeak Pass: defeat the Chrono Warden in his castle.', reward: 300, done: (game) => game.bosses.warden === true },
     GENERAL,
     { id: 'king', place: { zone: 'castle' }, title: 'The Hero of Words', text: 'On the Silent Isle, the titanic Castle of Silence. Solecis is waiting.', reward: 0, done: (game) => game.bosses.king === true },
@@ -55,9 +59,10 @@ export const CHAPTERS = {
     MEET_ARIA,
     FIRST_WORDS,
     { id: 'ally', place: { npc: 'garrick' }, title: 'Not alone', text: 'Become friends with a fighter and recruit them.', reward: 60, done: (game) => game.player.party.length > 0 },
+    FORTIFY_TOWN,
     NIGHT_OF_SILENCE,
-    CRYPT,
     { id: 'wall', place: { zone: 'lexia' }, title: 'The wall of Eldermoor', text: 'Win 2 raids without losing anyone that night.', reward: 300, done: (game) => game.raid.perfect >= 2 },
+    CRYPT,
     GENERAL,
   ],
   peaceful: [

@@ -13,9 +13,22 @@ export function countKill(game, speciesId) {
 // How far the quest is: { have: 2, need: 5 }
 export function questProgress(game, quest) {
   const needs = quest.needs;
+  const entry = game.quests[quest.id] || {};
   if (needs.kill) {
-    const kills = (game.kills[needs.kill] || 0) - game.quests[quest.id].killsAtStart;
+    const kills = (game.kills[needs.kill] || 0) - (entry.killsAtStart || 0);
     return { have: Math.min(kills, needs.count), need: needs.count };
+  }
+  if (needs.repairWall) {
+    const built = (game.counts?.wallsRepaired || 0) - (entry.wallsAtStart || 0);
+    return { have: Math.min(built, needs.count), need: needs.count };
+  }
+  if (needs.helped) {
+    const helped = (game.counts?.helped || 0) - (entry.helpedAtStart || 0);
+    return { have: Math.min(helped, needs.count), need: needs.count };
+  }
+  if (Array.isArray(needs.items)) {
+    const sum = needs.items.reduce((acc, id) => acc + countItem(game.player, id), 0);
+    return { have: Math.min(sum, needs.count), need: needs.count };
   }
   if (needs.item) return { have: Math.min(countItem(game.player, needs.item), needs.count), need: needs.count };
   return { have: game.visited[needs.visit] ? 1 : 0, need: 1 };
@@ -42,13 +55,30 @@ export function activeQuests(game) {
 }
 
 export function startQuest(game, quest) {
-  game.quests[quest.id] = { done: false, killsAtStart: game.kills[quest.needs.kill] || 0 };
+  game.quests[quest.id] = {
+    done: false,
+    killsAtStart: game.kills[quest.needs.kill] || 0,
+    wallsAtStart: game.counts?.wallsRepaired || 0,
+    helpedAtStart: game.counts?.helped || 0,
+  };
   notify(game, '📜 New quest: ' + quest.title, '#ffd23f');
 }
 
 // The quest is given back: the items are taken, the rewards are given.
 export function finishQuest(game, quest) {
-  if (quest.needs.item) removeItem(game.player, quest.needs.item, quest.needs.count);
+  if (quest.needs.item) {
+    removeItem(game.player, quest.needs.item, quest.needs.count);
+  } else if (Array.isArray(quest.needs.items)) {
+    let left = quest.needs.count;
+    for (const id of quest.needs.items) {
+      if (left <= 0) break;
+      const take = Math.min(left, countItem(game.player, id));
+      if (take > 0) {
+        removeItem(game.player, id, take);
+        left -= take;
+      }
+    }
+  }
   game.quests[quest.id].done = true;
   game.counts.helped += 1;
   earnLexis(game, quest.lexis);

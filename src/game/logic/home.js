@@ -2,7 +2,8 @@ import { insideOf } from '../data/zones';
 import { ITEMS } from '../data/items';
 import { TILE, tileAt, isSolid } from '../world/map';
 import { countItem, addItem, removeItem } from './player';
-import { say, notify } from './messages';
+import { notify } from './messages';
+import { openHomeChest } from './chest';
 
 // The home of the hero (an inside: see data/zones.js). The hero can place furniture in it (bought from Finn,
 // the carpenter), change the color of the walls and of the bed, and keep things in the chest.
@@ -88,10 +89,5 @@ export function takeAll(game) {
 }
 
 export function openStorage(game) {
-  const kept = Object.entries(game.home.storage).map(([itemId, amount]) => ITEMS[itemId].name + ' × ' + amount);
-  say(game, null, [kept.length > 0 ? 'In the chest: ' + kept.join(', ') + '.' : 'The chest is empty.'], [
-    { label: 'Put my materials and goods in it', icon: 'inventory', run: () => storeAll(game) },
-    { label: 'Take everything', icon: 'inventory', run: () => takeAll(game) },
-    { label: 'Close', run: () => {} },
-  ]);
+  openHomeChest(game);
 }

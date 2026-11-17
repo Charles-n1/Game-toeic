@@ -5,7 +5,7 @@ import Landscape from './Landscape';
 import HeroCreator from './HeroCreator';
 import { DEFAULT_HERO } from '../data/hero';
 import { GOALS } from '../data/story';
-import { CATEGORIES } from '../../data/categories';
+import { CATEGORIES, DEFAULT_CATEGORY_PERCENTS } from '../../data/categories';
 import { SECTION_MAX } from '../../goal';
 
 const LOWEST_SCORE = 5; // the lowest TOEIC reading score
@@ -44,11 +44,11 @@ export default function GameStart({ stats, history, onStart, onTakeTest, onBack 
   const appScore = scoreFromApp(stats, history);
   const [hero, setHero] = useState(DEFAULT_HERO);
   const [scoreText, setScoreText] = useState(
-    appScore === null ? '400' : String(Math.min(SECTION_MAX, Math.max(350, appScore + 55)))
+    appScore === null ? '450' : String(Math.min(SECTION_MAX, Math.max(450, appScore + 55)))
   );
   const [goalId, setGoalId] = useState(null);
   const [showCustom, setShowCustom] = useState(false);
-  const [currentStats, setCurrentStats] = useState({});
+  const [currentStats, setCurrentStats] = useState(() => ({ ...DEFAULT_CATEGORY_PERCENTS }));
   const canStart = hero.name.trim() !== '' && isValidScore(scoreText) && goalId !== null;
 
   function typeScore(event) {

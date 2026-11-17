@@ -1028,6 +1028,36 @@ function drawFade(ctx, game) {
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
+// Short summoning starlight arrival animation when beginning a new run.
+function drawOpeningIntro(ctx, game, view, time) {
+  const left = game.run.introAnimUntil ? game.run.introAnimUntil - Date.now() : 0;
+  if (left <= 0) return;
+  const p = 1 - Math.min(1, left / 2600); // 0 -> 1
+  const px = Math.round(game.player.x * T - view.x);
+  const py = Math.round(game.player.y * T - view.y);
+  const curtainAlpha = Math.max(0, 0.72 * (1 - p * 1.45));
+  if (curtainAlpha > 0) {
+    ctx.fillStyle = 'rgba(10, 8, 24, ' + curtainAlpha.toFixed(2) + ')';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  }
+  const beamW = Math.max(4, Math.round((1 - p * 0.45) * 26));
+  const beamAlpha = Math.sin(p * Math.PI) * 0.48;
+  ctx.fillStyle = 'rgba(255, 224, 130, ' + beamAlpha.toFixed(2) + ')';
+  ctx.fillRect(px - Math.floor(beamW / 2), 0, beamW, py);
+  ctx.strokeStyle = 'rgba(255, 240, 180, ' + (beamAlpha * 1.25).toFixed(2) + ')';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(px, py - 2, 10 + p * 26, 4 + p * 10, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 6; i++) {
+    const a = time * 3 + i * (Math.PI / 3);
+    const sx = Math.round(px + Math.cos(a) * (12 + p * 16));
+    const sy = Math.round(py - 8 - p * 28 + Math.sin(time * 5 + i) * 6);
+    ctx.fillStyle = i % 2 === 0 ? '#fff6b0' : '#9fe8ff';
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+}
+
 // ---------- The texts, written on the big screen (sharper than in the buffer) ----------
 
 function writeText(ctx, text, x, y, size, color) {
@@ -1218,6 +1248,7 @@ export function drawScene(ctx, game, width, height, time) {
   structuresArt.drawStructureAmbience(art, game, view, time);
   drawWeather(art, game, view, time);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));
+  drawOpeningIntro(art, game, view, time);
   drawFade(art, game);
 
   showBuffer(ctx, width, height, scale);

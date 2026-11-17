@@ -48,6 +48,30 @@ export function addAnswer(stats, category, isCorrect) {
   return { ...stats, [category]: updated };
 }
 
+// Default baseline profile (%) per TOEIC category at initial launch.
+export const DEFAULT_CATEGORY_PERCENTS = {
+  connectors: 70,
+  gerunds: 60,
+  prepositions: 70,
+  vocabulary: 80,
+  passive: 90,
+  pronouns: 90,
+  comparatives: 80,
+  subjectVerb: 70,
+  wordForms: 70,
+  verbTenses: 70,
+};
+
+export function defaultCategoryStats() {
+  const out = {};
+  for (const cat of CATEGORIES) {
+    const pct = DEFAULT_CATEGORY_PERCENTS[cat.id] ?? 70;
+    const good = Math.round(pct / 10);
+    out[cat.id] = { good, bad: 10 - good };
+  }
+  return out;
+}
+
 // Same, with all the answers of a group: [{ question, isCorrect }, ...]
 export function addAnswers(stats, answers) {
   let newStats = stats;

@@ -19,10 +19,10 @@ const MAX_SHOWN = 6; // per kind and per pen
 const MAX_WILD_ANIMALS = 36;
 const WILD_META = Object.fromEntries(WILD_ANIMALS_CATALOG.map((w) => [w.id, w]));
 const FARM_META = {
-  cow: { name: 'Village Cow', speed: 0.4, fleeSpeed: 3.0, pattern: 'heavyCharge', hp: 150 },
-  pig: { name: 'Farm Pig', speed: 0.55, fleeSpeed: 3.4, pattern: 'heavyCharge', hp: 70 },
-  chicken: { name: 'Farm Chicken', speed: 0.9, fleeSpeed: 4.2, pattern: 'dartPeck', hp: 32 },
-  horse: { name: 'Pasture Horse', speed: 1.0, fleeSpeed: 6.5, pattern: 'gallopPlains', hp: 145 },
+  cow: { name: 'Village Cow', speed: 0.4, fleeSpeed: 3.0, pattern: 'heavyCharge', hp: 290 },
+  pig: { name: 'Farm Pig', speed: 0.55, fleeSpeed: 3.4, pattern: 'heavyCharge', hp: 165 },
+  chicken: { name: 'Farm Chicken', speed: 0.9, fleeSpeed: 4.2, pattern: 'dartPeck', hp: 80 },
+  horse: { name: 'Pasture Horse', speed: 1.0, fleeSpeed: 6.5, pattern: 'gallopPlains', hp: 280 },
 };
 
 const HOOF_KINDS = new Set(['deer', 'doe', 'fawn', 'wildHorse', 'foal', 'boar', 'sheep', 'goat', 'moose', 'bison']);

@@ -261,21 +261,22 @@ function attackVillager(game, villager) {
     if (other.village === villager.village && other.knight && !other.ko && !other.dead) other.angry = 60;
   }
 
-  const fightsBack = villager.knight || villager.job === 'foreman' || (!villager.kid && Math.random() < 0.55);
+  const escortedMerchant = villager.job === 'merchant' && Math.random() < 0.82;
+  const fightsBack = villager.knight || villager.job === 'foreman' || escortedMerchant || (!villager.kid && Math.random() < 0.55);
   if (fightsBack) {
     villager.fighting = true;
-    const isKnight = villager.knight;
+    const isGuard = villager.knight || escortedMerchant;
     startSocietyFight(game, {
-      name: villager.name + ' (' + villager.jobName + ')',
-      shape: isKnight ? 'knight' : 'imp',
-      health: isKnight ? 70 : 40,
-      attack: isKnight ? 20 : 12,
-      speed: isKnight ? 11 : 9,
-      xp: isKnight ? 45 : 20,
-      lexis: isKnight ? 25 : 10,
+      name: escortedMerchant ? villager.name + '’s Escort' : villager.name + ' (' + villager.jobName + ')',
+      shape: isGuard ? 'knight' : 'imp',
+      health: isGuard ? 70 : 40,
+      attack: isGuard ? 20 : 12,
+      speed: isGuard ? 11 : 9,
+      xp: isGuard ? 45 : 20,
+      lexis: isGuard ? 25 : 10,
     }, {
       kind: 'townFight',
-      role: isKnight ? 'guard' : 'villager',
+      role: isGuard ? 'guard' : 'villager',
       villagerId: villager.id,
       villageId: villager.village,
       name: villager.name,
@@ -300,17 +301,18 @@ function extortVillager(game, villager) {
   addHappiness(game, -2);
   villager.angry = 30;
 
-  if (Math.random() < 0.3) {
+  const escorted = villager.job === 'merchant' && Math.random() < 0.82;
+  if (escorted || Math.random() < 0.3) {
     villager.fighting = true;
     startSocietyFight(game, {
-      name: 'Defiant ' + villager.name,
-      shape: 'imp',
-      health: 42,
-      attack: 13,
-      speed: 9,
-      xp: 22,
-      lexis: 15,
-    }, { kind: 'townFight', role: 'villager', villagerId: villager.id, villageId: villager.village, name: villager.name });
+      name: escorted ? villager.name + '’s Escort' : 'Defiant ' + villager.name,
+      shape: escorted ? 'knight' : 'imp',
+      health: escorted ? 64 : 42,
+      attack: escorted ? 18 : 13,
+      speed: escorted ? 11 : 9,
+      xp: escorted ? 35 : 22,
+      lexis: escorted ? 22 : 15,
+    }, { kind: 'townFight', role: escorted ? 'guard' : 'villager', villagerId: villager.id, villageId: villager.village, name: villager.name });
     return;
   }
 

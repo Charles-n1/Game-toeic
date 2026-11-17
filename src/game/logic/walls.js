@@ -192,4 +192,52 @@ export function describeWalls(state) {
   return parts.join(', ');
 }
 
+/** Finds a nearby damaged, missing, or unfortified wooden village wall section within range of player. */
+export function wallRepairSpotNear(game) {
+  const { x, y } = game.player;
+  for (const village of VILLAGES) {
+    if (x < village.x - 3 || x > village.x + village.w + 3 || y < village.y - 3 || y > village.y + village.h + 3) continue;
+    const state = game.villages?.[village.id];
+    if (!state || typeof state.walls !== 'string') continue;
+    for (const tile of wallTilesOf(village)) {
+      if (Math.hypot(tile.x + 0.5 - x, tile.y + 0.5 - y) > 1.7) continue;
+      const letter = state.walls[tile.section];
+      const hp = state.wallHp[tile.section] || 0;
+      const max = WALL_HP[letter] || 0;
+      if (letter === '-' || hp < max || letter === 'w') {
+        return { village, state, section: tile.section, letter, hp, max };
+      }
+    }
+  }
+  return null;
+}
+
+/** Repairs or upgrades a village wall section to palisade ('w') or stone ('s'). Returns 'repaired'|'built'|'upgraded'|'reinforced'. */
+export function applyWallRenovation(game, spot) {
+  const { state, section } = spot;
+  const letters = [...state.walls];
+  const letter = letters[section];
+  if (!game.counts) game.counts = {};
+  game.counts.wallsRepaired = (game.counts.wallsRepaired || 0) + 1;
+
+  if (letter === '-') {
+    letters[section] = 'w';
+    state.walls = letters.join('');
+    state.wallHp[section] = WALL_HP.w;
+    return 'built';
+  }
+  if ((state.wallHp[section] || 0) < WALL_HP[letter]) {
+    state.wallHp[section] = WALL_HP[letter];
+    return 'repaired';
+  }
+  if (letter === 'w') {
+    letters[section] = 's';
+    state.walls = letters.join('');
+    state.wallHp[section] = WALL_HP.s;
+    return 'upgraded';
+  }
+  state.wallHp[section] = WALL_HP[letter];
+  return 'reinforced';
+}
+
 export { villageOf };

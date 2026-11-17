@@ -157,6 +157,8 @@ export function syncMerchantHorses(game) {
         riderLook: roadRiderLook(),
         merchantName: pickRandom(MEN_NAMES) + ' the Trader',
         wagonColor: pickRandom(['#d9cbb0', '#b8483c', '#3d7a58', '#3c68a0']),
+        escortCount: Math.random() < 0.82 ? (Math.random() < 0.4 ? 2 : 1) : 0,
+        escortLook: { skin: pickRandom(SKINS), hair: pickRandom(HAIRS), style: 'short', eyes: '#3a6fd8', outfit: '#6a748c', trim: '#ffd23f', helmet: true, sword: true },
         destVillageId: dest.id,
         destName: dest.name,
         destX: dest.x + dest.w / 2,
@@ -307,12 +309,15 @@ function stealHorse(game, horse) {
       if (villager.village === horse.villageId && villager.knight && !villager.ko && !villager.dead) villager.angry = 60;
     }
     notify(game, '🐴 You stole a merchant horse! Guards are alerted! (+15 Infamy)', '#ff8a95');
-  } else if (Math.random() < 0.55) {
-    say(game, null, ['A caravan guard catches up! "Hey! That is a merchant horse — stop, thief!"'], [
+  } else if ((horse.escortCount || 0) > 0 || Math.random() < 0.55) {
+    say(game, null, ['The merchant’s escort guard blocks the road! "Hey! That is a merchant horse — stop, thief!"'], [
       {
-        label: 'Fight the Caravan Guard!',
+        label: 'Fight the Escort Guard!',
         icon: 'woodSword',
-        run: () => startSocietyFight(game, { name: 'Caravan Guard', shape: 'knight', health: 50, attack: 16, speed: 10, xp: 30, lexis: 20 }, { kind: 'townFight', role: 'guard', villagerId: null, villageId: null }),
+        run: () => {
+          const backups = (horse.escortCount || 0) >= 2 ? [{ name: 'Second Escort Guard', shape: 'knight', health: 48, attack: 15, speed: 10, xp: 24, lexis: 15 }] : [];
+          startSocietyFight(game, { name: 'Merchant Escort Guard', shape: 'knight', health: 55, attack: 17, speed: 10, xp: 30, lexis: 20 }, { kind: 'townFight', role: 'guard', villagerId: null, villageId: null }, backups);
+        },
       },
       {
         label: 'Gallop away (+5 Infamy)',
@@ -349,12 +354,17 @@ export function interactMerchantHorse(game, horse) {
       choices.push({
         label: '☠ Plunder Wagon! (Mystery Items, +20 Infamy)',
         icon: 'sword',
-        run: () =>
+        run: () => {
+          const escorts = horse.escortCount || 0;
+          const backups = escorts >= 2 ? [{ name: horse.merchantName + ' Escort #2', shape: 'knight', health: 48, attack: 15, speed: 10, xp: 24, lexis: 15 }] : [];
+          if (escorts > 0) notify(game, `🛡️ ${escorts} escort guard(s) step in to defend ${horse.merchantName}!`, '#ffd23f');
           startSocietyFight(
             game,
-            { name: horse.merchantName + ' Guard', shape: 'knight', health: 55, attack: 17, speed: 10, xp: 30, lexis: 20 },
-            { kind: 'roadPlunder', horseId: horse.id, destVillageId: horse.destVillageId }
-          ),
+            { name: escorts > 0 ? horse.merchantName + ' Escort' : horse.merchantName + ' Guard', shape: 'knight', health: escorts > 0 ? 60 : 45, attack: escorts > 0 ? 18 : 15, speed: 10, xp: 30, lexis: 20 },
+            { kind: 'roadPlunder', horseId: horse.id, destVillageId: horse.destVillageId },
+            backups
+          );
+        },
       });
     }
     choices.push({ label: 'Steal this horse (+15 Infamy)', icon: 'woodSword', run: () => stealHorse(game, horse) });

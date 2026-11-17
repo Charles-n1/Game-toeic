@@ -442,6 +442,17 @@ export function societyDrawings(game, view, time) {
           put(ctx, personSprite(horse.riderLook, dir, 'stand'), hx, hy - 10 + bob, view);
         },
       });
+      const escorts = horse.escortCount || 0;
+      for (let i = 0; i < escorts; i++) {
+        const side = i === 0 ? -1 : 1;
+        const ex = horiz ? horse.x - fx * 0.45 : horse.x + side * 0.85;
+        const ey = horiz ? horse.y + side * 0.72 : horse.y - fy * 0.45;
+        const eLook = horse.escortLook || { skin: '#e8c49a', hair: '#3a3442', style: 'short', eyes: '#3a6fd8', outfit: '#6a748c', trim: '#ffd23f', helmet: true, sword: true };
+        list.push({
+          y: ey,
+          draw: (ctx) => put(ctx, personSprite(eLook, dir, walkPose(horse.step || time * 4, true, time, i)), ex * T, ey * T, view),
+        });
+      }
     } else {
       list.push({
         y: horse.y,

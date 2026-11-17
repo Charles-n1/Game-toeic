@@ -6,7 +6,7 @@
 // (The caves of the wild are added by world/wildPlaces.js.)
 
 export const STORY_DUNGEONS = [
-  { id: 'crypt', name: 'Crystal Cave', look: 'cave', x: 188, y: 55, w: 30, h: 22, floors: 3, theme: 'crystal', crystals: true, guards: ['spider', 'iceGolem', 'skeleton'], boss: 'lich', danger: 2, text: 'A cave of singing crystals. The Gerund Lich sleeps at its bottom.' },
+  { id: 'crypt', name: 'Crystal Cave', look: 'cave', x: 188, y: 55, w: 30, h: 22, floors: 2, theme: 'crystal', crystals: true, guards: ['spider', 'skeleton', 'wisp'], boss: 'lich', danger: 1, text: 'A cave of singing crystals. The Gerund Lich sleeps at its bottom.' },
   { id: 'tower', name: 'Frostpeak Castle', look: 'castle', x: 140, y: 31, w: 56, h: 46, floors: 3, theme: 'ice', guards: ['iceGolem', 'harpy', 'wraith'], boss: 'warden', danger: 3, text: 'A frozen castle where time goes wrong. The Chrono Warden keeps it.' },
   { id: 'fort', name: 'Sandbandit Camp', look: 'camp', x: 69, y: 164, w: 50, h: 40, floors: 2, theme: 'bandit', guards: ['orc', 'goblin', 'cultist'], boss: 'general', danger: 3, text: 'The camp of General Barbarism, the enemy at the gate.' },
   { id: 'castle', name: 'Castle of Silence', look: 'demonCastle', x: 61, y: 20, w: 96, h: 76, floors: 5, theme: 'demon', guards: ['royalGuard', 'darkPaladin', 'demonLich', 'succubus', 'warGeneral', 'sorcererGeneral'], floorBosses: { 1: 'ravnos', 2: 'thamuz', 3: 'velmora', 4: 'queen' }, boss: 'king', danger: 4, text: 'A titanic castle on an island of lava. Solecis waits on his throne.' },

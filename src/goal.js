@@ -4,8 +4,8 @@ import { createContext, useContext } from 'react';
 export const SECTION_MAX = 495;
 export const TOTAL_MAX = 990;
 
-// Used until the player chooses a goal.
-export const DEFAULT_GOAL = { total: 750, oral: 350 };
+// Used until the player chooses a goal (800 total - 350 oral = 450 reading).
+export const DEFAULT_GOAL = { total: 800, oral: 350 };
 
 // Reading points needed: goal - oral. (At least 5: the lowest TOEIC score.)
 export function readingNeeded(goal) {

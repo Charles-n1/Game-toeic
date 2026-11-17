@@ -178,21 +178,26 @@ export function revealCrystalCave(game, smithName = 'The blacksmith') {
 }
 
 // Starts a real combat encounter (not a word duel) and registers its society outcome handler.
-export function startSocietyFight(game, opponent, meta) {
+export function startSocietyFight(game, opponent, meta, backups = []) {
   ensureSociety(game);
-  const foe = {
-    tier: 'small',
-    tag: 'normal',
-    category: monsterCategory(game),
-    magicAttack: 0,
-    resistance: 0.1,
-    magicResistance: 0.1,
-    drops: [],
-    ...opponent,
-    societyMeta: meta,
+  const buildFoe = (data) => {
+    const f = {
+      tier: 'small',
+      tag: 'normal',
+      category: monsterCategory(game),
+      magicAttack: 0,
+      resistance: 0.1,
+      magicResistance: 0.1,
+      drops: [],
+      ...data,
+      societyMeta: meta,
+    };
+    if (!game.run.questions || game.run.questions.length === 0) f.questions = SOCIETY_SENTENCES;
+    return f;
   };
-  if (!game.run.questions || game.run.questions.length === 0) foe.questions = SOCIETY_SENTENCES;
-  startFight(game, foe);
+  const foe = buildFoe(opponent);
+  const extraFoes = (backups || []).map((b) => buildFoe(b));
+  startFight(game, foe, extraFoes);
   game.run.societyFight = { fight: game.run.fight, meta: meta };
 }
 

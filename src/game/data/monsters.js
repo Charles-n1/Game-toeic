@@ -54,7 +54,7 @@ export const SPECIES = {
   demonKnight: { name: 'Demon Knight', shape: 'knight', tier: 'demon', tag: 'hard', health: 100, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
 
   // ---------- Bosses: one of each, they never come back ----------
-  lich: { name: 'The Gerund Lich', shape: 'lich', tier: 'boss', tag: 'hard', boss: true, category: 'gerunds', health: 140, attack: 15, magicAttack: 20, resistance: 0.2, magicResistance: 0.4, speed: 9, xp: 60, lexis: 30, drops: ['gem'] },
+  lich: { name: 'The Gerund Lich', shape: 'lich', tier: 'boss', tag: 'normal', boss: true, category: 'gerunds', health: 105, attack: 12, magicAttack: 14, resistance: 0.15, magicResistance: 0.25, speed: 9, xp: 60, lexis: 45, drops: ['gem'] },
   warden: { name: 'The Chrono Warden', shape: 'warden', tier: 'boss', tag: 'hard', boss: true, category: 'verbTenses', health: 180, attack: 20, magicAttack: 20, resistance: 0.3, magicResistance: 0.3, speed: 13, xp: 100, lexis: 60, drops: ['gem'] },
   general: { name: 'General Barbarism', shape: 'general', tier: 'boss', tag: 'hard', boss: true, health: 220, attack: 30, magicAttack: 15, resistance: 0.4, magicResistance: 0.2, speed: 12, xp: 160, lexis: 100, drops: ['gem'] },
   // the three generals and the queen keep the floors of the Castle of Silence (floorBosses in data/dungeons.js)

@@ -44,6 +44,9 @@ import { updateEconomy, slowEconomy } from './economy';
 import { encumbranceStatus } from './weight';
 import { updateBorders } from './kingdomLaws';
 import { kidNear, talkToKid } from './families';
+import { wallRepairSpotNear, applyWallRenovation } from './walls';
+import { countItem, removeItem, gainXp } from './player';
+import { addHappiness } from './village';
 import { knockOut } from './death';
 
 // One step of the world. Called at every frame while the player is on the map.
@@ -196,6 +199,38 @@ function pickUpAndRefresh(game, piece) {
   refreshWorld(game);
 }
 
+function offerWallRenovation(game, spot) {
+  const { village, letter, hp, max } = spot;
+  const needMat = letter === 'w' && hp >= max ? { id: 'stone', qty: 2, fee: 20, desc: 'Upgrade wood palisade to Stone Wall' } : { id: 'firewood', qty: 2, fee: 12, desc: letter === '-' ? 'Close wall gap with Palisade' : 'Repair damaged wall section' };
+  const matBranches = countItem(game.player, 'branch') >= 4;
+  const hasMat = countItem(game.player, needMat.id) >= needMat.qty;
+  const finish = () => {
+    const res = applyWallRenovation(game, spot);
+    refreshWorld(game);
+    gainXp(game, 14);
+    addHappiness(game, 2);
+    cue(game, 'victory');
+    notify(game, '🧱 Wall ' + res + ' in ' + village.name + '! (' + (game.counts.wallsRepaired || 1) + ' renovated)', '#7cfc9a');
+  };
+  const choices = [];
+  if (hasMat) {
+    choices.push({ label: needMat.desc + ' (' + needMat.qty + ' ' + needMat.id + ')', icon: 'logs', run: () => { removeItem(game.player, needMat.id, needMat.qty); finish(); } });
+  } else if (matBranches && needMat.id === 'firewood') {
+    choices.push({ label: needMat.desc + ' (4 branch)', icon: 'logs', run: () => { removeItem(game.player, 'branch', 4); finish(); } });
+  }
+  choices.push({
+    label: needMat.desc + ' (' + needMat.fee + ' Lexis materials)',
+    icon: 'lexis',
+    run: () => {
+      if (game.player.lexis < needMat.fee) return say(game, null, ['Need ' + needMat.fee + ' Lexis (or bring timber/stone) to renovate this wall.']);
+      game.player.lexis -= needMat.fee;
+      finish();
+    },
+  });
+  choices.push({ label: 'Step back', run: () => {} });
+  say(game, null, [village.name + ' Wall (Section #' + (spot.section + 1) + ' · ' + Math.round(hp) + '/' + max + ' HP).'], choices);
+}
+
 function talkToVillager(game, villager) {
   const words = villager.working ? 'Hard work today. ' : 'Hello, traveler. ';
   say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + '"']);
@@ -233,6 +268,7 @@ function actionsOf(game) {
     { when: () => boulderPuzzleAt(game, front.x, front.y), icon: 'dots', run: () => offerBoulderReset(game, boulderPuzzleAt(game, front.x, front.y), () => refreshWorld(game)) },
     { when: () => propNear(game, ['dummy'], 1.6), icon: 'woodSword', run: () => practiceAtDummy(game) },
     { when: () => chestNear(game), icon: 'chest', run: () => openChest(game, chestNear(game)) },
+    { when: () => wallRepairSpotNear(game) !== null, icon: 'shield', run: () => offerWallRenovation(game, wallRepairSpotNear(game)) },
     { when: () => isSoil(player.x, player.y), icon: 'carrot', run: () => workField(game, player.x, player.y) },
     { when: () => isSoil(front.x, front.y), icon: 'carrot', run: () => workField(game, front.x, front.y) },
     { when: () => canRefill(game, front), icon: 'water', run: () => refill(game) },

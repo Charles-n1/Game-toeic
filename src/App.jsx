@@ -16,7 +16,7 @@ import LessonPage from './pages/LessonPage';
 import AccountPage from './pages/AccountPage';
 import GamePage from './game/GamePage';
 import { QUESTIONS } from './data/questions';
-import { addAnswer } from './data/categories';
+import { addAnswer, defaultCategoryStats } from './data/categories';
 import { today } from './logic/dates';
 import { THEMES, ThemeContext } from './themes';
 import { MUSICS, startAudio } from './sounds';
@@ -66,7 +66,7 @@ function loadEverything() {
     // The questions not retrieved on their day are moved to today.
     questions: progress ? applyProgress(QUESTIONS, progress.progress).map(moveLateToToday) : QUESTIONS,
     reviewLog: progress ? progress.reviewLog : {},
-    stats: progress ? progress.stats : {},
+    stats: progress ? progress.stats : defaultCategoryStats(),
     history: progress ? progress.history : [],
     settings: look
       ? {

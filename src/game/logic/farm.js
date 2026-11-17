@@ -9,6 +9,7 @@ import { notify, say } from './messages';
 import { burst, dust, floatText } from './particles';
 import { emote } from './emotes';
 import { cue } from './cues';
+import { openWorldChest } from './chest';
 
 // Working the ground: planting carrots/herbs/flowers/wheat, digging for treasures, opening chests.
 
@@ -164,18 +165,13 @@ export function dig(game, x, y) {
 // ---------- Chests (at the end of the dungeons) ----------
 
 export function chestNear(game) {
-  return CHESTS.find((chest) => !game.chests[chest.key] && Math.hypot(chest.x + 0.5 - game.player.x, chest.y + 0.5 - game.player.y) < 1.3);
+  return CHESTS.find((chest) => {
+    const remaining = game.chestLoots?.[chest.key] && Object.keys(game.chestLoots[chest.key]).length > 0;
+    return (!game.chests[chest.key] || remaining) && Math.hypot(chest.x + 0.5 - game.player.x, chest.y + 0.5 - game.player.y) < 1.3;
+  });
 }
 
-// The big chest at the end of a dungeon, or a small one on the way.
+// The big chest at the end of a dungeon, or a small one on the way: opens the Minecraft-style chest inventory!
 export function openChest(game, chest) {
-  const isSmall = chest.key.endsWith(':small');
-  const lexis = (isSmall ? 30 : 100) * chest.zone.danger;
-  game.chests[chest.key] = true;
-  earnLexis(game, lexis);
-  addItem(game.player, isSmall ? pickRandom(['oldCoin', 'manaPotion', 'flint', 'oil']) : 'gem');
-  addItem(game.player, 'healthPotion', isSmall ? 1 : 3);
-  burst(game, chest.x + 0.5, chest.y + 0.5, '#ffd23f', 40);
-  emote(game, 'hero', '!');
-  notify(game, '🎁 A chest of ' + chest.zone.name + ': +' + lexis + ' Lexis and treasures!', '#ffd23f');
+  openWorldChest(game, chest);
 }
