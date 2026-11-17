@@ -383,7 +383,7 @@ export default function FightScreen({ game, refresh }) {
               <PixelIcon name={type.id} size={14} />
               <span>{type.name}</span>
             </div>
-            {opponent.tag && <TagBadge tag={opponent.tag} />}
+            {(fight.question?.difficulty || opponent.tag) && <TagBadge tag={fight.question?.difficulty || opponent.tag} />}
             {opponent.duel ? (
               <span className="small">mistakes {fight.asked - fight.correct} / 3</span>
             ) : (

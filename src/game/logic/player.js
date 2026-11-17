@@ -72,9 +72,9 @@ export function criticalChance(player) {
   return 0.08 + Math.floor(player.level / 2) * 0.01;
 }
 
-// XP needed to finish a level. It grows: the game is long.
+// XP needed to finish a level (3x slower progression for a realistic RPG curve).
 export function xpForLevel(level) {
-  return Math.round(40 * Math.pow(level, 1.5));
+  return Math.round(120 * Math.pow(level, 1.5));
 }
 
 export function heal(player, amount, game = null) {

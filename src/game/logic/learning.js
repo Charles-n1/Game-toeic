@@ -8,13 +8,12 @@ import { TAGS, tagOf, countTagAnswer, spellLevel } from './skills';
 import { notify } from './messages';
 import { recordLinkTestAnswer } from './statLinks';
 
-// The game trains ONE grammar category at a time: the "focus" (the weakest one).
-// Most monsters are of this type. When the goal of the player is reached in it, the focus swaps to the next
-// weakest category. A mastered category comes back later, to check it was not forgotten (like the recovery).
+// The game trains the player's weakest grammar classes first.
+// Most monsters target the weakest TOEIC category; custom weights can override this.
 
-const MIN_ANSWERS = 8; // answers needed before a category can be called "mastered"
+const MIN_ANSWERS = 8; // answers needed before a focus slot rotates
 const RETURN_DAYS = [3, 7, 14, 31]; // game days before a mastered category comes back (the last one repeats)
-const FOCUS_CHANCE = 0.65; // the chance for a monster to be of the focus type
+const WEAKEST_CHANCE = 0.75; // chance to draw the weakest class (remaining 25% picks the 2nd weakest)
 
 // The level of the player in a category, from 0 to 100 (their % of good answers).
 export function skillPercent(game, categoryId) {
@@ -92,7 +91,12 @@ export function clearToeicWeights(game) {
   }
 }
 
-// The type of a new wild monster: honors custom TOEIC weights when set, otherwise mostly the focus.
+/** Returns TOEIC categories ordered from lowest proficiency % to highest. */
+export function weakestCategories(game) {
+  return CATEGORIES.map((c) => c.id).sort((a, b) => skillPercent(game, a) - skillPercent(game, b));
+}
+
+// The type of a new monster: honors custom TOEIC weights when set, otherwise focuses on the weakest class(es).
 export function monsterCategory(game) {
   const weights = game.toeicWeights || {};
   const entries = Object.entries(weights).filter(([, value]) => value > 0);
@@ -111,8 +115,10 @@ export function monsterCategory(game) {
     const rest = CATEGORIES.map((c) => c.id).filter((id) => !weights[id]);
     if (rest.length > 0) return pickRandom(rest);
   }
-  if (Math.random() < FOCUS_CHANCE) return game.focus.current;
-  return pickRandom(CATEGORIES).id;
+  const ranked = weakestCategories(game);
+  const first = game.focus?.current || ranked[0];
+  const second = ranked.find((id) => id !== first) || first;
+  return Math.random() < WEAKEST_CHANCE ? first : second;
 }
 
 // Every answer of the game goes through here.
@@ -142,15 +148,41 @@ function firstNotEmpty(lists) {
 // exam, a text is read once and answered several times.
 // Then the questions to recover today (failed before, due now): "it returns when it's time".
 // A training (at a dummy) asks only the sections chosen by the hero, and stays in the chosen category first.
+function mixDifficulty(baseTag) {
+  if (baseTag === 'extreme') return Math.random() < 0.7 ? 'extreme' : 'hard';
+  if (baseTag === 'hard') return Math.random() < 0.7 ? 'hard' : 'normal';
+  return 'normal';
+}
+
+/** Rolls question difficulty: Hard = 70% Hard / 30% Normal; Extreme = 70% Extreme / 30% Hard;
+ *  Demons = ~78% Hard / ~22% Extreme; Demon King & Demon Queen = 100% Extreme. */
+export function rollQuestionDifficulty(game, opponent) {
+  if (
+    opponent.species === 'king' ||
+    opponent.species === 'queen' ||
+    opponent.art === 'demonKing' ||
+    opponent.art === 'demonQueen'
+  ) {
+    return 'extreme';
+  }
+  if (opponent.tier === 'demon') {
+    return Math.random() < 0.78 ? 'hard' : 'extreme';
+  }
+  return mixDifficulty(opponent.tag || tagOf(game, opponent.category));
+}
+
 export function pickQuestion(game, opponent, usedIds, lastText) {
   const sections = opponent.sections || (TIERS[opponent.tier] || TIERS.small).sections;
-  const tag = opponent.tag || tagOf(game, opponent.category);
+  const baseTag = opponent.tag || tagOf(game, opponent.category);
+  const rolledDiff = rollQuestionDifficulty(game, opponent);
   const bank = opponent.questions || game.run.questions; // a negotiation has its own sentences
   const fresh = bank.filter((q) => !usedIds.includes(q.id));
   const ofTier = fresh.filter((q) => sections.includes(q.section));
   const ofType = ofTier.filter((q) => q.category === opponent.category);
-  const ofTag = (list) => list.filter((q) => q.difficulty === tag);
-  const order = opponent.training ? [ofTag(ofType), ofType, ofTag(ofTier), ofTier, fresh, bank] : [ofTag(ofType), ofTag(ofTier), ofType, ofTier, fresh, bank];
+  const ofDiff = (list, diff) => list.filter((q) => q.difficulty === diff);
+  const order = opponent.training
+    ? [ofDiff(ofType, rolledDiff), ofDiff(ofType, baseTag), ofType, ofDiff(ofTier, rolledDiff), ofDiff(ofTier, baseTag), ofTier, fresh, bank]
+    : [ofDiff(ofType, rolledDiff), ofDiff(ofTier, rolledDiff), ofDiff(ofType, baseTag), ofDiff(ofTier, baseTag), ofType, ofTier, fresh, bank];
   const pool = opponent.questions ? firstNotEmpty([fresh, bank]) : firstNotEmpty(order);
 
   const ofSameText = pool.filter((q) => q.text !== null && q.text === lastText);
@@ -163,8 +195,11 @@ export function pickQuestion(game, opponent, usedIds, lastText) {
 // The question of a spell: of the school of the spell, at the level the hero learned it (1 Normal, 2 Hard...).
 // (A Gerund spell learned at Hard asks a Hard gerund sentence: it hits 5 times harder.)
 export function pickSpellQuestion(game, categoryId, usedIds) {
+  const baseTag = TAGS[Math.max(0, spellLevel(game, categoryId) - 1)];
+  const diff = mixDifficulty(baseTag);
   const fresh = game.run.questions.filter((q) => !usedIds.includes(q.id) && q.section === 'rc10');
   const ofType = fresh.filter((q) => q.category === categoryId);
-  const ofTag = ofType.filter((q) => q.difficulty === TAGS[Math.max(0, spellLevel(game, categoryId) - 1)]);
-  return pickRandom(firstNotEmpty([ofTag, ofType, fresh, game.run.questions]));
+  const ofDiff = ofType.filter((q) => q.difficulty === diff);
+  const ofBase = ofType.filter((q) => q.difficulty === baseTag);
+  return pickRandom(firstNotEmpty([ofDiff, ofBase, ofType, fresh, game.run.questions]));
 }

@@ -17,6 +17,7 @@ import { KINGDOMS } from '../../data/kingdoms';
 import { kingdomRep } from '../../logic/kingdomLaws';
 import { WORLD_LANGUAGES, languageLevel } from '../../logic/languages';
 import { obsidianRankInfo } from '../../logic/obsidian';
+import { SPECIES, speciesForSkill } from '../../data/monsters';
 
 // The skill (spell) of a type: learned at which level, or who teaches it.
 function skillText(game, type) {
@@ -45,7 +46,10 @@ function SkillLine({ game, type, refresh }) {
           {type.short} {isFocus && <span className="gold">◆</span>}
         </span>
         <span className="small">
-          {TAG_NAMES[tag]}: {tagPercent(game, type.id, tag)}% ({tagAnswers(game, type.id, tag)} answers) · Power {skillPower(game, type.id)}
+          {TAG_NAMES[tag]}: {tagPercent(game, type.id, tag)}% ({tagAnswers(game, type.id, tag)}/50 answers) · Power {skillPower(game, type.id)}
+        </span>
+        <span className="small">
+          Train vs: {speciesForSkill(type.id).slice(0, 3).map((id) => SPECIES[id]?.name || id).join(', ')}
         </span>
         <span className="small">{skillText(game, type)}</span>
       </div>
@@ -195,9 +199,7 @@ export default function StatsPanel({ game, refresh }) {
       </button>
 
       <span className="small" style={styles.hint}>
-        Each tag is the level above the other: 100% in Normal = 20% in Hard. With more than 90% in your tag (on your last
-        answers, at least 10), the skill can evolve: its monsters become Hard (5× health), but each good Hard answer hits
-        5× harder and gives 5× more.
+        Reach &gt;90% across 50 answers in a skill to evolve it automatically: Hard mixes 70% Hard / 30% Normal; Extreme mixes 70% Extreme / 30% Hard (Demons fight at Hard+Extreme; Demon King &amp; Queen at 100% Extreme).
       </span>
       <span className="small" style={styles.hint}>
         ◆ = trained now. Reach your goal in it: the training moves to your next weakness.

@@ -1,4 +1,4 @@
-import { SPECIES } from '../data/monsters';
+import { SPECIES, speciesForSkill } from '../data/monsters';
 import { zoneAt, MONSTER_TOWNS, DUNGEONS, WILD_STRUCTURES } from '../data/zones';
 import { pickRandom } from '../../logic/random';
 import { isSolid, dungeonMonsters } from '../world/map';
@@ -40,7 +40,7 @@ function tagFor(game, species, category, x, y, isWild) {
 // Its tag makes it stronger: health x5 per tag, blows x2, rewards x5 (see logic/skills.js).
 export function makeMonster(game, speciesId, x, y, extra = {}) {
   const species = SPECIES[speciesId];
-  const category = species.category || monsterCategory(game);
+  const category = extra.category || species.category || monsterCategory(game);
   const tag = tagFor(game, species, category, x, y, !extra.key && !extra.raid);
   return {
     ...species,
@@ -161,8 +161,21 @@ function spawnPlace(game) {
   return null;
 }
 
+function pickWeakestSpecies(game, campList, night) {
+  const targetCat = monsterCategory(game);
+  const skillMatches = speciesForSkill(targetCat).filter((id) => SPECIES[id] && !SPECIES[id].boss && (night || !SPECIES[id].night));
+  const localMatches = campList.filter((id) => SPECIES[id]?.category === targetCat);
+  if (localMatches.length > 0 && Math.random() < 0.8) return pickRandom(localMatches);
+  if (skillMatches.length > 0 && Math.random() < 0.65) {
+    const smallMatches = skillMatches.filter((id) => SPECIES[id].tier === 'small');
+    return pickRandom(smallMatches.length > 0 ? smallMatches : skillMatches);
+  }
+  return pickRandom(campList);
+}
+
 function spawnWild(game) {
-  const max = Math.round((isNight(game) ? WILD_BY_NIGHT : WILD_BY_DAY) * monsterCrowd(game)); // more on a Blood Moon, a stampede
+  const night = isNight(game);
+  const max = Math.round((night ? WILD_BY_NIGHT : WILD_BY_DAY) * monsterCrowd(game)); // more on a Blood Moon, a stampede
   if (game.run.monsters.filter(isWild).length >= max) return;
   const place = spawnPlace(game);
   if (!place) return;
@@ -174,7 +187,7 @@ function spawnWild(game) {
     const spot = i === 0 ? place : { x: place.x + (Math.random() - 0.5) * 2, y: place.y + (Math.random() - 0.5) * 2 };
     if (i > 0 && isSolid(spot.x, spot.y)) continue;
     game.run.monsters.push(
-      makeMonster(game, pickRandom(list), spot.x, spot.y, {
+      makeMonster(game, pickWeakestSpecies(game, list, night), spot.x, spot.y, {
         homeCampId: place.source.id,
         campX: place.source.x,
         campY: place.source.y,

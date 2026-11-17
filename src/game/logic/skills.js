@@ -16,9 +16,9 @@ export const TAG_POWER = { normal: 1, hard: 5, extreme: 25 };
 // The blows of the monsters only double at each tag (5 times would kill the hero in one blow).
 export const TAG_ATTACK = { normal: 1, hard: 2, extreme: 4 };
 
-const LAST_ANSWERS = 20; // the % of a tag is counted on its last 20 answers: it shows the level of NOW
-const MIN_ANSWERS = 10; // answers of a tag needed before the skill can evolve
-const EVOLVE_PERCENT = 90; // more than this % in its tag: the skill can evolve
+const LAST_ANSWERS = 50; // the % of a tag is counted on its last 50 answers
+const MIN_ANSWERS = 50; // 50 answers at > 90% in the current tag before evolving
+const EVOLVE_PERCENT = 90; // more than this % in its tag: evolves Normal -> Hard -> Extreme
 
 // game.skills: { gerunds: { tag: 'normal', normal: [1, 0, 1...], hard: [], extreme: [] } }  (1 = a good answer)
 export function emptySkills() {
@@ -79,11 +79,10 @@ export function countTagAnswer(game, question, isCorrect) {
   const skill = game.skills[question.category];
   const answers = skill && skill[question.difficulty];
   if (!answers) return;
-  const wasReady = canEvolve(game, question.category);
   answers.push(isCorrect ? 1 : 0);
   if (answers.length > LAST_ANSWERS) answers.shift();
-  if (!wasReady && canEvolve(game, question.category)) {
-    notify(game, '✨ ' + typeOf(question.category).short + ' can evolve to ' + TAG_NAMES[nextTag(skill.tag)] + '! (Menu → Stats)', '#ffd23f');
+  if (canEvolve(game, question.category)) {
+    evolveSkill(game, question.category);
   }
 }
 
