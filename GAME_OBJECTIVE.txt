@@ -373,3 +373,42 @@ Then, in this order:
 - From the MVP: 2-3 testers (ideally people preparing the TOEIC).
   Watch them play without helping. Ask: fun? too hard? too slow?
 - Targets: a small fight lasts about 1 minute, a boss about 10 minutes.
+
+
+==========================================================
+PART 3 - THE ISEKAI SIDE (what the current version does)
+==========================================================
+
+28. THE WORLD
+-------------
+- The world is built from the painting art/MAP2.png (tools/build_world.py). New places of the painting:
+  Riverford, Sailor's Refuge, the Forgotten Crypt, the Molten Mines, Murkwood Swamp, the Old Road,
+  Emerald Falls, the Stormbreak Isles. A save of an older world wakes up at home (stats, gear, friends kept).
+- The torch: the hero always has one. Key T (or the HUD) lights it or puts it out. It burns 5 real minutes.
+  Under the sky, the rain or a strong wind (a new part of the weather) puts it out.
+- Lightning is rare now (a storm is rarer, a strike every 35-80 s, it seldom aims at people).
+
+29. THE ARMY OF THE DEMON KING
+-----------------------------
+- 17 new monsters from art/Monsters/Demon king (tools/cut_monsters.py): soldiers, archers, priests,
+  hounds, succubi, royal guards, dark paladins, behemoths, liches, hellknights, generals.
+- The Castle of Silence has 5 floors: Ravnos, Thamuz, Velmora, then Lilith the Demon Queen, then Solecis.
+- Monsters look where they really walk (no more flicker when going right), walk in 4 steps, breathe when
+  standing, raise dust when they run.
+
+30. THE ISEKAI STORY AND THINGS (logic/isekai/, data/isekai.js)
+---------------------------------------------------------------
+- The Lost Hero: Solecis was the first summoned hero (Louis). 6 graves hide the pages of his diary.
+  With all of them, the hero knows his name: the king loses 25% HP in the last fight, the ending tells more.
+- The classmates: Lea (summoned by Queen Sera, a rival: a duel of words each day) and Hugo (reborn as a
+  baby, innkeeper of Riverford, sells curry, ramen and mayonnaise). "Wait... I know you!" once with each.
+- Curses: some monsters drop cursed accessories (strong, but stuck, and they drink HP). A rite of words
+  at a goddess shrine or a church lifts the curse.
+- Hot springs (5): a bath heals everything; the friends of the party bathe too.
+- Arenas (in each capital): 3 duels of words in a row, once a day, for Lexis and the title of Champion.
+- Events of the world (some mornings): Blood Moon, Monster Stampede (emergency quest of the Guild),
+  Night of Falling Stars (Star Shards to pick up).
+- 5 new classes: Sword Saint (Lea), Otherworld Merchant (Hugo), Sage (Yuki), Saint (Aria), Shadow Assassin (Nyx).
+- The villagers greet the hero, chat together, meet on the square in the evening.
+- Light: windows lit in the evening, torches of the knights, glow of the demons, shadows of the clouds,
+  gusts of wind. The Diary tab (Quests menu) shows the event of the day, the pages and the classmates.

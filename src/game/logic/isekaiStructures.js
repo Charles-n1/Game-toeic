@@ -1,4 +1,5 @@
 import { WILD_STRUCTURES } from '../data/zones';
+import { structureNear } from './isekai/common';
 import { ITEMS } from '../data/items';
 import { addItem, earnLexis, gainXp, heal, restoreMana, maxMana } from './player';
 import { notify, say } from './messages';
@@ -26,10 +27,6 @@ function ensureStructState(game) {
 export function isLairCleared(game, lairId) {
   const clearedDay = game.war?.clearedLairs?.[lairId];
   return typeof clearedDay === 'number' && game.day - clearedDay < 2;
-}
-
-function structureNear(player, kind, range = 2.4) {
-  return WILD_STRUCTURES.find((s) => s.kind === kind && Math.hypot(s.x - player.x, s.y - player.y) < range) || null;
 }
 
 function triggerTrapAmbush(game, trapStruct) {
@@ -186,11 +183,10 @@ function interactMonsterCamp(game, s) {
 // Actions integrated into update.js actionsOf().
 export function actionsOfStructures(game) {
   ensureStructState(game);
-  const player = game.player;
-  const nearTrap = structureNear(player, 'banditTrap', 2.8);
-  const nearShrine = structureNear(player, 'isekaiShrine', 2.6);
-  const nearWay = structureNear(player, 'wayCamp', 2.6);
-  const nearLair = structureNear(player, 'monsterCamp', 3.4);
+  const nearTrap = structureNear(game, 'banditTrap', 2.8);
+  const nearShrine = structureNear(game, 'isekaiShrine', 2.6);
+  const nearWay = structureNear(game, 'wayCamp', 2.6);
+  const nearLair = structureNear(game, 'monsterCamp', 3.4);
 
   return [
     {
