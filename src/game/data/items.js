@@ -3,6 +3,7 @@ import { CAMP_ITEMS } from './items/camp';
 import { SOCIETY_ITEMS } from './items/society';
 import { WAR_ITEMS } from './items/war';
 import { ISEKAI_ITEMS } from './items/isekai';
+import { REALISM_ITEMS } from './items/realism';
 
 // Everything the player can own.
 // kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give),
@@ -105,6 +106,7 @@ export const ITEMS = {
   ...SOCIETY_ITEMS,
   ...WAR_ITEMS,
   ...ISEKAI_ITEMS,
+  ...REALISM_ITEMS,
 };
 
 // The order of the upgrades at the smith: each one replaces the one before.
@@ -115,14 +117,16 @@ export const UPGRADES = {
 };
 
 // What each kind of shop sells.
+// The realism items sold here are only the ones that already work (potions, food, accessories).
+// The tools, scrolls, workstations and the mule are not sold yet: nothing uses them.
 export const SHOPS = {
-  clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'],
-  bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil'],
-  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion'],
+  clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion', 'herbalPoultice', 'antiseptic'],
+  bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil', 'smokedJerky', 'pickledRadish', 'spicedBroth', 'honeyLemonTea'],
+  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion', 'herbalPoultice', 'antiseptic'],
   carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'painting', 'rugRed', 'rugBlue'],
-  market: ['map1', 'map2', 'map3', 'travelerPack', 'repairKit', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil'],
+  market: ['map1', 'map2', 'map3', 'travelerPack', 'repairKit', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil', 'hoodedCloak', 'monocle'],
   weaver: ['cloth', 'travelerPack'],
-  otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion'],
+  otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion', 'curryStew', 'omeletteRice', 'honeyToast', 'misoBroth', 'karagePlate'],
 };
 
 // The next item of an upgrade path (null = already the best).

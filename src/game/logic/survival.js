@@ -107,7 +107,7 @@ export function eat(game, itemId) {
   if (item.water) player.thirst = clamp(player.thirst + item.water);
   if (item.heal) heal(player, item.heal);
   applyDishBoosts(game, itemId);
-  if (['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast', 'ramen', 'curryRice', 'roastedFish', 'mushroomSoup'].includes(itemId)) {
+  if (['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast', 'ramen', 'curryRice', 'roastedFish', 'mushroomSoup', 'spicedBroth'].includes(itemId)) {
     cureCold(game, '🍲 That hot dish warmed you up — your cold is cured!');
   }
   if (item.raw && Math.random() < 0.35) {

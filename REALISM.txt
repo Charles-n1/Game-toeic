@@ -1,0 +1,550 @@
+LEXIA - REALISM
+A world that feels alive, where every act has a consequence
+==========================================================
+
+This file adds to GAME_OBJECTIVE.txt. It lists the realistic mechanics of the game:
+what is already in the game, and what to add.
+All the numbers are first proposals, to balance after tests.
+
+Time in the game: 1 day = 8 real minutes, 1 hour = 20 real seconds.
+The saved state is ready in src/game/logic/realism/state.js (game.realism), with the tables in
+src/game/data/realism.js and the items in src/game/data/items/realism.js. A field name in
+[brackets] is the place in game.realism where the mechanic keeps its data.
+
+
+==========================================================
+PART 1 - THE RULES OF REALISM
+==========================================================
+
+1. WHAT MAKES A WORLD FEEL REAL
+-------------------------------
+Not the number of bars to watch. Three things:
+- CONSEQUENCES: what the player does changes something, and it lasts.
+- MEMORY: the world and the people remember what happened.
+- COHERENCE: everything follows the same logic (fire burns, water puts it out, meat rots,
+  a shop closes at night, a dead person stays dead).
+
+
+2. THE GOLDEN RULES (every new mechanic must follow them)
+--------------------------------------------------------
+- English first. A realistic mechanic either creates a moment of English (a text to read,
+  a question to answer), or it is handled in a few seconds. Never a long menu to manage.
+- Never in a question. Nothing realistic interrupts or slows a fight question
+  (no "you are hungry" popup while the player reads).
+- Always warned. A danger is shown before it hurts: a sign on the HUD, a line from a
+  friend, a smell, a sound. No hidden punishment.
+- Always a way out. Every problem has a cure the player can find (a shop, a recipe, a person).
+- Learning is never lost. TOEIC stats and mistakes are never touched by realism.
+- Show it only when it matters. A new bar appears on the HUD only when it is low or high.
+- One mechanic = one file in logic/realism/, with clear function names (see the code style
+  in GAME_OBJECTIVE.txt, part 12).
+
+
+3. ALREADY IN THE GAME (do not build it again)
+---------------------------------------------
+- Hunger, thirst, sleep fatigue, untreated river water (boil it), cold (survival.js)
+- Weather: rain, storm, wind, lightning, seasons (weather.js, clock.js)
+- Day and night, the torch that burns and goes out in the rain (torch.js)
+- Weight of the bag, carry capacity, packs (weight.js)
+- Wear of the equipment, repair (durability.js)
+- A real economy: town treasuries, workshops, haulers, ships, scarcity prices (economy/)
+- Laws, borders, contraband, prison (kingdomLaws.js)
+- Languages and ancient runes (languages.js)
+- Families, love, babies, children who grow up (families.js)
+- Villagers who work by day and meet in the evening (villagers.js, villagerLife.js)
+- Raids, wars, caravans, bandits (raid.js, war/)
+- Hospital, feasts, disasters, horses, trading (society/)
+- Guild ranks, contracts, wages of the fighters (guild/)
+- Curses, hot springs, world events (isekai/)
+
+
+==========================================================
+PART 2 - THE MECHANICS TO ADD
+==========================================================
+Priority: (A) first, (B) then, (C) later.
+
+
+4. THE BODY: WOUNDS AND HEALTH
+------------------------------
+HP is not enough: a body gets hurt in different ways, and it takes time to heal.
+
+(A) Sprain [health.sprainHours]
+  - Cause: a critical hit from a monster (25% chance), a fall, running with a heavy bag.
+  - Effect: walk -30% speed, no running. Lasts 12 hours of the game.
+  - Cure: Herbal Poultice (heals at once), or rest in a bed (halves the time).
+  - Shown: the hero limps, a small bandage icon on the HUD.
+
+(A) Cut and infection [health.infectionHours]
+  - Cause: a hit from a monster with claws or blades (wolf, goblin, skeleton...), 15% chance.
+  - A cut not cleaned in 6 hours becomes an infection: -1 HP per hour, max HP -20%, fever.
+  - Fever: the screen is a little blurry at the edges, the hero sweats.
+  - Cure: Clinic Antiseptic, or Aria at the clinic. A bath before the infection = no infection.
+
+(A) Potion sickness [health.potionCount6h, health.potionCooldownHours]
+  - More than 3 potions in 6 hours: nausea. The next potions heal 50% less, and the hero
+    can vomit (-food).
+  - The rule is written on the potion label, in English (see part 14): the player who reads
+    it knows the rule. "Do not take more than three doses within six hours."
+  - Cure: wait, or Honey-Lemon Elixir.
+
+(B) Broken bone
+  - Cause: a boss hit when HP < 20%, a fall from a cliff, a horse that throws the hero.
+  - Effect: no weapon in the broken arm (magic only), or no running (broken leg). 3 days.
+  - Cure: a splint (Aria), then rest. A healer with a high Sage class heals it in 1 day.
+
+(B) Scars
+  - A broken bone or a deep wound leaves a scar on the hero sprite (face, arm).
+  - Some NPCs react: the guards respect it, the children ask about it, a romance says
+    "you should be more careful".
+  - Pure memory: no stat.
+
+(B) Food poisoning and dysentery [health.dysenteryHours]
+  - Cause: raw meat (already in the game: -10 HP), rotten food, untreated water (25% chance).
+  - Dysentery: thirst goes down 2x faster, fatigue +50%. Lasts 1 day.
+  - Cure: Honey-Lemon Elixir, clean water, rest.
+
+(B) Sickness that spreads
+  - In winter, a cold can pass from a villager to the hero (and back) when they talk.
+  - A sick villager stays at home, the shop is closed ("Closed - the baker is ill"),
+    the village asks for medicine: a side quest.
+  - An epidemic (rare disaster, see society/disasters.js): many sick, the clinic is full,
+    the price of herbs goes up.
+
+(C) Heatstroke and hypothermia [health.heatstroke, health.hypothermia]
+  - Desert at noon without water or a hood: heatstroke (-HP, blurred view, slower).
+  - Snow at night, wet clothes, no fire: hypothermia (the cold of the game gets worse).
+  - Clothes matter: a hood or a hat in the desert, a fur coat in the snow.
+  - Waterproof Oil-Wax [health.waterproofHours]: the rain does not wet the hero for 48 hours.
+
+(C) Cleanliness [health.cleanliness]
+  - Goes down with fights (blood), mud, the swamp, the mines, days without a bath.
+  - Low: shop prices +10%, romance -1 per talk, the guards look at you strangely, flies.
+  - A bath (hot spring, home with Botanical Soap, a river in summer) brings it back.
+  - Very low after a fight: higher risk of infection.
+
+(C) Morale [health.morale]
+  - Up: a good meal, a hot bath, a victory, a party with friends, music at the tavern,
+    a gift received, sleeping in a real bed, a sunny day.
+  - Down: a death in the village, a lost fight, rain for days, eating the same food,
+    sleeping on the ground, being alone for long.
+  - Low morale: XP -10%. High morale: +5% critical hits.
+  - The Earth dishes (curry, omurice...) give the most morale: home sickness of the isekai.
+
+
+5. SLEEP AND REST
+-----------------
+(A) Where you sleep changes the rest [health.wellRestedHours]
+  - Own bed at home: 100% rest, "Well rested" for 8 hours (+10% XP, +1 time on questions).
+  - Inn bed: 90%, costs Lexis. Tent (Waxed Field Tent): 80%. Ground: 50%, can be attacked.
+  - Under the rain without a tent: 20%, and the cold gets worse.
+
+(B) The night watch [health.watchMateId]
+  - At a camp, a friend of the party can keep watch: no surprise attack at night.
+  - Alone: 20% chance that a monster attacks during the night (the hero wakes up in a fight,
+    with -25% time on the first question: they are still sleepy).
+
+(B) Dreams
+  - When the hero sleeps, sometimes a dream of their old life on Earth: a short text in
+    English (a memory of an office, a train, an exam room). One RC question about it.
+    Good answer = "Well rested" lasts longer. It is also part of the isekai story.
+
+
+6. FOOD: IT ROTS, IT IS PRESERVED, IT IS VARIED
+------------------------------------------------
+(A) Food that rots [spoilage]
+  - Each perishable food has a life in days (data/realism.js PERISHABLE_ITEMS):
+    raw meat 3, raw fish 2, milk 2, egg 4, mushroom 4, bread 5, cooked dish 3.
+  - The days left show on the item ("Fresh", "2 days", "Rotting"). Rotten = poisoning risk.
+  - Rotten food is not lost: it becomes fertilizer for the fields (farm.js).
+
+(A) Preserving
+  - Salt (Crystal Salt) + raw meat = Smoked Jerky, never rots.
+  - Drying Rack at home [workstations.dryingRack]: raw meat or fish dry in 1 day.
+  - Ice-Chest at home [workstations.iceBox]: the food inside lasts 3x longer.
+  - Pickling: vinegar + vegetables = Pickled Roots, lasts 30 days.
+  - The home chest (home.js) keeps food cooler than the bag: x1.5.
+
+(B) Varied food
+  - The same food 3 times in a row feeds 30% less ("You are tired of carrots").
+  - A day with meat + vegetables + bread: "Good diet", +5 max HP for the day.
+
+(B) Food of the season
+  - Spring: herbs, eggs. Summer: berries, fish. Autumn: mushrooms, apples, wheat.
+    Winter: nothing grows outside, prices of food go up 30%, preserved food matters.
+  - The farm follows the seasons: a carrot planted in winter does not grow (except in a
+    greenhouse, built later).
+
+(C) Cooking can fail
+  - A burnt dish when the hero leaves the fire too long: food -50%.
+  - A recipe is learned by reading it (a recipe card in English, see part 14).
+
+
+7. EQUIPMENT: IT IS MADE, IT WEARS, IT IS CARED FOR
+---------------------------------------------------
+(A) Quality of the gear [combatRealism.quality]
+  - Each weapon and armor has a quality: Worn x0.88, Standard x1, Fine x1.15,
+    Masterwork x1.3 (data/realism.js QUALITY_TIERS).
+  - The quality comes from the smith (Mira levels up with the village), the materials
+    (ore, crystal, monster cores) and luck.
+  - The name says it: "Fine Iron Sword".
+
+(B) Rust and care
+  - Rain and the sea make iron rust: wear 2x faster if not oiled.
+  - Oil-Wax protects. Sharpening at a grindstone (home, forge) brings +5% damage for a day.
+
+(B) Boots wear out [health.bootWear]
+  - Each 1000 steps: -1% boots. Worn boots: the hero slips on ice, sprain more likely.
+
+(C) Heirloom [combatRealism.heirloom]
+  - A weapon used for 100 fights gets a name the player chooses, and +5% damage.
+  - If it breaks, the smith can repair it but not replace it. Losing it is a sad event.
+
+
+8. FIGHTS THAT FEEL REAL (but stay quick)
+-----------------------------------------
+The questions stay the heart of the fight. Realism changes the CONTEXT, not the questions.
+
+(A) The place of the fight
+  - Night without a torch: the monster sprite is dark, -10% time on questions.
+  - Rain: fire magic -30%, lightning magic +30%.
+  - Snow, mud, swamp: speed -20% (the time to answer depends on speed).
+  - High ground (a hill, a bridge): +10% damage.
+
+(A) Surprise [combatRealism.ambushReady]
+  - Hit a monster from behind, or while it sleeps (at night, in its lair): a free first strike.
+  - A monster that sees the hero first: it strikes first.
+  - The Disguise Hood makes the hero harder to see.
+
+(B) Monsters that act like animals
+  - A monster with low HP can flee (it comes back later, hurt and angry).
+  - Wolves hunt in packs at night. Slimes stay near water. Spiders wait in their webs.
+  - A monster does not chase the hero forever: it goes back to its territory.
+  - Monsters fight each other and eat the animals (see animals.js, animalFight.js).
+
+(B) Formations [combatRealism.formation]
+  - With friends in the party: Vanguard (+20% defense), Midguard, Rearguard
+    (+22% magic, +15% time on questions). data/realism.js FORMATIONS.
+
+(B) The nemesis [world.nemesis]
+  - The monster that knocked out the hero gets a name ("Grak the Scarred"), a level up,
+    and the hero's lost item. It comes back. The villagers talk about it.
+  - Defeating it: a big reward, and the item back.
+
+(B) Harvesting the monsters [skills.flayerXp, skills.flayerLevel]
+  - After a fight, the hero can take parts: meat, pelt, bones, a monster core.
+  - A clean kill (no wrong answer in the fight) gives better parts [skills.cleanKillStreak].
+  - Skill levels up with use: more parts, better cores (coreShard, monsterCore, elderCore).
+
+(C) Traps and locks [combatRealism.trappedFloor, combatRealism.pickedLocks]
+  - Dungeons have hidden traps. A trap found = a short question (fast: under 8 s) to disarm.
+  - A locked chest: Thief Lockpick + a question to open it. Wrong answer = the pick breaks.
+  - Mimics: a chest can be a monster. The Appraisal Monocle shows it [combatRealism.mimicChecked].
+
+
+9. A LIVING NATURE
+------------------
+(A) Resources run out [world.depletedSpots]
+  - A tree cut, a rock mined, a bush picked: it comes back after days, not the next morning.
+    Trees 7 days, rocks 5 days, bushes 3 days, fish in a spot 2 days.
+  - Overharvesting a forest (cutting 20 trees in a zone): the forest shrinks for a season.
+
+(B) Animal populations
+  - Kill too many wolves: deer grow, they eat the crops of the farmers (a side quest).
+  - Kill too many deer: the wolves get hungry and come near the village.
+  - Each zone has a balance, shown in the Codex.
+
+(B) Seasons change the world
+  - Winter: snow on the ground everywhere in the north, rivers frozen (walk on them),
+    the mountain pass closed by snow. Spring: rivers rise, some bridges are under water.
+  - Autumn: leaves fall, mushrooms grow. Summer: the desert is deadly at noon.
+
+(C) Lairs [world.lairDays]
+  - Monsters live in lairs. A lair not cleared grows: more monsters each week.
+  - A cleared lair stays empty for a while, then a new kind of monster moves in.
+
+
+10. TIME AND THE ROUTINE OF THE WORLD
+-------------------------------------
+(A) Shops have hours
+  - Open 8:00 - 19:00. The tavern 11:00 - 2:00. The clinic is always open (knock at night,
+    Aria is grumpy: prices +20%).
+  - The sign on the door says it, in English: "Opening hours: Mon-Sat 8 A.M. - 7 P.M."
+  - A shop is closed on its rest day, and on festival days.
+
+(A) Days of the week
+  - The game counts a week of 7 days with names. Market day (once a week): more merchants,
+    rare items. Temple day: the shrine blessing is stronger.
+
+(B) People sleep
+  - At night, the doors of the houses are locked. Entering = a crime (see part 12).
+  - The guards change at 6:00 and 18:00: a moment when the gate is less watched.
+
+(B) Travel takes time and effort
+  - Walking on a road: normal speed. Off road: -15%. In the swamp or deep snow: -40%.
+  - A long trip without rest: fatigue goes up faster.
+  - Trail Cairns [world.trailCairns]: the player can build a small stone pile as a marker.
+    It stays on the map.
+
+(C) The calendar
+  - Festivals at fixed dates (spring flowers, summer fishing, harvest, winter lights).
+  - Birthdays of the NPCs: a gift that day counts double. Forgetting the birthday of a
+    spouse: -friendship.
+
+
+11. MONEY AND BUSINESS
+----------------------
+(A) The bank [bank.balance, bank.lastInterestDay]
+  - A bank in each capital. Lexis in the bank are safe: when the hero is knocked out, they
+    lose 10% of the Lexis they CARRY, not the bank Lexis.
+  - Interest: 1% per week. Opening an account = reading the conditions (see part 14).
+  - Bank Promissory Note: 500 Lexis that weigh nothing, cashed at any bank.
+
+(A) Carrying money has a weight and a risk
+  - 1000 Lexis = 1 kg in the bag.
+  - Bandits attack more often a hero who carries a lot of Lexis on the road.
+
+(B) Loans [debt.owed, debt.dueDay, debt.defaulted]
+  - The bank lends money to buy a house or a big weapon. The contract is a text in English:
+    the interest, the date to pay, the penalty. The player must read it (TOEIC part 7).
+  - Late payment: a fine, then the bank takes an item, then the guards come.
+
+(B) Taxes and rent
+  - The house of the hero: a small tax each week to the village. The tax depends on the
+    caste [social.caste] (data/realism.js CASTE_TIERS: a higher caste pays less).
+  - The tax money really goes to the village treasury (economy/state.js), and it pays
+    for the walls, the guards, the roads.
+
+(B) Prices that move
+  - Market booms [world.marketBoom] (data/realism.js MARKET_BOOM_DEFS): a war in the north =
+    iron is expensive. A good harvest = wheat is cheap.
+  - The price of an item is written on a price list in English at the market:
+    a TOEIC-style table to read.
+
+(C) Currencies of the kingdoms [currencies, fxRates]
+  - Each kingdom has its coin (data/realism.js CURRENCIES). Lexis work everywhere, but a
+    shop of another kingdom takes them with a 5% fee.
+  - A money changer at each border. The exchange rates are on a board (a table to read).
+  - Keep it light: ONE screen at the changer, not a wallet to manage every day.
+
+(C) Investments and royalties [investments, patents.royalties]
+  - Give Lexis to a workshop of a village: a share of its profit each week.
+  - Hugo's inn pays royalties for the Earth recipes the hero teaches him (EARTH_ROYALTIES).
+  - Merchant Stall Patent [patents.merchantLicense]: the hero can sell at the market himself.
+
+(C) Counterfeit coins [counterfeitBatch]
+  - Some merchants of bad districts pay in fake coins. The Appraisal Monocle sees them.
+    Paying with a fake coin = a crime if a guard sees it.
+
+
+12. LAW, CRIME AND REPUTATION
+-----------------------------
+(A) A crime needs a witness [codex.crimes]
+  - Stealing, entering a house at night, hitting a villager: it is a crime only if someone
+    sees it. A witness runs to the guards.
+  - The guards then know the face of the hero for some days (a "Wanted" poster in English
+    on the board, with a description: a text to read).
+
+(A) Fines [fines.total, fines.bannedUntil]
+  - A small crime: a fine. Not paid: a ban from the shops of the village for some days,
+    then prison (kingdomLaws.js).
+
+(B) Reputation travels
+  - What the hero does in one village is known in the next one after 2 days (news carried
+    by the merchants and the bards).
+  - Good reputation: discounts, quests, people greet the hero by name.
+  - Bad reputation: higher prices, closed doors, children hide.
+
+(B) Titles and caste [social.caste, social.unlockedTitles, social.activeTitle]
+  - From Vagabond to Realm Savior (CASTE_TIERS). The caste depends on the reputation, the
+    guild rank and the wealth.
+  - Titles are earned (Champion of the Arena, Slayer of Grak, Friend of Riverford...).
+    NPCs use the active title when they talk to the hero.
+
+(B) Factions [social.factions]
+  - Merchant League, Arcane Order, Crown of Lexia (data/realism.js FACTIONS). Helping one
+    can anger another. Each faction has its quests, its shop, its rewards.
+
+(C) Tolls and permits [world.tollsPaidToday, world.permits]
+  - Some bridges and roads have a toll. A permit (Crown Delve Charter) opens the dungeons
+    without the salvage tax.
+
+(C) Smuggling [smuggling.heat, smuggling.seizedValue]
+  - Contraband already exists (kingdomLaws.js). Add the "heat": the more the hero smuggles,
+    the more the guards search the bag at the border.
+
+
+13. PEOPLE WHO REMEMBER
+-----------------------
+(A) Promises
+  - When the hero accepts a quest, it is a promise. A quest not done in time: the NPC is
+    disappointed, says it, and friendship goes down. A quest done: they tell others.
+
+(A) NPCs remember the past
+  - An NPC remembers the last gift, the last insult, the last time the hero saved them.
+    They talk about it: "Thank you again for the flowers last week."
+  - Each NPC keeps the 3 last important events with the hero.
+
+(A) Death is permanent, and it is mourned [social.memorial]
+  - A villager killed in a raid stays dead. Their house is empty, then a family member
+    takes it, or it is sold.
+  - A funeral the next day at the church: the villagers in black, a short text to read
+    (a eulogy in English). The name goes on the memorial stone of the village.
+  - Their family is sad for days: the shop of a dead merchant stays closed, their child
+    does not play.
+  - Inheritance: their items go to the family, sometimes a letter for the hero.
+
+(B) Friends of the party have needs [social.companionMood]
+  - They get hungry, tired, cold, like the hero. A hungry friend fights less well.
+  - They complain ("Can we stop at an inn? My feet hurt."), they like and dislike places
+    and choices. A friend who is badly treated (never fed, always hurt) leaves the party.
+  - They have their own life: some days they want to visit their family.
+
+(B) The children grow up
+  - Children already grow from toddlers to youths (families.js). Then: at 40 days, they
+    become adults with a job (often the job of a parent). The child of the hero can join
+    the party.
+
+(C) Jealousy and rivals [world.rivals]
+  - Dating two people of the same village: they find out. Drama, a scene, maybe a breakup.
+  - Rival adventurers take the same contracts at the guild. Sometimes they finish first.
+
+
+14. ENGLISH IN THE WORLD (the most important part)
+--------------------------------------------------
+The TOEIC reading part (RC 55) is made of real life documents: notices, e-mails, memos,
+invoices, ads, schedules, forms. The world of Lexia is full of them. Reading them well
+changes what happens: this is realism AND training at the same time.
+The texts come from the question bank (src/data/moreQuestions/: readingTexts, multiTexts,
+rc8Texts), adapted to the world when needed, with their questions.
+
+(A) The notice board of each village
+  - Every morning, 1 to 3 new notices (a water cut, a festival, a missing child,
+    a job, a road closed, a market day, a curfew).
+  - Each notice has a question. Good answer = the hero understands, and the information
+    matters: "The east bridge is closed on Tuesday" (it really is).
+  - Wrong answer = the hero did not understand. They can read it again tomorrow.
+
+(A) Labels and instructions
+  - Potions: "Take one dose every six hours. Do not exceed three doses in a day."
+    (= the potion sickness rule of part 4).
+  - Seeds: "Plant in spring. Water daily. Harvest after five days."
+  - Food: "Best before: day 12." (= the spoilage of part 6).
+  - The player who reads learns the rules of the world by reading English.
+
+(A) Contracts
+  - Bank account, loan, rent of a house, a guild contract, a deal with a merchant.
+  - A contract has the important terms in the text (price, date, penalty). Before signing:
+    1 to 3 questions. A wrong answer = the hero signs a worse deal (higher interest,
+    shorter delay) without knowing it. The real terms show later in the Journal.
+
+(B) Letters and the post [social.courierSent]
+  - The hero receives letters: from a friend, a family member of the village, the bank
+    (a reminder), a lover, the Guild, the classmates (Lea, Hugo). An e-mail-like text and
+    a question.
+  - The hero can send letters (Courier Seal): to answer, the player picks the best reply
+    among 4 (TOEIC part 6 style: the right sentence in the text).
+
+(B) Schedules and timetables
+  - The ferry of the Stormbreak Isles, the caravans, the stagecoach: a timetable on a board.
+    The player reads it to know when to be at the port. Missing it = wait a day.
+
+(B) Menus, price lists, invoices
+  - The tavern menu (with prices, specials of the day: data/realism.js TAVERN_SPECIALS).
+  - The smith gives an invoice for a repair. A mistake in the invoice is possible:
+    the player who reads it carefully gets the money back.
+
+(B) The news [world.news, world.lastNewsDay]
+  - A town crier in the capitals, a bard in the taverns (data/realism.js BARD_RUMORS).
+    The news tells what really happened in the world: the raids, the deaths, the deeds
+    of the hero, the nemesis, the wars. A short article in English.
+
+(C) Forms
+  - Registering at the Guild, the bank, the border: a form to fill (choose the right
+    answer for each field, like a TOEIC form question).
+
+(C) Recipes and grimoires
+  - A new recipe or spell is learned by reading it (data/realism.js GRIMOIRES).
+    A short text and a question. Good answer = learned. The Scholar Reference Desk
+    [workstations.studyShelf] gives +15% XP on these readings.
+
+
+15. THE CODEX (what the hero has learned about the world) [codex]
+----------------------------------------------------------------
+- Monsters: seen, killed, their weaknesses (filled as the hero fights them).
+- Recipes, discoveries, traps found, pearls found, baths taken, crimes.
+- The map surveyed [world.surveyedPct, world.surveyRewardsClaimed]: rewards at 25/50/75/100%.
+- A page per thing, with a short text in English.
+
+
+16. WHERE THE HERO DIED [world.lastDeathPos]
+-------------------------------------------
+- When the hero is knocked out, part of the bag falls where they fell (not the equipment).
+- A marker on the map. The hero can go back to pick it up, before a monster or a thief
+  takes it (3 days).
+- After a real death: a grave stays in the world in the next game (with the old name).
+
+
+==========================================================
+PART 3 - HOW MUCH REALISM: THE OPTION
+==========================================================
+
+17. REALISM LEVEL (in the Options)
+---------------------------------
+Everyone does not want the same. One option, chosen at the start, changeable later:
+
+  Light     Hunger, thirst, wounds heal alone, no spoilage, no potion sickness.
+            For players who come for the English.
+  Normal    Everything of part 2 marked (A) and (B).
+  Hardcore  Everything. Wounds need care, food rots fast, money in the bag can be stolen,
+            friends leave when badly treated. +20% XP to reward it.
+
+The relaxed mode (+50% time to answer) stays separate: it is about English, not realism.
+
+
+==========================================================
+PART 4 - FIRST NUMBERS AND BUILD ORDER
+==========================================================
+
+18. FIRST NUMBERS (to balance after tests)
+-----------------------------------------
+  Sprain              25% on a monster critical, 12 h, -30% walk speed
+  Cut -> infection    15% on a claw/blade hit, infection after 6 h, -1 HP/h
+  Potion sickness     more than 3 potions in 6 h, heal -50%
+  Broken bone         boss hit when HP < 20%, 3 days
+  Well rested         8 h after a bed, +10% XP
+  Food life (days)    raw meat 3, raw fish 2, milk 2, egg 4, mushroom 4, bread 5, dish 3
+  Same food 3 times   -30% food
+  Resources back      trees 7 days, rocks 5, bushes 3, fishing spot 2
+  Shop hours          8:00 - 19:00, tavern 11:00 - 2:00
+  Bank interest       1% per week
+  Lexis weight        1 kg per 1000
+  Reputation travel   2 days to the next village
+  Lost bag            3 days before it is gone
+
+
+19. BUILD ORDER
+---------------
+Each step must be played 15 minutes before the next one (see GAME_OBJECTIVE.txt part 27).
+
+  r1  English in the world: notice boards, labels, contracts (part 14 A)
+  r2  Wounds and potion sickness: sprain, cut, infection (part 4 A) + sleep places (part 5 A)
+  r3  Food that rots and preserving (part 6 A)
+  r4  Shop hours and days of the week (part 10 A), resources that run out (part 9 A)
+  r5  Bank and carried money (part 11 A), crimes with witnesses and fines (part 12 A)
+  r6  People who remember: promises, memories, funerals (part 13 A)
+  r7  Everything marked (B): nemesis, letters, news, formations, seasons, reputation...
+  r8  The realism option (part 17)
+  r9  Everything marked (C)
+
+
+20. WHAT NOT TO DO
+------------------
+- No mechanic that only adds a number to watch, with no choice for the player.
+- No realism inside a question.
+- No punishment the player could not see coming.
+- No penalty on the TOEIC stats, ever.
+- No new item that does nothing: an item is sold only when its effect is coded.
+  (Today, the tools, scrolls, workstations and the Pack Mule of data/items/realism.js
+  are in the game but not sold, because nothing uses them yet.)
+- No description that promises an effect not coded (morale, sprain, royalties...):
+  code the effect first, or change the text.

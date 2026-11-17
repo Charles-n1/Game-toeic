@@ -30,6 +30,7 @@ import { firstGuild, ensureGuild } from './guild/ranks';
 import { firstKingdoms, ensureKingdoms } from './kingdomLaws';
 import { firstDurability, ensureDurability } from './durability';
 import { firstLanguages, ensureLanguages } from './languages';
+import { firstRealism, ensureRealism } from './realism/state';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
 export const WORLD_VERSION = 4; // 4: the world of the painting art/MAP2.png (a save of an older world moves to it)
@@ -261,6 +262,7 @@ export function newGame(goalId, score = 450, stats = {}, hero, slot, customWeigh
     kingdoms: firstKingdoms(),
     durability: firstDurability(),
     languages: firstLanguages(),
+    realism: firstRealism(), // bank, currencies, health, spoilage, factions... (see realism/state.js)
     run: makeRun(),
   };
   game.focus.current = chooseFocus(game);
@@ -356,6 +358,7 @@ function addMissing(game) {
   ensureGuild(game);
   ensureKingdoms(game);
   ensureLanguages(game);
+  ensureRealism(game); // an older save gets the realism state
 
   ensureVillages(game);
   if (!game.puzzles) game.puzzles = firstPuzzles();
