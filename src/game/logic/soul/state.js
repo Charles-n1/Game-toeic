@@ -13,6 +13,7 @@ export function firstSoul() {
       elderSuccessor: null,
       houseEmptyUntil: 0,
       successorAnnounced: false,
+      treeStage: 0,
     },
     tomo: {
       state: 'normal', // 'normal' | 'silent' | 'studying' | 'proud' | 'bitter'
@@ -37,6 +38,34 @@ export function firstSoul() {
       recentFastStreak: 0,
       lastEldermoorDay: 1,
       wasAwayDays: 0,
+    },
+    voice: {
+      kind: 0,
+      teasing: 0,
+      silent: 0,
+      dominant: null,
+    },
+    realLife: {
+      examDate: '',
+      examBeforeAsked: false,
+      examAfterAsked: false,
+      lastSessionMs: Date.now(),
+    },
+    masteredRestored: {},
+    legend: {
+      mayoStage: 0,
+      ariaStargazed: false,
+      mysteryCount: 0,
+      louisFlashbackPlayed: false,
+      louisChoice: null,
+      inspectedSpots: {},
+      gagCount: 0,
+      trophiesViewed: 0,
+    },
+    worldEvents: {
+      leaGeneralDefeated: false,
+      autonomousVillageSaved: false,
+      autonomousWeddingDone: false,
     },
     dilemmas: {
       raidVsCaravan: null,
@@ -93,6 +122,15 @@ export function ensureSoul(game) {
   }
   if (!game.soul.bondScenes) game.soul.bondScenes = {};
   game.soul.playstyle = { ...def.playstyle, ...(game.soul.playstyle || {}) };
+  game.soul.voice = { ...def.voice, ...(game.soul.voice || {}) };
+  game.soul.realLife = { ...def.realLife, ...(game.soul.realLife || {}) };
+  if (!game.soul.masteredRestored) game.soul.masteredRestored = {};
+  game.soul.legend = {
+    ...def.legend,
+    ...(game.soul.legend || {}),
+    inspectedSpots: { ...(game.soul.legend?.inspectedSpots || {}) },
+  };
+  game.soul.worldEvents = { ...def.worldEvents, ...(game.soul.worldEvents || {}) };
   game.soul.dilemmas = { ...def.dilemmas, ...(game.soul.dilemmas || {}) };
   game.soul.sideStories = {
     ...def.sideStories,

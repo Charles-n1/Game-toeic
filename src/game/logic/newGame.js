@@ -32,7 +32,7 @@ import { firstDurability, ensureDurability } from './durability';
 import { firstLanguages, ensureLanguages } from './languages';
 import { firstRealism, ensureRealism } from './realism/state';
 import { firstIsekaiTodo, ensureIsekaiTodo } from './isekaiTodo/state';
-import { firstSoul, ensureSoul } from './soul';
+import { firstSoul, ensureSoul, checkWelcomeBack } from './soul';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
 export const WORLD_VERSION = 4; // 4: the world of the painting art/MAP2.png (a save of an older world moves to it)
@@ -431,6 +431,7 @@ export function wakeUp(game) {
   placeVillagers(game);
   placeAnimals(game);
   placeDungeonMonsters(game);
+  if (game.flags?.wakeUp) checkWelcomeBack(game);
 }
 
 function tellIntro(game) {

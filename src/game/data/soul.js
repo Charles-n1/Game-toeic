@@ -953,3 +953,244 @@ export const RETURN_FAREWELLS = {
     { speaker: 'hugo', expr: 'joy', text: 'Hugo slaps a packed bamboo bento box into your bag. "Two rice balls and fried cutlet—real Earth road food. Proud of you, friend."' },
   ],
 };
+
+// ---------- PART 11-16: Real Learning, Hero Voice, Folklore, Lightness, Symbols & Flashback ----------
+
+export const MASTERED_WONDERS = {
+  gerunds: {
+    wonder: 'Eldermoor Stone Fountain',
+    desc: 'Clear fountain water arcs into the square again after years of drought.',
+    speakerLine: 'Tomo beams beside the fountain: "I enjoy learning words with you!"',
+  },
+  passive: {
+    wonder: 'Church Stained Glass',
+    desc: 'Rose and sapphire stained-glass panes glow warmly above the sanctuary altar.',
+    speakerLine: 'Aria looks up softly: "These walls were built with hope—never forgotten."',
+  },
+  verbTenses: {
+    wonder: 'Mira’s Bronze Bell',
+    desc: 'The belfry bell chimes noon cleanly across three green valleys.',
+    speakerLine: 'Mira wipes soot away: "Yesterday we feared; today we stand; tomorrow we rest!"',
+  },
+  prepositions: {
+    wonder: 'Seabridge Harbor Beacon',
+    desc: 'Golden lantern rings spin cleanly above the coastal jetty.',
+    speakerLine: 'Garrick smiles toward the horizon: "Look past the reefs toward peaceful mornings."',
+  },
+  subjectVerb: {
+    wonder: 'Guild Hall Banner Chorus',
+    desc: 'Fresh chimes flutter along every Guild banner across Eldermoor.',
+    speakerLine: 'Arthur salutes briskly: "Every knight in our yard remembers your standard."',
+  },
+  vocabulary: {
+    wonder: 'Grand Archive Lamps',
+    desc: 'Crystal library chandeliers ignite gold without burning oil.',
+    speakerLine: 'Yuki inks a fresh title: "Words return like swallows when spring unlocks the roof."',
+  },
+  wordForms: {
+    wonder: 'Market Windmills',
+    desc: 'White mill canvas turns smoothly on steady valley gusts.',
+    speakerLine: 'Old Bea grins: "Careful bakers bake reliably—your grammar sings cleanly!"',
+  },
+  connectors: {
+    wonder: 'North Bridge Archway',
+    desc: 'Ancient runes along the cobblestone bridge bridge warmth between villages.',
+    speakerLine: 'Selene folds her sleeve: "Therefore, even stone bridges listen when clearly joined."',
+  },
+  pronouns: {
+    wonder: 'Town Lantern Row',
+    desc: 'Every porch lantern down Main Street answers dusk in chorus.',
+    speakerLine: 'Lila waves from the weaver steps: "We owe ours—and everyone else’s—to you."',
+  },
+  comparatives: {
+    wonder: 'Greenhouse Glasshouse',
+    desc: 'Orchard apple blossoms shine brighter than midwinter snow.',
+    speakerLine: 'Hana laughs: "Every crop grows taller and sweeter than the season before!"',
+  },
+};
+
+export const HERO_VOICE_TONES = {
+  kind: {
+    label: 'Kind: "Are you alright? Tell me what weighs on you."',
+    react: 'They blink softly, easing their shoulders. "You always ask as if we aren’t just names on a quest list."',
+    traitComment: 'Everyone says you carry people’s tired mornings on your own coat without bragging.',
+  },
+  teasing: {
+    label: 'Teasing: "Still looking gloomy? Smile—trouble is cheaper than rent!"',
+    react: 'A startled laugh slips out despite the grey hour. "You always joke when things get scary, don’t you?"',
+    traitComment: 'Wait—people at the square wager you could crack a joke standing nose-to-nose with a dragon!',
+  },
+  silent: {
+    label: 'Silent: (...listen calmly with one quiet nod)',
+    react: 'They fill the calm space with truth they barely knew they held. "...You don’t waste empty words, do you?"',
+    traitComment: 'You barely speak half as loudly as Guild captains—yet when you stand beside someone, panic stops.',
+  },
+};
+
+export const WALKING_COMPANION_BANTER = {
+  byNpc: {
+    aria: [
+      'Check your canteen before we reach dry grass!',
+      'Remind me to gather fresh yarrow near that bend.',
+      'Your stride is steadier than the first week we met.',
+    ],
+    mira: [
+      'Feel how clean iron balances when storms roll in!',
+      'Don’t chip my finest bevel on ordinary rocks!',
+      'Wait until you hear the bronze bell I’m planning.',
+    ],
+    nyx: [
+      'Nobody south of the bridge looks at dusk quite the way you do.',
+      'My scarf still smells like Hugo’s soup instead of brimstone.',
+      'Hold my lantern if fog rises off the bog.',
+    ],
+    lea: [
+      'Race you to the next signpost? Try keeping up!',
+      'Do you think Hugo remembers how real french fries crunch?',
+      'Stop staring at my cloak—focus on the ridge ahead!',
+    ],
+    garrick: [
+      'Boots dry, pike sharp, eyes on both flanks.',
+      'Rosa would roll her eyes if she saw how muddy we look.',
+      'Stay close when pine shadows stretch past three paces.',
+    ],
+    yuki: [
+      'Notice the weathered carving on that boundary marker?',
+      'Wait—I need to jot down that bird call in my margin!',
+      'History doesn’t ask heroes whether their ankles hurt.',
+    ],
+    hugo: [
+      'Hey—hear me out: roasted garlic inside mayonnaise!',
+      'Walking beats eighty hours under office tubes!',
+      'Next inn stop, dinner is officially my jurisdiction!',
+    ],
+  },
+  byBiome: {
+    mountain: ['I hate snow sliding inside my boots!', 'Keep frost off your bowstring up here.'],
+    desert: ['Sand gets inside even sealed pockets...', 'Hold water tight—sun hits hard past noon.'],
+    demon: ['Stay quiet... even wind sounds thinner here.', 'Watch your footing along the dark ash.'],
+    forest: ['Pines smell cleanest right before sunset.', 'My brother once camped near oaks just like these.'],
+  },
+};
+
+export const CREATION_FOLKLORE = [
+  {
+    speaker: 'Head Archivist',
+    expr: 'neutral',
+    text: 'On the oldest parchment shelf lies "The First Grammar of Lexia."',
+  },
+  {
+    speaker: 'Head Archivist',
+    expr: 'surprise',
+    text: '"Before stones had names, monsters walked as unshaped noise. When the First Speaker named fire, bridge, kindness, and tomorrow, noise obeyed order. Silence is merely chaos begging to un-spell the world."',
+  },
+  {
+    speaker: 'Head Archivist',
+    expr: 'joy',
+    text: 'Realm Customs: Eldermoor hangs loaves on Equinox Doors; Verdania weaves clover crowns before harvests; Frosthold strikes frozen bells on winter solstice; Kharsa trades spice oaths by moonlight.',
+  },
+];
+
+export const CORVIN_MYSTERIES = [
+  'The Plague Doctor tilts his beaked mask under the lantern. "Strange. Your pulse rhymes with Louis’s second winter—yet the ending hasn’t crossed out cleanly." Before you answer, black feathers scatter and the corner stands empty.',
+  '"Everyone asks what potion cures the Silence," murmurs ??? from the fog. "Nobody asks what heartbreak taught the King to hush a room first." He turns one cobblestone corner and is simply gone.',
+  'Corvin taps a silver pocket-watch without hands. "Seven names are written inside the Demon Dome, traveler. Don’t look for your own there." Only pine mist remains where he stood.',
+];
+
+export const SILENT_STORY_SPOTS = [
+  {
+    id: 'skeletonPair',
+    title: 'Stone Ruins Alcove',
+    dx: -16,
+    dy: -14,
+    lines: [
+      'Half-buried beneath ivy rest two weathered skeletons seated against a broken pillar, finger-bones still gently laced together.',
+      'No monster guards them, no chest shines nearby—only two rings gleaming dull pewter in quiet afternoon dust.',
+    ],
+  },
+  {
+    id: 'charredDiary',
+    title: 'Burnt Homestead Hearth',
+    dx: 19,
+    dy: -10,
+    lines: [
+      'Inside a soot-blackened stone chimney sits a singed pocket ledger left open to its final half-line:',
+      '"Packed two coats, buried the spare lantern key beneath the pear tree, waiting for sunrise..." The ink stops cleanly before dawn.',
+    ],
+  },
+  {
+    id: 'woodenToyGrave',
+    title: 'Small Wayside Marker',
+    dx: -12,
+    dy: 17,
+    lines: [
+      'Beside a crooked cairn outside town sits a hand-carved wooden horse with one painted red ear—newly oiled against the rain.',
+      'Somebody still visits this hillside every season when nobody else is watching.',
+    ],
+  },
+];
+
+export const MAYONNAISE_STAGES = [
+  'Hugo whispers conspiratorially over the counter: "Just invented something nobody in Lexia has tasted: whipped egg, oil, vinegar—I call it GOLD MAYO!"',
+  'At the market square, traders argue excitedly over white stoneware jars stamped "HUGO’S MIRACLE SAUCE — NO CURSE CAN SPOIL SANDWICHES."',
+  'Wait—is that Queen Sera’s royal banquet goblet sitting next to an unlabeled ceramic jar of Riverford Mayonnaise?!',
+  'Even outside Demon King raids, captured goblin rations include stolen spoons dipped carefully into "Earl Hugo’s White Cream." Unstoppable.',
+];
+
+export const CLUMSY_LEXA_LINES = [
+  'A glowing chalice slips from Goddess Lexa’s cloud-sleeve and bounces harmlessly across the grass. "...Ahem! Pretend that was a celestial comet."',
+  'Lexa sneezes mid-blessing, turning two cobblestones faintly pink before quickly muttering a divine patch.',
+];
+
+export const ARIA_STARGAZING_SCENE = [
+  {
+    speaker: 'aria',
+    expr: 'sadness',
+    song: 'aria',
+    text: 'Cool night air drifts up onto the bridge timbers beside Aria. Below, Eldermoor’s windows sleep quietly—even Orin’s unlit shutters.',
+  },
+  {
+    speaker: 'aria',
+    expr: 'neutral',
+    text: '"No herbs tonight, no sword counts, no monster bells. Just... sit beside me until those three clouds pass the moon?"',
+  },
+  {
+    speaker: 'hero',
+    expr: 'sadness',
+    text: 'Neither of you speaks for two whole minutes. Somewhere in the dark valley, wind turns through wheat—loud enough to remind both of you the world is still breathing.',
+  },
+];
+
+export const LOUIS_FLASHBACK_SCENE = {
+  lines: [
+    {
+      speaker: 'Inner Voice',
+      expr: 'sadness',
+      song: 'solecis',
+      text: '[MEMORY ECHO — YEARS AGO, SEEN THROUGH LOUIS’S EYES]',
+    },
+    {
+      speaker: 'Louis (Lost Hero)',
+      expr: 'sadness',
+      text: 'The marble floor feels freezing through torn boots. Your friend Elena isn’t waking inside your arms, and three kingdoms cheer triumphantly outside without noticing who stopped breathing indoors.',
+    },
+    {
+      speaker: 'Louis (Lost Hero)',
+      expr: 'anger',
+      text: 'A golden voice begs you to read another victory speech—and all you want is one minute of total, unbroken quiet where nobody else speaks a single hollow sentence.',
+    },
+  ],
+  choices: [
+    {
+      id: 'mercy_whisper',
+      label: '[Speak as Louis] "Hold this silence... until someone kinder comes to finish the sentence."',
+      reply: 'The memory fractures like warm glass. Now you understand why Solecis stopped listening—and why breaking the Silence is also freeing him.',
+    },
+    {
+      id: 'bitter_silence',
+      label: '[Speak as Louis] "Shut every bell in this sky. No more promises."',
+      reply: 'A shiver climbs your spine as the echo fades back to Eldermoor daylight. One word separates a grieving hero from a quiet tyrant.',
+    },
+  ],
+};
+

@@ -11,6 +11,7 @@ import { earnLexis, gainXp, countItem, removeItem } from '../player';
 import { addFriendship } from '../village';
 import { notify, say } from '../messages';
 import { cue } from '../cues';
+import { buildHeroChronicleLines } from '../soul/lateSoul';
 
 // English in the World (REALISM.txt Part 14 & r1):
 // Every civic document (notices, contracts, labels, letters, ferry timetables, invoices, dreams,
@@ -438,7 +439,15 @@ export function hearBardRumor(game) {
   }
   game.player.lexis -= 15;
   const r = ensureRealism(game);
-  const tip = r.world.marketBoom ? 'Bard Sings: "' + r.world.marketBoom.label + '!"' : 'Bard Whispers: "' + pickRandom(BARD_RUMORS) + '"';
+  const slainNames = Object.keys(game.bosses || {}).filter((k) => game.bosses[k]);
+  let tip;
+  if (r.world.marketBoom) {
+    tip = 'Bard Sings: "' + r.world.marketBoom.label + '!"';
+  } else if (slainNames.length > 0 && Math.random() < 0.55) {
+    tip = 'Bard Strums Boldly: ' + buildHeroChronicleLines(game)[2];
+  } else {
+    tip = 'Bard Whispers: "' + pickRandom(BARD_RUMORS) + '"';
+  }
   cue(game, 'coin');
   say(game, null, [tip]);
   return true;

@@ -44,6 +44,8 @@ import {
   bondSceneChoice,
   soulStoryQuestChoices,
   triggerWeddingSpeechSoul,
+  heroVoiceChoice,
+  triggerCorvinMystery,
 } from './soul';
 
 // The people on the map: where they are, and everything the player can do with them.
@@ -205,6 +207,10 @@ function nextLifeLine(game, npc) {
 
 function chat(game, npc) {
   if (npc.id === 'tomo' && handleTomoSoulTalk(game)) return;
+  if (npc.id === 'corvin' && Math.random() < 0.35) {
+    triggerCorvinMystery(game);
+    return;
+  }
   const state = game.npcs[npc.id];
   if (state.talkedDay !== game.day) addFriendship(game, npc.id, 3); // the first talk of the day counts
   state.talkedDay = game.day;
@@ -474,6 +480,7 @@ function strikeNpcChoice(game, npc) {
 const CHOICE_MAKERS = [
   recognizeChoice,
   talkChoice,
+  heroVoiceChoice,
   personalArcChoice,
   bondSceneChoice,
   rivalChoice,

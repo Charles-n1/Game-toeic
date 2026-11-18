@@ -2,7 +2,7 @@ LEXIA - SOUL
 What the game needs to feel alive, to make the player care
 ==========================================================
 
-This file adds to GAME_OBJECTIVE.txt, REALISM.txt and ISEKAI_TODO.txt.
+This file adds to GAME_OBJECTIVE.txt and REALISM.txt.
 The world of Lexia is already big and full of systems. What it lacks is not more mechanics:
 it is moments, memories and people who want something.
 All the names, scenes and lines below are first proposals, to change freely.
@@ -190,7 +190,7 @@ Today: 17 side quests, mostly "bring X" ("Firewood for the forge", "Branches for
 (B) Enemies with names
   - The nemesis of REALISM.txt (the monster that knocked out the hero gets a name and
     comes back) makes fear personal.
-  - The emissaries and clans of the Demon King (ISEKAI_TODO.txt) each have a leader
+  - The emissaries and clans of the Demon King (the world bosses) each have a leader
     with a face, a voice and a reason.
 
 (B) Before and after a raid
@@ -263,7 +263,105 @@ Today: 17 side quests, mostly "bring X" ("Firewood for the forge", "Branches for
 
 
 ==========================================================
-11. HOW TO KNOW IT WORKS
+11. WHAT ONLY LEXIA CAN DO: REAL LEARNING, REAL LIFE
+==========================================================
+The player learns English for real. The soul of the game can come from that.
+
+(A) The player's level gives the world its voice back
+  - When the player really masters a grammar category (the mastery of the app), something
+    comes back to life in Eldermoor: a fountain flows again, a stained-glass window lights up,
+    a bell rings for the first time in years.
+  - The villagers start to use these sentences when they talk: after the gerunds are mastered,
+    Tomo says "I enjoy learning words with you!"
+  - The real progress of the player becomes visible in the world.
+
+(A) The game knows the day of the real exam
+  - The game asks the date of the player's TOEIC (optional).
+  - The day before: Aria says "Sleep, hero. Tomorrow you fight for real."
+  - The day after: everybody asks "How did it go?". If the player reached their score,
+    a feast in Eldermoor, in their honor.
+
+(B) Welcome back
+  - When the player comes back after some days away, someone is happy to see them:
+    "We kept your seat warm." Always warm, never guilt.
+
+
+==========================================================
+12. THE HERO'S VOICE
+==========================================================
+
+(A) The hero speaks
+  - In the dialogs, the hero can answer with a tone: kind, teasing, or silent.
+  - The people remember it, and the hero gets a character: "You always joke when you are scared."
+
+(B) The friends talk while walking
+  - The friends of the party say short lines about the places and about each other:
+    "This is where my brother fell.", "I hate snow.", jokes, small fights.
+
+
+==========================================================
+13. WONDER AND MYSTERY
+==========================================================
+
+(B) A real folklore
+  - Why are words weapons in Lexia? A myth of creation, told in a book of the library.
+  - Legends told by the NPCs that turn out to be true later.
+  - Customs, sayings and holidays of each kingdom.
+
+(B) Mysteries never fully explained
+  - The "??? (Plague Doctor)" exists. Who is he? He appears, knows things he should not
+    know, and disappears. The game never tells everything.
+
+(C) Places that tell a story without words
+  - Two skeletons holding hands in a ruin, a diary in a burnt house, a toy next to a grave.
+
+
+==========================================================
+14. LIGHTNESS
+==========================================================
+Laughter makes the tears stronger. Without contrast, the drama gets heavy.
+
+(B) Running jokes
+  - Hugo's mayonnaise slowly conquers the kingdom (in the shops, at the feasts, at the castle).
+  - Lexa, the goddess, is a little clumsy.
+  - One villager with a running gag that comes back all game long.
+
+(B) Quiet moments after the big shocks
+  - The night after Orin dies: the hero and Aria on a roof, looking at the stars.
+    No quest, no fight, just a few lines.
+
+
+==========================================================
+15. SYMBOLS AND TRACES
+==========================================================
+
+(B) A symbol that grows with the story
+  - A tree planted on Orin's grave. It grows each season, until the end of the game.
+
+(B) The legend of the hero spreads
+  - A bard sings the real deeds of the hero (the boss defeated, the raid saved).
+  - Children play "Kai against the Lich" on the square.
+  - A book is written about the hero, and can be read in the library.
+
+(C) The home keeps the memories
+  - The gifts of the NPCs are shown in the house, the letters are pinned on the wall,
+    the trophies of the bosses hang on it.
+
+
+==========================================================
+16. THE WORLD DOES NOT TURN AROUND THE HERO
+==========================================================
+
+(B) Others succeed too
+  - Lea defeats a general before the hero. A village defends itself alone.
+    A villager gets married while the hero is far away.
+
+(C) A playable flashback
+  - A few minutes as Louis, the first summoned hero, just before he becomes Solecis.
+
+
+==========================================================
+17. HOW TO KNOW IT WORKS
 ==========================================================
 
 After 1 hour of play, ask a tester:

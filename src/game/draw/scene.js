@@ -1,5 +1,5 @@
 import { NPCS, npcOf } from '../data/npcs';
-import { HOUSES, SEALS, VILLAGES, DUNGEONS, LANDS, WORLD_SIZE, INSIDE_TOP, HOME_DOOR, zoneAt, houseSize } from '../data/zones';
+import { HOUSES, SEALS, VILLAGES, DUNGEONS, LANDS, WORLD_SIZE, INSIDE_TOP, HOME_DOOR, zoneAt, houseSize, insideOf, villageOf } from '../data/zones';
 import { SPECIES } from '../data/monsters';
 import { ELEMENTAL_SPIRITS, INTELLIGENT_MONSTERS, MONSTER_RANKS } from '../data/isekaiTodo';
 import { typeOf } from '../data/types';
@@ -24,7 +24,7 @@ import { drawLights } from './lights';
 import { makeGrid, fillRect, fillEllipse, fillTriangle, addOutline, mirrored, toCanvas, once } from './pixels';
 import { ensureRealism } from '../logic/realism/state';
 import { hasManaLanternLit } from '../logic/realism/magicPhysics';
-import { ensureSoul, orinGravePosition, memorialStonePosition, strayPetPosition } from '../logic/soul';
+import { ensureSoul, orinGravePosition, memorialStonePosition, strayPetPosition, growOrinTree, silentStoryPositions, homeMemoriesSummary } from '../logic/soul';
 import * as props from './props';
 import { warDrawings, drawWarEffects } from './warArt';
 import { societyDrawings, drawSocietyEffects } from './societyArt';
@@ -1390,6 +1390,12 @@ function writeNames(ctx, game, view, scale) {
     const rank = monster.rank || 'F';
     writeText(ctx, `[${rank}] ${monster.name}`, (monster.x * T - view.x) * scale, (monster.y * T - 24 - view.y) * scale, 11, rankColors[rank] || '#ffffff');
   }
+  const nowMs = Date.now();
+  for (const follower of game.run.followers || []) {
+    if (!follower.banter || follower.banter.until < nowMs) continue;
+    const npcName = npcOf(follower.id)?.name || follower.id;
+    writeText(ctx, npcName + ': "' + follower.banter.text + '"', (follower.x * T - view.x) * scale, (follower.y * T - 38 - view.y) * scale, 11, '#fff3b0');
+  }
 }
 
 function writeFloatingTexts(ctx, game, view, scale) {
@@ -1538,6 +1544,21 @@ function soulDrawings(game, view, time) {
           ctx.fillRect(px - 2, py - 9, 4, 2);
           ctx.fillStyle = '#ffd23f';
           if (Math.floor(time * 4) % 2 === 0) ctx.fillRect(px + 3, py - 4, 2, 2);
+
+          // Growing Orin Memorial Tree beside grave (stages 0..3)
+          const tStage = growOrinTree(game);
+          const tx = px + 11;
+          const ty = py + 1;
+          ctx.fillStyle = '#6e4c2e';
+          ctx.fillRect(tx - 1, ty - (4 + tStage * 3), 2 + (tStage >= 2 ? 1 : 0), 4 + tStage * 3);
+          const crownR = 3 + tStage * 2;
+          ctx.fillStyle = tStage >= 3 ? '#77c862' : '#4fa84b';
+          ctx.fillRect(tx - crownR, ty - (6 + tStage * 4), crownR * 2, crownR + 2);
+          if (tStage >= 3) {
+            ctx.fillStyle = '#ffe98a';
+            ctx.fillRect(tx - 2, ty - 16, 2, 2);
+            ctx.fillRect(tx + 2, ty - 14, 2, 2);
+          }
         },
       });
     }
@@ -1585,6 +1606,78 @@ function soulDrawings(game, view, time) {
         if (soul.pet?.adopted) ctx.fillRect(px + 1, py - 5, 3, 1);
         ctx.fillStyle = '#e0a958';
         ctx.fillRect(px - 5 - wag, py - 7 + wag, 2, 2);
+      },
+    });
+  }
+
+  // Eldermoor Restored Fountain shimmer when at least one TOEIC category mastered
+  if (Object.keys(soul.masteredRestored || {}).length > 0) {
+    const sq = villageOf('lexia')?.plan?.square;
+    if (sq && isNear(view, sq.x, sq.y, sq.w, sq.h)) {
+      list.push({
+        y: sq.y + Math.floor(sq.h / 2) + 0.5,
+        draw: (ctx) => {
+          const fx = Math.round((sq.x + sq.w / 2) * T - view.x);
+          const fy = Math.round((sq.y + sq.h / 2) * T - view.y);
+          for (let j = 0; j < 4; j++) {
+            const h = Math.round(4 + Math.abs(Math.sin(time * 5 + j)) * 6);
+            ctx.fillStyle = j % 2 === 0 ? '#9fe8ff' : '#ffffff';
+            ctx.fillRect(fx - 3 + j * 2, fy - 10 - h, 2, 3);
+          }
+        },
+      });
+    }
+  }
+
+  // Silent Story Tableaus (wordless environmental scenes around roads)
+  for (const spot of silentStoryPositions()) {
+    if (!isNear(view, spot.x - 1, spot.y - 2, 3, 3)) continue;
+    list.push({
+      y: spot.y,
+      draw: (ctx) => {
+        const px = Math.round(spot.x * T - view.x);
+        const py = Math.round(spot.y * T - view.y);
+        if (spot.id === 'skeletonPair') {
+          ctx.fillStyle = '#d9d3c3';
+          ctx.fillRect(px - 5, py - 6, 4, 4);
+          ctx.fillRect(px + 1, py - 6, 4, 4);
+          ctx.fillStyle = '#ffd23f';
+          ctx.fillRect(px - 1, py - 3, 2, 1);
+        } else if (spot.id === 'charredDiary') {
+          ctx.fillStyle = '#292329';
+          ctx.fillRect(px - 6, py - 5, 12, 5);
+          ctx.fillStyle = '#f5ecd8';
+          ctx.fillRect(px - 2, py - 3, 5, 3);
+        } else {
+          ctx.fillStyle = '#5e5d6b';
+          ctx.fillRect(px - 4, py - 10, 8, 9);
+          ctx.fillStyle = '#c87e42';
+          ctx.fillRect(px + 2, py - 3, 4, 3);
+          ctx.fillStyle = '#e03c4b';
+          ctx.fillRect(px + 4, py - 4, 1, 1);
+        }
+      },
+    });
+  }
+
+  // Hero Home Memory Wall plaques & pinned letters
+  const homeZone = insideOf('home');
+  if (homeZone && game.player.y >= INSIDE_TOP && isNear(view, homeZone.x, homeZone.y, homeZone.w, 6)) {
+    const mem = homeMemoriesSummary(game);
+    const wp = mem.wallPosition;
+    list.push({
+      y: wp.y,
+      draw: (ctx) => {
+        const px = Math.round(wp.x * T - view.x);
+        const py = Math.round(wp.y * T - view.y);
+        ctx.fillStyle = '#b9801f';
+        ctx.fillRect(px - 7, py - 10, 14, 7);
+        ctx.fillStyle = '#f4ead2';
+        for (let k = 0; k < Math.min(4, mem.pinnedLetters.length); k++) {
+          ctx.fillRect(px - 5 + k * 3, py - 8, 2, 3);
+        }
+        ctx.fillStyle = '#ffd23f';
+        if (mem.bossTrophies.length > 0) ctx.fillRect(px - 2, py - 13, 4, 3);
       },
     });
   }

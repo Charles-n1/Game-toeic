@@ -20,6 +20,17 @@ import {
   readRaidMemorialStone,
   triggerHideNyxDilemma,
 } from './griefAndPeople';
+import {
+  syncMasteredWonders,
+  checkRealExamMilestones,
+  silentStoryPositions,
+  inspectSilentStorySpot,
+  triggerAriaStargaze,
+  growOrinTree,
+  homeMemoriesSummary,
+  inspectHomeMemoryWall,
+  tickAutonomousWorldEvents,
+} from './lateSoul';
 
 // ---------- Campfire Companion Conversations ----------
 
@@ -277,6 +288,12 @@ export function dailySoul(game) {
   const anyConquered = Object.values(game.villages || {}).some((v) => v.owner === 'monsters');
   if (anyConquered) triggerSolecisWhisper(game, 'conquest_first');
   if ((game.raid?.count || 0) >= 3) triggerSolecisWhisper(game, 'raids_three');
+
+  // Parts 11-16 daily updates: grammar wonders, Orin oak growth, autonomous world & real exam check
+  syncMasteredWonders(game);
+  growOrinTree(game);
+  tickAutonomousWorldEvents(game);
+  checkRealExamMilestones(game);
 }
 
 export function hourlySoul(game) {
@@ -312,6 +329,12 @@ export function slowSoul(game) {
   if (vId === 'lexia' && game.chapter >= 3 && game.hour >= 19 && game.npcs?.nyx?.met && !s.dilemmas.hideNyx && Math.random() < 0.08) {
     triggerHideNyxDilemma(game);
   }
+
+  // Quiet starlit moment with Aria the night after Orin passes
+  if (vId === 'lexia' && (game.hour >= 20 || game.hour < 4) && s.orin.mournedDay !== null && !s.legend.ariaStargazed) {
+    triggerAriaStargaze(game);
+  }
+  s.realLife.lastSessionMs = Date.now();
 }
 
 export function actionsOfSoul(game) {
@@ -342,5 +365,20 @@ export function actionsOfSoul(game) {
     icon: 'heart',
     run: () => interactStrayPet(game),
   });
+  for (const spot of silentStoryPositions()) {
+    actions.push({
+      when: () => Math.hypot(p.x - spot.x, p.y - spot.y) < 1.8,
+      icon: 'book',
+      run: () => inspectSilentStorySpot(game, spot),
+    });
+  }
+  const homeWall = homeMemoriesSummary(game).wallPosition;
+  if (homeWall) {
+    actions.push({
+      when: () => zoneAt(p.x, p.y).id === 'home' && Math.hypot(p.x - homeWall.x, p.y - homeWall.y) < 1.8,
+      icon: 'trophy',
+      run: () => inspectHomeMemoryWall(game),
+    });
+  }
   return actions;
 }

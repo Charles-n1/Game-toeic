@@ -24,6 +24,7 @@ import { cleanseAndWash, healAtClinicRealism, applySleepQualityRecovery } from '
 import { sharpenWeaponAtForgeOrHome, temperEquipmentAtForge } from './realism/foodAndNature';
 import { inspectRepairInvoice, hearBardRumor, listGrimoireChoices, maybeTriggerEarthDream } from './realism/englishWorld';
 import { checkPalaceCourtEtiquette, holdChurchMemorialEulogy, prayAtGoddessShrine, orderTavernSpecial } from './realism/socialAndCodex';
+import { readLibraryFolklore, readHeroChronicle, playLouisFlashback } from './soul';
 
 // Entering other villagers' and NPCs' houses: dining room, bathroom/toilets, and 1 or 2 bedrooms depending on family.
 
@@ -523,7 +524,15 @@ function talkToSpecialPatron(game, patron, visit) {
   if (patron.kind === 'archivist') {
     const langChoices = studyLanguageChoices(game, { name: patron.name });
     const grimoires = game?.realism ? listGrimoireChoices(game) : [];
+    const loreChoices = [
+      { label: '📜 Creation Myth & Realm Customs', icon: 'book', run: () => readLibraryFolklore(game) },
+      { label: '📖 Read Hero Legend Chronicle', icon: 'book', run: () => readHeroChronicle(game) },
+    ];
+    if (game.isekai?.pagesFound >= 3 || game.chapter >= 4) {
+      loreChoices.push({ label: '🕳️ Witness Louis’s Memory Flashback', icon: 'crystal', run: () => playLouisFlashback(game) });
+    }
     say(game, null, ['"Every border speaks in its own tongue — runes, elvish, dwarvish, beastkin..."'], [
+      ...loreChoices,
       ...langChoices,
       ...grimoires,
       {

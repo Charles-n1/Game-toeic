@@ -18,6 +18,7 @@ import { cue } from '../cues';
 import { pickRandom } from '../../../logic/random';
 import { ensureSoul } from './state';
 import { triggerLexaTurningPoint } from './storyAndBosses';
+import { masteredGrammarSpeechLine, heroVoiceCallbackLine, advanceMayoJoke, randomClumsyLexaWhisper } from './lateSoul';
 
 // ---------- Playstyle Tracking (Speed, Absence, Kindness/Cruelty) ----------
 
@@ -232,6 +233,18 @@ export function soulDynamicGreeting(game, npc) {
   if (s.orin.mournedDay !== null && game.day - s.orin.mournedDay <= 4 && Math.random() < 0.35) {
     return 'Elder Orin’s porch looks too empty at dusk... Keep carrying his words forward.';
   }
+  if (npc.id === 'hugo' && Math.random() < 0.4) {
+    return advanceMayoJoke(game);
+  }
+  if (npc.id === 'kai' && Math.random() < 0.35) {
+    s.legend.gagCount = (s.legend.gagCount || 0) + 1;
+    return 'Swear on my boots—a three-meter silver marlin bit clean through my hook five minutes ago!';
+  }
+  const masteredLine = masteredGrammarSpeechLine(game);
+  if (masteredLine && Math.random() < 0.25) return masteredLine;
+  const voiceTrait = heroVoiceCallbackLine(game);
+  if (voiceTrait && Math.random() < 0.2) return voiceTrait;
+  if (Math.random() < 0.04) return randomClumsyLexaWhisper();
   const style = playstyleCategoryOf(game);
   if (style && PLAYSTYLE_REACTIONS[style] && Math.random() < 0.32) {
     if (style === 'absent') s.playstyle.wasAwayDays = 0;

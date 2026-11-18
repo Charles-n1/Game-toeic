@@ -1,5 +1,6 @@
 import { isSolid } from '../world/map';
 import { stepSmart } from '../world/paths';
+import { updateCompanionWalkingBanter } from './soul';
 
 // Those who walk behind the player, in a line: the recruited friends, the obsidian soldiers, and the obsidian cat.
 // game.run.followers: [{ kind: 'person' | 'soldier' | 'pet', id, x, y, step }]
@@ -53,4 +54,5 @@ export function updateFollowers(game, dt) {
     follow(follower, leader, dt);
     leader = follower;
   }
+  updateCompanionWalkingBanter(game, dt);
 }
