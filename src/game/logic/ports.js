@@ -1,8 +1,9 @@
 import { PORTS } from '../world/map';
-import { passHours } from './days';
+import { passHours, sleepUntilMorning } from './days';
 import { addItem, earnLexis } from './player';
 import { startFight } from './fight';
 import { say, notify } from './messages';
+import { isFerryOnSchedule } from './realism/englishWorld';
 
 // The ports: ships sail from harbor to harbor with real voyage risks (pirates/sea monsters or salvage!).
 
@@ -55,7 +56,25 @@ export function sail(game, from, to, travelTo) {
 }
 
 export function offerSail(game, from, travelTo) {
+  const sched = game?.realism ? isFerryOnSchedule(game) : { ok: true, msg: '' };
   const others = PORTS.filter((port) => port !== from).sort((a, b) => seaDistance(from, a) - seaDistance(from, b));
+  if (!sched.ok) {
+    const quickChoices = others.slice(0, 3).map((to) => ({
+      label: `Charter Night Skiff to ${to.name} (${fareOf(from, to) + 10} Lexis)`,
+      icon: 'map',
+      run: () => {
+        if (game.player.lexis < 10) return notify(game, 'Need +10 Lexis for night charter fee.', '#ffb070');
+        game.player.lexis -= 10;
+        sail(game, from, to, travelTo);
+      },
+    }));
+    say(game, null, [`⚓ HARBOR TIMETABLE — ${sched.msg}`], [
+      { label: 'Wait on Pier until 06:00 Dawn Ferry', icon: 'sleep', run: () => { sleepUntilMorning(game); offerSail(game, from, travelTo); } },
+      ...quickChoices,
+      { label: 'Not now', run: () => {} },
+    ]);
+    return;
+  }
   const choices = others.map((to) => ({ label: to.name + ' (' + fareOf(from, to) + ' Lexis)', icon: 'map', run: () => sail(game, from, to, travelTo) }));
   say(game, null, ['The boat of ' + from.name + ' creaks on the waves. The sailor waves at you: "Where to?"'], [...choices, { label: 'Not now', run: () => {} }]);
 }

@@ -4,6 +4,8 @@ import { addItem, heal, earnLexis } from './player';
 import { notify } from './messages';
 import { burst, floatText } from './particles';
 import { cue } from './cues';
+import { stampPerishableAdded, isResourceDepleted, markResourceExhausted, rollBaitFishingBonus } from './realism/foodAndNature';
+import { activeShrineBlessing } from './realism/socialAndCodex';
 
 // Interactive harvesting and real-life countryside actions for fruit trees, bushes,
 // beehives, fishing gear, nests, milk churns, mushrooms, burrows, and village benches.
@@ -62,9 +64,29 @@ function keyOfProp(prop) {
   return prop.kind + ':' + Math.floor(prop.x) + ',' + Math.floor(prop.y);
 }
 
+const MULTI_DAY_EXHAUST_KINDS = new Set([
+  'fishingGear',
+  'hollowStump',
+  'mossyLog',
+  'bushBerry',
+  'bushBerryBlue',
+  'bushRose',
+  'roseBush',
+  'lavenderRow',
+  'sunflowerPatch',
+  'tulipBed',
+  'bluebells',
+  'poppies',
+  'moonflower',
+  'cactusFlower',
+  'hibiscusBush',
+  'mushroomRing',
+]);
+
 export function isPropHarvested(game, prop) {
   if (!game || !prop || !HARVEST_SPECS[prop.kind]) return false;
   if (HARVEST_SPECS[prop.kind].bench) return false;
+  if (game?.realism && MULTI_DAY_EXHAUST_KINDS.has(prop.kind) && isResourceDepleted(game, keyOfProp(prop))) return true;
   if (!game.harvested) return false;
   return game.harvested[keyOfProp(prop)] === game.day;
 }
@@ -106,9 +128,12 @@ export function harvestProp(game, prop) {
   if (!game.harvested || typeof game.harvested !== 'object') game.harvested = {};
   if (isPropHarvested(game, prop)) return false;
   game.harvested[keyOfProp(prop)] = game.day;
+  if (game?.realism && MULTI_DAY_EXHAUST_KINDS.has(prop.kind)) markResourceExhausted(game, keyOfProp(prop), prop.kind);
 
-  const qty = spec.qty || 1;
+  const harvestBless = game?.realism && activeShrineBlessing(game)?.id === 'harvest' ? 1 : 0;
+  const qty = (spec.qty || 1) + harvestBless;
   addItem(game.player, spec.item, qty);
+  stampPerishableAdded(game, spec.item);
   const itemMeta = ITEMS[spec.item];
   const label = `+${qty} ${itemMeta ? itemMeta.name : spec.item}`;
   burst(game, px, py - 0.4, spec.color || '#ffd23f', 10);
@@ -118,8 +143,12 @@ export function harvestProp(game, prop) {
   let msg = `${itemMeta ? itemMeta.icon : '🌿'} Harvested ${label}!`;
   if (spec.extra) {
     addItem(game.player, spec.extra, 1);
+    stampPerishableAdded(game, spec.extra);
     const extraMeta = ITEMS[spec.extra];
     if (extraMeta) msg += ` (+1 ${extraMeta.name})`;
+  }
+  if (prop.kind === 'fishingGear' && game?.realism) {
+    rollBaitFishingBonus(game);
   }
   if (spec.coinChance && Math.random() < spec.coinChance) {
     earnLexis(game, 8);

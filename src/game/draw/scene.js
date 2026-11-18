@@ -21,7 +21,9 @@ import { monsterSprite } from './monsters';
 import { drawBattle, battleGap, writeBattleWords } from './battle';
 import { activeEmotes, emoteOwner } from '../logic/emotes';
 import { drawLights } from './lights';
-import { makeGrid, fillEllipse, toCanvas, once } from './pixels';
+import { makeGrid, fillRect, fillEllipse, fillTriangle, addOutline, mirrored, toCanvas, once } from './pixels';
+import { ensureRealism } from '../logic/realism/state';
+import { hasManaLanternLit } from '../logic/realism/magicPhysics';
 import * as props from './props';
 import { warDrawings, drawWarEffects } from './warArt';
 import { societyDrawings, drawSocietyEffects } from './societyArt';
@@ -804,14 +806,48 @@ function drawEmotes(ctx, game, view) {
   }
 }
 
-// The hero (with the person they carry on their back, if any).
+function griffinMountSprite(kind, dir, flapFrame) {
+  const isWyvern = kind === 'wyvern';
+  const body = isWyvern ? '#5268a8' : '#d6a449';
+  const wing = isWyvern ? '#8b52c8' : '#f2ead8';
+  const wingDark = isWyvern ? '#3d2864' : '#b89f78';
+  const wingY = flapFrame === 0 ? 3 : 9;
+  const key = `griffinMount|${kind}|${dir}|${flapFrame}`;
+  return once(key, () => {
+    const g = makeGrid(28, 22);
+    // Wings
+    fillTriangle(g, [10, 11], [2, wingY], [12, 8], () => wing);
+    fillTriangle(g, [18, 11], [26, wingY], [16, 8], () => wing);
+    fillRect(g, 3, wingY + 1, 7, 2, wingDark);
+    fillRect(g, 18, wingY + 1, 7, 2, wingDark);
+    // Body + saddle
+    fillEllipse(g, 14, 13, 6.5, 4, body);
+    fillRect(g, 10, 10, 8, 3, '#b8303a');
+    // Head / beak / crest
+    if (dir === 'up') {
+      fillEllipse(g, 14, 17, 3, 2.5, wingDark);
+    } else if (dir === 'down') {
+      fillEllipse(g, 14, 9, 3.2, 2.8, wing);
+      fillRect(g, 13, 10, 2, 2, '#ffd23f');
+    } else {
+      fillEllipse(g, 20, 8, 3.2, 2.5, wing);
+      fillRect(g, 22, 8, 3, 2, '#ffd23f');
+    }
+    const out = addOutline(dir === 'left' ? mirrored(g) : g, '#1c1726');
+    return { canvas: toCanvas(out), ax: 14, ay: 18 };
+  });
+}
+
+// The hero (soars on Sky Griffin if riding outdoors, with anyone carried on back).
 function heroDrawing(game, view, time) {
   const player = game.player;
   const carried = player.carrying;
-  return personDrawing(player.look, { x: player.x, y: player.y, dir: player.dir, step: player.step, walking: game.run.walking }, view, time, 0, (ctx) => {
+  const flying = Boolean(game.isekaiTodo?.flyingMount?.riding && zoneAt(player.x, player.y).kind !== 'inside');
+  const liftPx = flying ? -7 + Math.round(Math.sin(time * 5) * 2) : 0;
+  return personDrawing(player.look, { x: player.x, y: player.y + liftPx / T, dir: player.dir, step: player.step, walking: game.run.walking }, view, time, 0, (ctx) => {
     if (!carried) return;
     const look = carried.kind === 'npc' ? npcOf(carried.id).look : (game.run.villagers.find((item) => item.id === carried.id) || {}).look;
-    if (look) lyingDrawing(look, { x: player.x, y: player.y - 1.2 }, view, time).draw(ctx);
+    if (look) lyingDrawing(look, { x: player.x, y: player.y - 1.2 + liftPx / T }, view, time).draw(ctx);
   });
 }
 
@@ -1016,9 +1052,70 @@ function drawEnvelope(ctx, x, y, urgent = false) {
   ctx.fillRect(x, y - 1, 1, 2);
 }
 
+function drawRealismWorldOverlays(ctx, game, view, time) {
+  if (!game?.realism) return;
+  const r = ensureRealism(game);
+  // Trail Cairns stacked along paths
+  for (const c of r.world?.trailCairns || []) {
+    if (!isNear(view, c.x - 1, c.y - 1, 2, 2)) continue;
+    const cx = Math.round(c.x * T - view.x);
+    const cy = Math.round(c.y * T - view.y);
+    ctx.fillStyle = '#5e6573';
+    ctx.fillRect(cx - 4, cy - 3, 8, 4);
+    ctx.fillStyle = '#9aa6b8';
+    ctx.fillRect(cx - 3, cy - 6, 6, 3);
+    ctx.fillRect(cx - 2, cy - 8, 4, 2);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(cx, cy - 11, 1, 4);
+    ctx.fillRect(cx + 1, cy - 11, 2, 2);
+  }
+  // Dropped lost bag marker
+  const bagPos = r.world?.lastDeathPos;
+  if (bagPos && r.world?.lastDeathBag && isNear(view, bagPos.x - 1, bagPos.y - 1, 2, 2)) {
+    const bx = Math.round(bagPos.x * T - view.x);
+    const by = Math.round(bagPos.y * T - view.y);
+    const pulse = 0.4 + Math.sin(time * 5) * 0.25;
+    ctx.strokeStyle = `rgba(255, 210, 63, ${pulse.toFixed(2)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(bx, by - 3, 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#7a4522';
+    ctx.fillRect(bx - 4, by - 7, 8, 7);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(bx - 1, by - 5, 2, 2);
+  }
+  // Active chalk circle in fight
+  const circle = game.run.fight && r.combatRealism?.activeCircle;
+  if (circle) {
+    const hx = Math.round(game.player.x * T - view.x);
+    const hy = Math.round(game.player.y * T - view.y);
+    ctx.strokeStyle = circle === 'regen' ? '#7cfc9a' : '#9fd8ff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(hx, hy - 1, 12, 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 export function isekaiTodoDrawings(game, view, time) {
   if (!game || !game.run) return [];
   const list = [];
+
+  // 0. Flying Sky Griffin / Wyvern Mount directly under hero when soaring
+  if (game.isekaiTodo?.flyingMount?.riding && !game.run.fight && zoneAt(game.player.x, game.player.y).kind !== 'inside') {
+    const p = game.player;
+    const flap = Math.floor(time * 6) % 2;
+    const liftPx = -7 + Math.round(Math.sin(time * 5) * 2);
+    const kind = game.isekaiTodo.flyingMount.kind || 'griffin';
+    list.push({
+      y: p.y - 0.02,
+      draw: (ctx) => {
+        put(ctx, shadow(), p.x * T, p.y * T, view);
+        put(ctx, griffinMountSprite(kind, p.dir || 'down', flap), p.x * T, p.y * T + liftPx + 6, view);
+      },
+    });
+  }
 
   // 1. Royal Courier Messenger holding an urgent Part 6 envelope
   const courier = game.run.courier;
@@ -1119,6 +1216,9 @@ function lightsOf(game, view, time = 0) {
   if (hasLight(game)) {
     const flick = Math.round(Math.sin(time * 7) * 3);
     lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: HERO_TORCH_LIGHT + flick, warm: true });
+  }
+  if (game?.realism && hasManaLanternLit(game)) {
+    lights.push({ x: game.player.x * T - view.x, y: game.player.y * T - 10 - view.y, radius: 76, warm: false });
   }
   if (game.run.fight) {
     // a fight at night: a big light on the two fighters (and on the friends behind the hero)
@@ -1439,6 +1539,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawBondsEffects(art, game, view, time);
   drawPartyEffects(art, game, view);
   isekaiArt.drawIsekaiEffects(art, game, view, time);
+  drawRealismWorldOverlays(art, game, view, time);
   drawIsekaiTodoIndicators(art, game, view, time);
   structuresArt.drawStructureAmbience(art, game, view, time);
   drawWeather(art, game, view, time);

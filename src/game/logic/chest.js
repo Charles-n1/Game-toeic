@@ -6,6 +6,9 @@ import { notify } from './messages';
 import { burst } from './particles';
 import { emote } from './emotes';
 import { cue } from './cues';
+import { ensureRealism, isTierEnabled } from './realism/state';
+import { inspectChestWithMonocle } from './realism/magicPhysics';
+import { stampPerishableAdded } from './realism/foodAndNature';
 
 export const CHEST_SLOTS = 27;
 const KEPT_KINDS = ['material', 'goods', 'food', 'seed'];
@@ -57,6 +60,10 @@ export function openWorldChest(game, chest) {
   const isSmall = chest.key.endsWith(':small');
   const firstOpen = !game.chests[chest.key];
   if (firstOpen) {
+    const r = game?.realism ? ensureRealism(game) : null;
+    if (r && isTierEnabled(game, 'C') && !r.combatRealism.mimicChecked[chest.key]) {
+      inspectChestWithMonocle(game, chest.key);
+    }
     game.chests[chest.key] = true;
     const lexis = (isSmall ? 30 : 100) * Math.max(1, chest.zone?.danger || 1);
     earnLexis(game, lexis);
@@ -112,6 +119,7 @@ export function takeFromChest(game, itemId, qty = 1) {
   chest.items[itemId] -= take;
   if (chest.items[itemId] <= 0) delete chest.items[itemId];
   addItem(game.player, itemId, take);
+  stampPerishableAdded(game, itemId);
   cue(game, 'step');
   return take;
 }

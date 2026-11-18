@@ -12,6 +12,10 @@ import { resetSlotDurability, repairCostOf, repairAllGear, needsRepair } from '.
 import { recipesForStation, canPlayerCraft, craftPlayerItem } from './craftingPlayer';
 import { adventurerShopDiscount } from './guild/ranks';
 import { skillTreeBonuses } from './isekaiTodo/progression';
+import { ensureRealism, isTierEnabled } from './realism/state';
+import { stampPerishableAdded, isTownDayMarketBonus } from './realism/foodAndNature';
+import { marketBoomSellMultiplier } from './realism/financeAndLaw';
+import { activeTitleBonus } from './realism/socialAndCodex';
 import {
   ensureEconomy,
   econVillage,
@@ -43,18 +47,35 @@ export function shopStock(game, itemId) {
   return Math.max(0, econ.stock[itemId]);
 }
 
-// Buying and selling. Prices respond to happiness, negotiations, festivals, class, guild card, skill tree, and real local scarcity.
+// Buying and selling. Prices respond to happiness, negotiations, festivals, class, guild card, skill tree, hygiene, titles, and real local scarcity.
 export function priceOf(game, itemId) {
   const cardDiscount = adventurerShopDiscount(game);
   const treeDiscount = (skillTreeBonuses(game).discount || 0) / 100;
-  const guild = Math.max(0.4, 1 - classBonus(game, 'discount') / 100 - cardDiscount - treeDiscount);
+  const r = game?.realism ? ensureRealism(game) : null;
+  const titleDiscount = r ? activeTitleBonus(game).pricePct || 0 : 0;
+  const guild = Math.max(0.4, 1 - classBonus(game, 'discount') / 100 - cardDiscount - treeDiscount - titleDiscount);
   const zone = zoneAt(game.player.x, game.player.y);
   const vid = currentShopVillageId(game);
   const villageMod = zone.kind === 'village' ? villagePriceMultiplier(game, zone.id) : 1;
   const scarcity = economyPriceMultiplier(game, vid, itemId);
   const sellerRace = npcOf(game.run.shop?.npcId)?.race;
   const langMod = culturalPriceDiscount(game, sellerRace);
-  return Math.max(1, Math.ceil(ITEMS[itemId].price * priceFactor(game) * guild * villageMod * scarcity * langMod));
+  const dirtyMod = r && isTierEnabled(game, 'C') && (r.health?.cleanliness ?? 90) < 35 ? 1.1 : 1.0;
+  return Math.max(1, Math.ceil(ITEMS[itemId].price * priceFactor(game) * guild * villageMod * scarcity * langMod * dirtyMod));
+}
+
+function shouldOfferShopItem(game, itemId) {
+  const item = ITEMS[itemId];
+  if (!item) return false;
+  const player = game.player;
+  if (item.kind === 'map') return item.level > player.mapLevel;
+  const r = game?.realism ? ensureRealism(game) : null;
+  if (item.kind === 'workstation') {
+    return !(r?.workstations?.[item.station] || (player.bag?.[itemId] || 0) > 0);
+  }
+  const uniqueTools = ['compass', 'manaLantern', 'tinder', 'tentKit', 'packMule', 'delveCharter', 'merchantPatent'];
+  if (uniqueTools.includes(itemId) && (player.bag?.[itemId] || 0) > 0) return false;
+  return true;
 }
 
 // What this shop offers right now. The forge sells the NEXT upgrade plus character gear; markets include accessories & camp/town supplies.
@@ -64,7 +85,7 @@ export function shopItems(game, kind) {
     const upgrades = [nextUpgrade('weapon', player.weapon), nextUpgrade('armor', player.armor), nextUpgrade('boots', player.boots)].filter((id) => id !== null);
     return [...upgrades, 'turretKit', ...unownedGear(player, FORGE_GEAR_IDS, 4)];
   }
-  const base = SHOPS[kind].filter((id) => ITEMS[id].kind !== 'map' || ITEMS[id].level > player.mapLevel);
+  const base = SHOPS[kind].filter((id) => shouldOfferShopItem(game, id));
   if (kind === 'market') {
     const campGear = player.bag.autoHeater || game.camp?.autoHeater ? [] : ['autoHeater'];
     return [...base, ...campGear, 'wheatSeed', 'horseFeed', 'firewood', 'driedMeat', 'decorBanner', ...unownedGear(player, ACCESSORY_IDS, 4)];
@@ -97,7 +118,10 @@ export function buy(game, itemId) {
     }
     equip(game.player, itemId, game);
     resetSlotDurability(game, item.kind);
-  } else addItem(game.player, itemId);
+  } else {
+    addItem(game.player, itemId);
+    stampPerishableAdded(game, itemId);
+  }
   return true;
 }
 
@@ -109,11 +133,12 @@ export function sellableItems(player) {
 export function sell(game, itemId) {
   const vid = currentShopVillageId(game);
   const econ = econVillage(game, vid);
+  const boomMult = game?.realism ? marketBoomSellMultiplier(game, vid, itemId) * isTownDayMarketBonus(game) : 1;
   if (econ && econ.inputs[itemId] !== undefined) {
     return sellResourceToTown(game, vid, itemId, 1);
   }
   removeItem(game.player, itemId);
-  const pay = ITEMS[itemId].sell;
+  const pay = Math.max(1, Math.round(ITEMS[itemId].sell * boomMult));
   if (econ) {
     if (econ.stock[itemId] !== undefined) econ.stock[itemId] += 1;
     econ.treasury = Math.max(0, econ.treasury - Math.min(econ.treasury, pay));

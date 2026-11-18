@@ -15,6 +15,10 @@ import { cureCold } from './weather';
 import { interactBoard } from './society/worldLife';
 import { openGuildDesk, openGuildContractsMenu } from './guild';
 import { ensureGuild, rankIndex, boardContractsFor } from './guild/ranks';
+import { ensureRealism } from './realism/state';
+import { applySleepQualityRecovery } from './realism/bodyHealth';
+import { readNoticeBoardQuestion, maybeTriggerEarthDream } from './realism/englishWorld';
+import { payOffFinesOrDefend } from './realism/financeAndLaw';
 
 // The inside of the Guild of Adventurers: a tavern. Adventurers drink at the tables, two servers carry the drinks
 // from the bar, the guild members wait for work, and the quest board hangs on the wall.
@@ -286,6 +290,10 @@ export function restInGuildRoom(game) {
   }
   if (!free) game.player.lexis -= 15;
   sleepUntilMorning(game);
+  if (game?.realism) {
+    applySleepQualityRecovery(game, 'inn');
+    maybeTriggerEarthDream(game);
+  }
   game.player.fatigue = 0;
   healFully(game.player, game);
   cureCold(game, '😴 Resting in a warm Guild Room cured your cold!');
@@ -340,11 +348,17 @@ function readBoard(game) {
   }
   const g = ensureGuild(game);
   const avail = boardContractsFor(game, village.id).filter((c) => !c.accepted).length;
-  say(game, null, [village.name + ' Guild Notice Board (' + g.rank + '-Rank · ' + avail + ' fresh contracts today)'], [
+  const fines = game?.realism ? ensureRealism(game).fines?.total || 0 : 0;
+  const choices = [
     { label: 'Procedural Guild Contracts (' + avail + ' today)', icon: 'quests', run: () => openGuildContractsMenu(game, village.id) },
     { label: 'Town Bounties & Projects', icon: 'shield', run: () => interactBoard(game, village) },
-    { label: 'Step back', run: () => {} },
-  ]);
+    { label: '📋 Read Daily English Notice (+XP, +Lexis)', icon: 'book', run: () => readNoticeBoardQuestion(game, village.id) },
+  ];
+  if (fines > 0) {
+    choices.push({ label: '⚖️ Magistrate Fines & Appeal (' + fines + 'L)', icon: 'lexis', run: () => payOffFinesOrDefend(game) });
+  }
+  choices.push({ label: 'Step back', run: () => {} });
+  say(game, null, [village.name + ' Guild Notice Board (' + g.rank + '-Rank · ' + avail + ' fresh contracts today)'], choices);
 }
 
 // What the action button does inside the guild hall.

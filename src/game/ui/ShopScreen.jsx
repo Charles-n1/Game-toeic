@@ -12,6 +12,21 @@ import { negotiate } from '../logic/duels';
 import { countItem } from '../logic/player';
 import { upgradeBottle, nextBottleUpgrade } from '../logic/survival';
 import { refineLevelOf, refinedItemName, refineBonusForItem, refineRequirements, refineGear } from '../logic/isekaiTodo/progression';
+import { ensureRealism } from '../logic/realism/state';
+import { sharpenWeaponAtForgeOrHome, temperEquipmentAtForge, isTownDayMarketBonus } from '../logic/realism/foodAndNature';
+import { inspectRepairInvoice } from '../logic/realism/englishWorld';
+import {
+  depositBank,
+  withdrawBank,
+  issuePromissoryNote,
+  redeemPromissoryNote,
+  requestGuildLoan,
+  repayLoan,
+  investInTownWorkshop,
+  exchangeAllForeignCoins,
+  assayCounterfeitCoins,
+  marketBoomSellMultiplier,
+} from '../logic/realism/financeAndLaw';
 import { notify } from '../logic/messages';
 
 function dealText(game) {
@@ -125,8 +140,38 @@ export default function ShopScreen({ game, refresh, onClose }) {
               <button className="px-button px-gold" disabled={player.lexis < econ.repairCost} onClick={() => repairGear(false)}>
                 {econ.repairCost} Lexis
               </button>
+              <button
+                className="px-button"
+                onClick={() => {
+                  onClose();
+                  inspectRepairInvoice(game, econ.repairCost, (finalCost) => {
+                    if (game.player.lexis < finalCost) return notify(game, 'Need ' + finalCost + ' Lexis.', '#ffb070');
+                    game.player.lexis -= finalCost;
+                    econ.repair(false);
+                  });
+                }}
+              >
+                Check Invoice
+              </button>
               <button className="px-button" disabled={!player.bag.ore && !player.bag.pelt} onClick={() => repairGear(true)}>
                 1 Ore/Pelt
+              </button>
+            </div>
+          </>
+        )}
+
+        {shop.kind === 'forge' && game?.realism && (
+          <>
+            <span className="section">Hone Edge &amp; Quality Tempering</span>
+            <div className="row wrap" style={{ gap: 6, marginBottom: 4 }}>
+              <button className="px-button" onClick={() => { sharpenWeaponAtForgeOrHome(game); refresh(); }}>
+                🗡️ Sharpen Blade (+5% ATK)
+              </button>
+              <button className="px-button" onClick={() => { temperEquipmentAtForge(game, 'weapon'); refresh(); }}>
+                ⚒️ Temper Weapon ({ensureRealism(game).combatRealism?.quality?.weapon || 'standard'})
+              </button>
+              <button className="px-button" onClick={() => { temperEquipmentAtForge(game, 'armor'); refresh(); }}>
+                🛡️ Temper Armor ({ensureRealism(game).combatRealism?.quality?.armor || 'standard'})
               </button>
             </div>
           </>
@@ -266,18 +311,58 @@ export default function ShopScreen({ game, refresh, onClose }) {
           </>
         )}
 
+        {shop.kind === 'market' && game?.realism && (() => {
+          const r = ensureRealism(game);
+          return (
+            <>
+              <span className="section">Royal Bank, Exchange &amp; Town Shares</span>
+              {r.world?.marketBoom && <span className="small" style={{ color: '#ffd23f' }}>📈 {r.world.marketBoom.label}</span>}
+              <div className="line">
+                <PixelIcon name="creditNote" size={28} />
+                <div className="grow">
+                  <span>Vault: <strong className="gold">{r.bank.balance || 0}L</strong> (1%/wk)</span>
+                  <span className="small">
+                    {r.debt.owed > 0 ? `Loan owed: ${r.debt.owed}L (due Day ${r.debt.dueDay})` : 'Exchange foreign coins or invest (+6%/day)'}
+                  </span>
+                </div>
+              </div>
+              <div className="row wrap" style={{ gap: 6, marginBottom: 6 }}>
+                <button className="px-button" disabled={player.lexis < 100} onClick={() => { depositBank(game, 100); refresh(); }}>Deposit 100L</button>
+                <button className="px-button" disabled={(r.bank.balance || 0) < 100} onClick={() => { withdrawBank(game, 100); refresh(); }}>Withdraw 100L</button>
+                <button className="px-button px-gold" onClick={() => { exchangeAllForeignCoins(game); refresh(); }}>Convert Coins</button>
+                <button className="px-button" disabled={player.lexis < 500 && (r.bank.balance || 0) < 500} onClick={() => { issuePromissoryNote(game); refresh(); }}>500L Draft</button>
+                {countItem(player, 'creditNote') > 0 && (
+                  <button className="px-button px-gold" onClick={() => { redeemPromissoryNote(game); refresh(); }}>Redeem Draft</button>
+                )}
+                {r.counterfeitBatch > 0 && (
+                  <button className="px-button" onClick={() => { assayCounterfeitCoins(game); refresh(); }}>Assay Coins</button>
+                )}
+                {r.debt.owed <= 0 ? (
+                  <button className="px-button" onClick={() => { onClose(); requestGuildLoan(game, 250); }}>Guild Loan (250L)</button>
+                ) : (
+                  <button className="px-button px-gold" disabled={player.lexis <= 0} onClick={() => { repayLoan(game); refresh(); }}>Repay Loan</button>
+                )}
+                <button className="px-button" disabled={player.lexis < 120} onClick={() => { investInTownWorkshop(game, econ.villageId, shop.kind, 120); refresh(); }}>Invest 120L</button>
+              </div>
+            </>
+          );
+        })()}
+
         <span className="section">To sell</span>
-        {sellable.map((itemId) => (
-          <div key={itemId} className="line">
-            <PixelIcon name={itemId} size={28} />
-            <span className="grow">
-              {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>
-            </span>
-            <button className="px-button" onClick={() => sellItem(itemId)}>
-              +{ITEMS[itemId].sell}
-            </button>
-          </div>
-        ))}
+        {sellable.map((itemId) => {
+          const sellVal = Math.max(1, Math.round(ITEMS[itemId].sell * (game?.realism ? marketBoomSellMultiplier(game, econ.villageId, itemId) * isTownDayMarketBonus(game) : 1)));
+          return (
+            <div key={itemId} className="line">
+              <PixelIcon name={itemId} size={28} />
+              <span className="grow">
+                {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>
+              </span>
+              <button className="px-button" onClick={() => sellItem(itemId)}>
+                +{sellVal}
+              </button>
+            </div>
+          );
+        })}
         {sellable.length === 0 && <span className="small">Nothing to sell. Grow carrots, dig treasures, take flowers from the monsters.</span>}
       </Window>
     </div>

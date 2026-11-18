@@ -1,6 +1,8 @@
 import { ITEMS } from '../data/items';
 import { ensureSociety } from './society/state';
 import { skillTreeBonuses } from './isekaiTodo/progression';
+import { isTierEnabled } from './realism/state';
+import { coinWeightKg } from './realism/financeAndLaw';
 
 // Encumbrance & carry capacity: items in the bag have physical weight (kg).
 // Keeping a light bag preserves 100% normal speed; overloading slows movement and fight focus.
@@ -34,6 +36,10 @@ const SPECIFIC_WEIGHTS = {
   royalPass: 0.1,
   wheat: 0.5,
   caravanParcel: 2.0,
+  salt: 0.25,
+  compost: 0.4,
+  creditNote: 0,
+  packMule: 0,
 };
 
 const KIND_WEIGHTS = {
@@ -42,6 +48,7 @@ const KIND_WEIGHTS = {
   boots: 1.2,
   accessory: 0.3,
   furniture: 3.5,
+  workstation: 4.0,
   mystery: 2.0,
   seed: 0.05,
   potion: 0.35,
@@ -49,6 +56,7 @@ const KIND_WEIGHTS = {
   material: 0.6,
   goods: 0.7,
   tool: 1.2,
+  scroll: 0.05,
   map: 0.1,
   pack: 0.5,
 };
@@ -62,9 +70,13 @@ export function itemWeight(itemId) {
 
 export function packBonus(player) {
   const bag = player?.bag || {};
-  if ((bag.warSatchel || 0) > 0) return ITEMS.warSatchel?.capacityBonus || 36;
-  if ((bag.travelerPack || 0) > 0) return ITEMS.travelerPack?.capacityBonus || 18;
-  return 0;
+  const bagCap = (bag.warSatchel || 0) > 0
+    ? ITEMS.warSatchel?.capacityBonus || 36
+    : (bag.travelerPack || 0) > 0
+      ? ITEMS.travelerPack?.capacityBonus || 18
+      : 0;
+  const muleCap = (bag.packMule || 0) > 0 ? ITEMS.packMule?.capacityBonus || 45 : 0;
+  return bagCap + muleCap;
 }
 
 export function horsePackBonus(game) {
@@ -87,6 +99,9 @@ export function bagWeight(game) {
   let total = 0;
   for (const [itemId, count] of Object.entries(bag)) {
     if (count > 0) total += itemWeight(itemId) * count;
+  }
+  if (game?.realism && isTierEnabled(game, 'A')) {
+    total += coinWeightKg(game);
   }
   return Math.round(total * 10) / 10;
 }

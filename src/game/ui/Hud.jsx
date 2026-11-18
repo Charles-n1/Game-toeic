@@ -24,6 +24,8 @@ import { ELEMENTAL_SPIRITS } from '../data/isekaiTodo';
 import { ensureIsekaiTodo } from '../logic/isekaiTodo/state';
 import { isLevitating, isWorldTimeFrozen } from '../logic/isekaiTodo/magicPlus';
 import { snapAdventurePhoto } from '../logic/isekaiTodo/socialPlus';
+import { ensureRealism, weekdayName, isMarketDay } from '../logic/realism/state';
+import { activeShrineBlessing } from '../logic/realism/socialAndCodex';
 
 const WEATHER_SIGNS = { cloudy: '☁', rain: '🌧', storm: '⛈' };
 
@@ -154,8 +156,11 @@ export default function Hud({ game, input, onAction, onStrike, onMenu }) {
   const enc = encumbranceStatus(game);
   const doom = ensureDoom(game).silenceDoom || 0;
   const todo = ensureIsekaiTodo(game);
+  const real = game?.realism ? ensureRealism(game) : null;
+  const rh = real?.health;
+  const shrine = real ? activeShrineBlessing(game) : null;
   const activeSpirit = todo.spirits?.active ? ELEMENTAL_SPIRITS.find((s) => s.id === todo.spirits.active) : null;
-  const unreadMail = (todo.letters?.delivered || []).filter((m) => !m.read).length;
+  const unreadMail = (todo.letters?.delivered || []).filter((m) => !m.read).length + (real?.social?.inbox || []).filter((m) => !m.read).length;
   const screen = useScreen();
   const showTouch = screen.touch || !screen.wide;
 
@@ -173,12 +178,27 @@ export default function Hud({ game, input, onAction, onStrike, onMenu }) {
         </div>
         <div className="window" style={styles.clock}>
           <span style={styles.clockText}>
-            {skySigns(game)} {clockText(game)}
+            {skySigns(game)} {weekdayName(game.day)} · {clockText(game)}
           </span>
           {raid && <span style={styles.raid}>{raid}</span>}
           <TorchButton game={game} />
           {eventTitle(game) && <span style={styles.event}>{eventTitle(game)}</span>}
+          {isMarketDay(game.day) && <span style={styles.event}>🛍️ Market Day</span>}
           {isCursed(game) && <span style={styles.curse}>💀 Cursed</span>}
+          {rh?.sprainHours > 0 && <span style={styles.raid}>🩹 Sprained ({Math.ceil(rh.sprainHours)}h)</span>}
+          {rh?.cutHours > 0 && <span style={styles.raid}>🩸 Deep Cut ({Math.ceil(rh.cutHours)}h)</span>}
+          {rh?.infectionHours > 0 && <span style={styles.raid}>🤒 Infected ({Math.ceil(rh.infectionHours)}h)</span>}
+          {(rh?.brokenArmHours > 0 || rh?.brokenLegHours > 0) && <span style={styles.raid}>🦴 Fractured</span>}
+          {rh?.dysenteryHours > 0 && <span style={styles.raid}>🤢 Dysentery</span>}
+          {rh?.potionCount6h > 3 && <span style={styles.raid}>🧪 Potion Nausea</span>}
+          {rh?.hypothermia && <span style={styles.raid}>🥶 Hypothermia</span>}
+          {rh?.heatstroke && <span style={styles.raid}>🥵 Heatstroke</span>}
+          {rh && rh.cleanliness < 40 && real.mode === 'hardcore' && <span style={styles.raid}>🧼 Filthy</span>}
+          {rh && rh.morale < 40 && real.mode === 'hardcore' && <span style={styles.raid}>😔 Low Morale</span>}
+          {rh?.wellRestedHours > 0 && <span style={styles.light}>☀️ Well Rested</span>}
+          {rh?.waterproofHours > 0 && <span style={styles.light}>🪔 Waterproof</span>}
+          {real?.fines?.total > 0 && <span style={styles.raid}>⚖️ Fine {real.fines.total}L</span>}
+          {shrine && <span style={styles.light}>{shrine.icon} {shrine.name}</span>}
           {society.disaster && (
             <span style={styles.raid}>{society.disaster.kind === 'tsunami' ? '🌊 TSUNAMI!' : '🌪 TORNADO!'}</span>
           )}

@@ -20,6 +20,13 @@ import { companionHpOf, companionMaxHp, dailyWageOf, adventurerCardView } from '
 import { ensureIsekaiTodo } from '../../logic/isekaiTodo/state';
 import { refinedItemName } from '../../logic/isekaiTodo/progression';
 import { isFlyingMountUnlocked, toggleFlyingMount, setTamedLocation } from '../../logic/isekaiTodo/monstersPlus';
+import { ensureRealism } from '../../logic/realism/state';
+import { useSoapItem, useOilWaxItem } from '../../logic/realism/bodyHealth';
+import { freshnessTag, saltRawFood, placeTrailCairn } from '../../logic/realism/foodAndNature';
+import { itemLabelText } from '../../logic/realism/englishWorld';
+import { redeemPromissoryNote } from '../../logic/realism/financeAndLaw';
+import { chargeCrystalBattery, dischargeCrystalBattery, compassDirectionToCapitals } from '../../logic/realism/magicPhysics';
+import { installHomeWorkstation, startDryingRackJob, studyAtHomeDesk } from '../../logic/realism/socialAndCodex';
 
 // The torch of the hero: always in hand. One button lights it or puts it out.
 function TorchSwitch({ game, refresh }) {
@@ -143,6 +150,34 @@ function ItemButton({ game, itemId, refresh }) {
     return (
       <button className="px-button px-gold" disabled={!needsRepair(game)} onClick={() => run(() => useRepairKit(game))}>
         Repair
+      </button>
+    );
+  }
+  if (itemId === 'soap') {
+    return (
+      <button className="px-button" onClick={() => run(() => useSoapItem(game))}>
+        Wash
+      </button>
+    );
+  }
+  if (itemId === 'oilWax') {
+    return (
+      <button className="px-button" onClick={() => run(() => useOilWaxItem(game))}>
+        Coat
+      </button>
+    );
+  }
+  if (itemId === 'creditNote') {
+    return (
+      <button className="px-button px-gold" onClick={() => run(() => redeemPromissoryNote(game))}>
+        Redeem
+      </button>
+    );
+  }
+  if (item.kind === 'workstation') {
+    return (
+      <button className="px-button px-gold" disabled={!isAtHome(game)} onClick={() => run(() => installHomeWorkstation(game, itemId))}>
+        {isAtHome(game) ? 'Install' : 'At Home'}
       </button>
     );
   }
@@ -299,6 +334,53 @@ export default function InventoryPanel({ game, refresh }) {
 
       <TorchSwitch game={game} refresh={refresh} />
 
+      {game?.realism && (() => {
+        const r = ensureRealism(game);
+        const ws = r.workstations || {};
+        const hasAny = ws.dryingRack || ws.iceBox || ws.studyShelf || ws.alchemyDesk || countItem(player, 'compass') > 0 || countItem(player, 'coreShard') > 0 || r.manaTrain?.crystalCharge > 0;
+        if (!hasAny) return null;
+        return (
+          <>
+            <span className="section">Field Tools &amp; Homestead Stations</span>
+            {countItem(player, 'compass') > 0 && (
+              <span className="small">{compassDirectionToCapitals(game)}</span>
+            )}
+            <div className="row wrap" style={{ gap: 6, marginBottom: 4 }}>
+              {(countItem(player, 'coreShard') > 0 || countItem(player, 'crystal') > 0) && (
+                <button className="px-button" onClick={() => useItem(() => chargeCrystalBattery(game))}>
+                  🔮 Charge Battery ({r.manaTrain?.crystalCharge || 0}/12)
+                </button>
+              )}
+              {(r.manaTrain?.crystalCharge || 0) > 0 && (
+                <button className="px-button" onClick={() => useItem(() => dischargeCrystalBattery(game))}>
+                  ⚡ Draw MP ({r.manaTrain.crystalCharge})
+                </button>
+              )}
+              {countItem(player, 'salt') > 0 && (countItem(player, 'rawMeat') > 0 || countItem(player, 'rawFish') > 0) && (
+                <button className="px-button" onClick={() => useItem(() => saltRawFood(game, countItem(player, 'rawMeat') > 0 ? 'rawMeat' : 'rawFish', 1))}>
+                  🧂 Salt → Jerky
+                </button>
+              )}
+              {countItem(player, 'stone') >= 3 && (
+                <button className="px-button" onClick={() => useItem(() => placeTrailCairn(game))}>
+                  🪨 Trail Cairn
+                </button>
+              )}
+              {ws.dryingRack && (
+                <button className="px-button" onClick={() => useItem(() => startDryingRackJob(game))}>
+                  🪵 Dry Meat at Home
+                </button>
+              )}
+              {ws.studyShelf && (
+                <button className="px-button" onClick={() => useItem(() => studyAtHomeDesk(game))}>
+                  📚 Study at Desk
+                </button>
+              )}
+            </div>
+          </>
+        );
+      })()}
+
       <span className="section">
         Bag ·{' '}
         <span style={{ color: enc.state === 'Overloaded' ? '#ff7a7a' : enc.state === 'Heavy' ? '#ffb070' : '#7cfc9a' }}>
@@ -306,19 +388,25 @@ export default function InventoryPanel({ game, refresh }) {
         </span>
       </span>
       {itemIds.length === 0 && <span className="small">Empty.</span>}
-      {itemIds.map((itemId) => (
-        <div key={itemId} className="line">
-          <PixelIcon name={itemId} size={28} />
-          <div className="grow">
-            <span>
-              {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>{' '}
-              <span className="small">({Math.round(itemWeight(itemId) * countItem(player, itemId) * 10) / 10} kg)</span>
-            </span>
-            {(ITEMS[itemId].text || ITEMS[itemId].kind === 'furniture') && <span className="small">{ITEMS[itemId].text || 'Furniture: place it in your home, in front of you.'}</span>}
+      {itemIds.map((itemId) => {
+        const fresh = game?.realism ? freshnessTag(game, itemId) : null;
+        const labelNote = game?.realism ? itemLabelText(game, itemId) : '';
+        return (
+          <div key={itemId} className="line">
+            <PixelIcon name={itemId} size={28} />
+            <div className="grow">
+              <span>
+                {ITEMS[itemId].name} <span className="gold">× {countItem(player, itemId)}</span>{' '}
+                <span className="small">({Math.round(itemWeight(itemId) * countItem(player, itemId) * 10) / 10} kg)</span>
+                {fresh && <span className="small" style={{ color: fresh === 'Rotting' || fresh === '1d left!' ? '#ff8a95' : '#9fd8ff' }}> · {fresh}</span>}
+              </span>
+              {(ITEMS[itemId].text || ITEMS[itemId].kind === 'furniture') && <span className="small">{ITEMS[itemId].text || 'Furniture: place it in your home, in front of you.'}</span>}
+              {labelNote && <span className="small" style={{ color: '#c9d1e0' }}>{labelNote}</span>}
+            </div>
+            <ItemButton game={game} itemId={itemId} refresh={refresh} />
           </div>
-          <ItemButton game={game} itemId={itemId} refresh={refresh} />
-        </div>
-      ))}
+        );
+      })}
 
       {(player.party.length > 0 || player.soldiers > 0 || player.pet) && <span className="section">Companions</span>}
       {player.soldiers > 0 && (

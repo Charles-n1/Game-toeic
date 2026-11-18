@@ -27,6 +27,9 @@ import {
 import { tryEscapeGuard, arrestPlayer } from '../kingdomLaws';
 import { openGuildContractsMenu } from '../guild';
 import { boardContractsFor } from '../guild/ranks';
+import { readNoticeBoardQuestion } from '../realism/englishWorld';
+import { ensureRealism } from '../realism/state';
+import { payOffFinesOrDefend } from '../realism/financeAndLaw';
 
 // Slave traders & cages, town decorations, turrets, bounty boards, festivals, fireworks, and guard chases.
 
@@ -463,6 +466,19 @@ export function interactBoard(game, zone) {
     icon: 'quests',
     run: () => openGuildContractsMenu(game, village.id),
   });
+  choices.unshift({
+    label: '📋 Daily Public Notice (TOEIC Reading Challenge)',
+    icon: 'book',
+    run: () => readNoticeBoardQuestion(game, village.id),
+  });
+  const fineTotal = game?.realism ? ensureRealism(game).fines?.total || 0 : 0;
+  if (fineTotal > 0) {
+    choices.push({
+      label: '⚖️ Resolve Municipal Fines (' + fineTotal + ' Lexis)',
+      icon: 'lexis',
+      run: () => payOffFinesOrDefend(game),
+    });
+  }
   choices.push({ label: 'Leave', run: () => {} });
 
   const statusLine = village.name + ' Notice Board — Mood: ' + (state.mood ?? 50) + '/100 · Decor: ' + (state.decor || 0) + ' · Turrets: ' + (state.turrets || []).length + '/' + turretSpots(village).length + (isFestivalActive(game, village.id) ? ' · 🎉 FESTIVAL TODAY!' : '');

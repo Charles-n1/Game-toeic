@@ -3,6 +3,8 @@ import { addItem, countItem, removeItem, equip } from './player';
 import { resetSlotDurability } from './durability';
 import { econVillage } from './economy/state';
 import { isStuck } from './isekai/curses';
+import { REALISM_CRAFT_RECIPES } from './realism/index';
+import { stampPerishableAdded } from './realism/foodAndNature';
 import { notify } from './messages';
 import { cue } from './cues';
 
@@ -34,8 +36,12 @@ export const PLAYER_RECIPES = [
   { id: 'antidote', needs: { herb: 2, mushroom: 1 }, fee: 0, stations: ['potions', 'clinic', 'camp'], desc: 'Purges poison, burn & bleed (+20 HP).' },
 ];
 
+export function allPlayerRecipes() {
+  return [...PLAYER_RECIPES, ...REALISM_CRAFT_RECIPES];
+}
+
 export function recipesForStation(station) {
-  return PLAYER_RECIPES.filter((r) => r.stations.includes(station));
+  return allPlayerRecipes().filter((r) => r.stations.includes(station));
 }
 
 export function canPlayerCraft(game, recipe) {
@@ -45,7 +51,7 @@ export function canPlayerCraft(game, recipe) {
 }
 
 export function craftPlayerItem(game, recipeId, villageId = null) {
-  const recipe = PLAYER_RECIPES.find((r) => r.id === recipeId);
+  const recipe = allPlayerRecipes().find((r) => r.id === recipeId);
   if (!canPlayerCraft(game, recipe)) return false;
 
   for (const [itemId, qty] of Object.entries(recipe.needs)) {
@@ -71,6 +77,7 @@ export function craftPlayerItem(game, recipeId, villageId = null) {
     notify(game, '⚒️ Forged & equipped ' + item.name + '!', '#7cfc9a');
   } else {
     addItem(game.player, recipe.id, 1);
+    stampPerishableAdded(game, recipe.id);
     notify(game, '⚒️ Crafted ' + item.name + '!', '#7cfc9a');
   }
   if (!game.counts) game.counts = { kills: 0, answers: 0, correct: 0, harvested: 0, helped: 0 };

@@ -53,6 +53,13 @@ import { isLevitating, spiritLocations, talkToSpirit } from './isekaiTodo/magicP
 import { nearIntelligentMonster, interactIntelligentMonster, tickEmissaries } from './isekaiTodo/monstersPlus';
 import { canOpenSecretFloor, trySecretFloorRiddle } from './isekaiTodo/dungeonsPlus';
 import { courierNear, deliverCourierMail, tickCourierMessenger, deliveredLettersList, readPart6Letter, checkEpisodeProgression, syncWeeklyChallenge, refreshDailyLetters } from './isekaiTodo/socialPlus';
+import { ensureRealism, isTierEnabled } from './realism/state';
+import { bodySpeedMultiplier, canSprintBody, applySleepQualityRecovery } from './realism/bodyHealth';
+import { trackFootstepsRealism, terrainSpeedMultiplier } from './realism/foodAndNature';
+import { maybeTriggerEarthDream } from './realism/englishWorld';
+import { checkDungeonSalvageFee } from './realism/financeAndLaw';
+import { disarmDungeonTrapQuick } from './realism/magicPhysics';
+import { activeShrineBlessing, tryRecoverLostBag } from './realism/socialAndCodex';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -108,10 +115,12 @@ function walk(game, input, dt) {
   if (!game.run.walking || Date.now() < game.run.fadeUntil) return;
 
   const enc = encumbranceStatus(game);
-  game.run.running = enc.canSprint && isRunning(input);
+  game.run.running = enc.canSprint && canSprintBody(game) && isRunning(input);
   const flying = Boolean(ensureIsekaiTodo(game).flyingMount?.riding);
   const mount = flying ? 1.75 : ridingSpeedMultiplier(game);
-  const distance = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * enc.speedMult * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
+  const shrineWind = game?.realism && activeShrineBlessing(game)?.id === 'wind' ? 1.15 : 1;
+  const bodyTerrain = game?.realism ? bodySpeedMultiplier(game) * terrainSpeedMultiplier(game) * shrineWind : 1;
+  const distance = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * enc.speedMult * bodyTerrain * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
   const steps = Math.max(1, Math.ceil(distance / MAX_MOVE_STEP));
   const stepDist = distance / steps;
   for (let i = 0; i < steps; i++) {
@@ -120,6 +129,7 @@ function walk(game, input, dt) {
     if (canStand(game, player.x, player.y + direction.y * stepDist)) player.y += direction.y * stepDist;
     else if (direction.x === 0 && i === 0) tryPush(game, 0, direction.y);
   }
+  if (game?.realism) trackFootstepsRealism(game, distance);
   player.dir = facingOf(direction.x, direction.y);
 
   const stepBefore = Math.floor(player.step);
@@ -168,9 +178,19 @@ function noticeZone(game) {
   const zone = zoneAt(game.player.x, game.player.y);
   if (zone.id === game.run.zoneId) return;
   const isArriving = game.run.zoneId !== null; // not the first frame after loading
+  const prevZoneId = game.run.zoneId;
   game.run.zoneId = zone.id;
   game.visited[zone.id] = true;
   if (zone.dungeon) game.visited[zone.dungeon] = true;
+  if (isArriving && game?.realism) {
+    const r = ensureRealism(game);
+    if (zone.kind === 'floor' && isTierEnabled(game, 'B') && !r.combatRealism.disarmedTraps[zone.id]) {
+      r.combatRealism.trappedFloor[zone.id] = true;
+    }
+    if (prevZoneId && zone.kind !== 'floor' && prevZoneId.includes('_f')) {
+      checkDungeonSalvageFee(game, prevZoneId);
+    }
+  }
   if (isArriving && zone.kind === 'village') saveGame(game);
   if (isArriving && zone.kind === 'inside' && zone.name) notify(game, zone.name, '#c9d1e0');
 }
@@ -194,6 +214,10 @@ function goToBed(game) {
     return;
   }
   sleepUntilMorning(game);
+  if (game?.realism) {
+    applySleepQualityRecovery(game, 'home');
+    maybeTriggerEarthDream(game);
+  }
   saveGame(game);
   notify(game, '💤 You slept well. HP and mana are full. (You wake up hungry.)', '#9fd8ff');
 }
@@ -281,7 +305,17 @@ function actionsOf(game) {
   const player = game.player;
   const front = frontTile(player);
   const atHome = isAtHome(game);
+  const curZone = zoneAt(player.x, player.y);
+  const r = game?.realism ? ensureRealism(game) : null;
+  const nearLostBag = Boolean(
+    r?.world?.lastDeathPos && r?.world?.lastDeathBag && Math.hypot(r.world.lastDeathPos.x - player.x, r.world.lastDeathPos.y - player.y) < 1.8
+  );
+  const nearTrap = Boolean(
+    r && curZone.kind === 'floor' && r.combatRealism?.trappedFloor?.[curZone.id] && !r.combatRealism?.disarmedTraps?.[curZone.id]
+  );
   return [
+    { when: () => nearLostBag, icon: 'travelerPack', run: () => tryRecoverLostBag(game) },
+    { when: () => nearTrap, icon: 'lockpick', run: () => disarmDungeonTrapQuick(game, curZone.id) },
     { when: () => player.carrying !== null, icon: 'people', run: () => putDown(game) },
     { when: () => courierNear(game) !== null, icon: 'mail', run: () => deliverCourierMail(game) },
     { when: () => nearIntelligentMonster(game) !== null, icon: 'talk', run: () => interactIntelligentMonster(game, nearIntelligentMonster(game)) },
@@ -376,6 +410,10 @@ function slowUpdates(game, dt) {
     updateBorders(game);
     syncWeeklyChallenge(game);
     checkEpisodeProgression(game);
+    const rSlow = game?.realism ? ensureRealism(game) : null;
+    if (rSlow?.world?.lastDeathPos && rSlow?.world?.lastDeathBag && Math.hypot(rSlow.world.lastDeathPos.x - game.player.x, rSlow.world.lastDeathPos.y - game.player.y) <= 1.2) {
+      tryRecoverLostBag(game);
+    }
     if (game.player.health <= 0 && !game.run.fight && game.run.screen === 'play') {
       knockOut(game);
     }

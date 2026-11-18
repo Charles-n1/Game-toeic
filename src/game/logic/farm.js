@@ -10,6 +10,7 @@ import { burst, dust, floatText } from './particles';
 import { emote } from './emotes';
 import { cue } from './cues';
 import { openWorldChest } from './chest';
+import { canGrowInSeason, stampPerishableAdded } from './realism/foodAndNature';
 
 // Working the ground: planting carrots/herbs/flowers/wheat, digging for treasures, opening chests.
 
@@ -76,13 +77,36 @@ function plantSeed(game, x, y, seedId) {
 
 // Plants a seed of the bag (if there are several kinds, the player chooses).
 function plant(game, x, y) {
+  const hasCompost = countItem(game.player, 'compost') > 0;
+  const seasonCheck = game?.realism ? canGrowInSeason(game, hasCompost) : { ok: true };
+  if (!seasonCheck.ok) {
+    notify(game, seasonCheck.reason, '#9fd8ff');
+    return;
+  }
   const seeds = SEEDS.filter((seedId) => countItem(game.player, seedId) > 0);
   if (seeds.length === 0) {
     notify(game, 'You need seeds. Old Bea sells carrots, herbs and flowers; the camp peddler sells wheat seeds.');
     return;
   }
-  if (seeds.length === 1) {
+  const plantChosen = (seedId) => {
+    if (hasCompost && !seasonCheck.reason && countItem(game.player, 'compost') > 0) {
+      removeItem(game.player, 'compost', 1);
+      finishPlanting(game, x, y, seedId, true);
+      return;
+    }
+    plantSeed(game, x, y, seedId);
+  };
+  if (seeds.length === 1 && !hasCompost) {
     plantSeed(game, x, y, seeds[0]);
+    return;
+  }
+  if (hasCompost) {
+    const choices = seeds.map((seedId) => ({
+      label: `Plant ${ITEMS[seedId].name} with Field Compost (2× yield, winter-safe)`,
+      icon: 'compost',
+      run: () => plantChosen(seedId),
+    }));
+    say(game, null, ['Mix Field Compost into the soil for doubled frost-proof crops?'], [...choices, { label: 'Normal planting (no compost)', run: () => plantSeed(game, x, y, seeds[0]) }]);
     return;
   }
   say(game, null, ['What do you plant here?'], seeds.map((seedId) => ({ label: ITEMS[seedId].name + ' × ' + countItem(game.player, seedId), icon: seedId, run: () => plantSeed(game, x, y, seedId) })));
@@ -94,6 +118,7 @@ function harvest(game, x, y) {
   const count = crop.fertilized ? 2 : Math.random() < 0.3 ? 2 : 1;
   delete game.crops[keyOf(x, y)];
   addItem(game.player, itemId, count);
+  stampPerishableAdded(game, itemId);
   game.counts.harvested += count;
   const color = itemId === 'wheat' ? '#ffd23f' : itemId === 'herb' ? '#7cfc9a' : itemId === 'flower' ? '#ff9ec4' : '#ff8c2b';
   burst(game, x, y, color, 12);

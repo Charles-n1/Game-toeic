@@ -1,6 +1,7 @@
 import { DROPS } from '../data/monsters';
 import { ITEMS } from '../data/items';
 import { typeOf } from '../data/types';
+import { zoneAt } from '../data/zones';
 import { earnLexis, addItem } from './player';
 import { countKill } from './quests';
 import { notify } from './messages';
@@ -9,6 +10,8 @@ import { dropCursedThing } from './isekai/curses';
 import { lexisBonus, countEventKill } from './isekai/events';
 import { awardGuildPoints } from './guild/ranks';
 import { onBossDefeated } from './war/demonThreat';
+import { stampPerishableAdded } from './realism/foodAndNature';
+import { earnRegionalCoin } from './realism/financeAndLaw';
 
 // What happens when a monster dies: it leaves the map, and leaves things behind.
 
@@ -17,12 +20,14 @@ function dropItems(game, monster) {
   for (const itemId of monster.drops || []) {
     if (Math.random() < 0.75) {
       addItem(game.player, itemId);
+      stampPerishableAdded(game, itemId);
       notify(game, ITEMS[itemId].icon + ' ' + ITEMS[itemId].name);
     }
   }
   for (const [itemId, chance] of DROPS) {
     if (Math.random() < chance) {
       addItem(game.player, itemId);
+      stampPerishableAdded(game, itemId);
       notify(game, ITEMS[itemId].icon + ' The monster dropped: ' + ITEMS[itemId].name);
     }
   }
@@ -39,6 +44,12 @@ export function removeMonster(game, monster) {
 export function lootMonster(game, monster) {
   const lexis = monster.lexis * lexisBonus(game); // twice on a Blood Moon night
   earnLexis(game, lexis);
+  const mx = Number.isFinite(monster.x) ? monster.x : game.player.x;
+  const my = Number.isFinite(monster.y) ? monster.y : game.player.y;
+  const kId = zoneAt(mx, my)?.kingdom;
+  if (game?.realism && kId && kId !== 'lexia' && lexis >= 10) {
+    earnRegionalCoin(game, kId, Math.max(2, Math.round(lexis * 0.15)));
+  }
   floatText(game, monster.x, monster.y - 0.5, '+' + lexis + ' Lexis', '#ffd23f');
   burst(game, monster.x, monster.y, typeOf(monster.category).color, 24);
   dropItems(game, monster);

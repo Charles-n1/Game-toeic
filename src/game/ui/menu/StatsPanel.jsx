@@ -21,6 +21,9 @@ import { SPECIES, speciesForSkill } from '../../data/monsters';
 import { ensureIsekaiTodo } from '../../logic/isekaiTodo/state';
 import { refinedItemName, weaponMasteryInfo } from '../../logic/isekaiTodo/progression';
 import { WEAPON_CLASSES } from '../../data/isekaiTodo';
+import { ensureRealism } from '../../logic/realism/state';
+import { computeCasteTier } from '../../logic/realism/socialAndCodex';
+import { APPRAISAL_TITLES } from '../../data/realism';
 
 // The skill (spell) of a type: learned at which level, or who teaches it.
 function skillText(game, type) {
@@ -80,6 +83,9 @@ export default function StatsPanel({ game, refresh }) {
   const doom = ensureDoom(game).silenceDoom || 0;
   const todo = ensureIsekaiTodo(game);
   const mastery = weaponMasteryInfo(game);
+  const real = game?.realism ? ensureRealism(game) : null;
+  const caste = real ? computeCasteTier(game) : null;
+  const titleObj = real ? APPRAISAL_TITLES.find((t) => t.id === (real.social?.activeTitle || 'newcomer')) : null;
 
   function changeWeight(categoryId, value) {
     setToeicWeight(game, categoryId, value === '' ? 0 : Number(value));
@@ -98,9 +104,16 @@ export default function StatsPanel({ game, refresh }) {
           {Math.round(criticalChance(player) * 100 + classBonus(game, 'critical'))}%
         </span>
         <span className="small">
-          {refinedItemName(game, player.weapon)} · {refinedItemName(game, player.armor)} · {ITEMS[player.boots].name}
+          {real?.combatRealism?.heirloom ? `${real.combatRealism.heirloom} (+)` : refinedItemName(game, player.weapon)}
+          {real?.combatRealism?.quality?.weapon ? ` [${real.combatRealism.quality.weapon}]` : ''} · {refinedItemName(game, player.armor)}
+          {real?.combatRealism?.quality?.armor ? ` [${real.combatRealism.quality.armor}]` : ''} · {ITEMS[player.boots].name}
           {player.accessory && ITEMS[player.accessory] ? ' · ' + ITEMS[player.accessory].name : ''}
         </span>
+        {real && (
+          <span className="small">
+            {caste?.badge} {caste?.name} · {titleObj?.icon} {titleObj?.name} · Bank {real.bank?.balance || 0}L · Morale {Math.round(real.health?.morale ?? 85)}% · Clean {Math.round(real.health?.cleanliness ?? 90)}%
+          </span>
+        )}
         <span className="small">
           {WEAPON_CLASSES[mastery.wClass]?.name || mastery.wClass} Mastery Lv.{mastery.lv}/10 ({Math.round((mastery.dmgMult - 1) * 100)}% Dmg
           {mastery.specialMove ? ` · ★ ${mastery.specialMove}` : ''}) · Skill Pts: {todo.skillPoints}

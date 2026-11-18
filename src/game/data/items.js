@@ -119,15 +119,13 @@ export const UPGRADES = {
 };
 
 // What each kind of shop sells.
-// The realism items sold here are only the ones that already work (potions, food, accessories).
-// The tools, scrolls, workstations and the mule are not sold yet: nothing uses them.
 export const SHOPS = {
-  clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion', 'herbalPoultice', 'antiseptic'],
-  bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil', 'smokedJerky', 'pickledRadish', 'spicedBroth', 'honeyLemonTea'],
-  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion', 'herbalPoultice', 'antiseptic'],
-  carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'candelabra', 'hearthTorch', 'crystalLantern', 'painting', 'rugRed', 'rugBlue'],
-  market: ['map1', 'map2', 'map3', 'travelerPack', 'repairKit', 'protectionScroll', 'refineStone', 'spiritCharm', 'hunterBow', 'oakLongbow', 'crimsonDagger', 'sageStaff', 'frostAxe', 'griffinWhistle', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil', 'hoodedCloak', 'monocle'],
-  weaver: ['cloth', 'travelerPack'],
+  clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion', 'herbalPoultice', 'antiseptic', 'honeyLemonTea', 'spicedBroth'],
+  bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil', 'salt', 'tallow', 'smokedJerky', 'pickledRadish', 'spicedBroth', 'honeyLemonTea'],
+  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion', 'herbalPoultice', 'antiseptic', 'honeyLemonTea', 'soap', 'oilWax', 'chalk', 'tallow', 'coreShard', 'alchemyDesk'],
+  carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'candelabra', 'hearthTorch', 'crystalLantern', 'painting', 'rugRed', 'rugBlue', 'dryingRack', 'iceBox', 'studyShelf', 'tentKit'],
+  market: ['map1', 'map2', 'map3', 'travelerPack', 'packMule', 'repairKit', 'protectionScroll', 'refineStone', 'spiritCharm', 'hunterBow', 'oakLongbow', 'crimsonDagger', 'sageStaff', 'frostAxe', 'griffinWhistle', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil', 'salt', 'soap', 'parchment', 'ink', 'tinder', 'chalk', 'lockpick', 'compass', 'manaLantern', 'oilWax', 'bait', 'postLetter', 'tentKit', 'delveCharter', 'merchantPatent', 'hoodedCloak', 'monocle', 'fireScroll', 'healScroll', 'wardScroll', 'blinkScroll'],
+  weaver: ['cloth', 'travelerPack', 'hoodedCloak'],
   otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion', 'curryStew', 'omeletteRice', 'honeyToast', 'misoBroth', 'karagePlate'],
 };
 

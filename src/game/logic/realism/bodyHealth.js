@@ -357,6 +357,11 @@ export function canSprintBody(game) {
   return h.sprainHours <= 0 && h.brokenLegHours <= 0;
 }
 
+export function bodyPhysicalAttackMultiplier(game) {
+  if (!isTierEnabled(game, 'B')) return 1.0;
+  return (ensureRealism(game).health.brokenArmHours || 0) > 0 ? 0.6 : 1.0;
+}
+
 export function moraleStatBonuses(game) {
   const r = ensureRealism(game);
   const xpMult = r.health.wellRestedHours > 0 ? 1.1 : 1.0;

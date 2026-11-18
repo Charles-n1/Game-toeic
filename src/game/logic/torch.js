@@ -7,6 +7,7 @@ import { isRaining, isWindy, isOutdoors } from './weather';
 import { notify } from './messages';
 import { burst, floatText } from './particles';
 import { cue } from './cues';
+import { isResourceDepleted, markResourceExhausted } from './realism/foodAndNature';
 
 // The light of the hero. At night nobody has light by default, but the hero always carries a torch.
 // The player lights it or puts it out when they want (key T, or the torch on the HUD).
@@ -111,6 +112,7 @@ function gatherableAt(x, y) {
 export function canGather(game, x, y) {
   const itemId = gatherableAt(x, y);
   if (!itemId) return null;
+  if (game?.realism && isResourceDepleted(game, 'gather:' + keyOf(x, y))) return null;
   return game.gathered[keyOf(x, y)] === game.day ? null : itemId;
 }
 
@@ -118,6 +120,7 @@ export function gather(game, x, y) {
   const itemId = canGather(game, x, y);
   if (!itemId) return;
   game.gathered[keyOf(x, y)] = game.day;
+  if (game?.realism) markResourceExhausted(game, 'gather:' + keyOf(x, y), itemId === 'branch' ? 'hollowStump' : itemId);
   addItem(game.player, itemId);
   burst(game, x + 0.5, y + 0.5, itemId === 'branch' ? '#a0683a' : itemId === 'crystal' ? '#7fd6ff' : '#9aa6b8', 8);
   floatText(game, x + 0.5, y, '+1 ' + ITEMS[itemId].name, '#ffe9a8');

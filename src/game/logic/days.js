@@ -22,6 +22,7 @@ import { advanceClassmatesDay } from './isekai/classmates';
 import { resolveOwnGuildMissions } from './isekaiTodo/ownGuild';
 import { refreshDailyLetters, syncWeeklyChallenge } from './isekaiTodo/socialPlus';
 import { checkAchievements } from './isekaiTodo/progression';
+import { hourlyRealism, dailyRealism } from './realism/index';
 
 // Time passing: the clock moves, and a new day changes the world.
 
@@ -45,6 +46,7 @@ function newDay(game) {
   refreshDailyLetters(game);
   syncWeeklyChallenge(game);
   checkAchievements(game);
+  dailyRealism(game);
   notify(game, '🌅 Day ' + game.day);
 }
 
@@ -53,6 +55,7 @@ function addHours(game, hours, allowLethal = true) {
   updateSurvival(game, hours, allowLethal);
   drainCurse(game, hours);
   stepEconomyHours(game, hours);
+  hourlyRealism(game, hours, allowLethal);
   game.hour += hours;
   if (game.hour >= 24) {
     game.hour -= 24;
@@ -77,6 +80,7 @@ export function sleepUntilMorning(game) {
   if (game.hour >= SUNRISE) newDay(game); // before midnight: the morning is tomorrow
   game.hour = SUNRISE;
   updateSurvival(game, hoursSlept * 0.5, false); // the body slows down while it sleeps
+  hourlyRealism(game, hoursSlept * 0.5, false);
   game.player.fatigue = 0;
   game.player.torchHours = 0; // nobody sleeps with a burning torch
   healFully(game.player, game);

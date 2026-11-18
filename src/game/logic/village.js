@@ -1,5 +1,6 @@
 import { npcOf, NPCS } from '../data/npcs';
 import { say, notify } from './messages';
+import { recordNpcFuneral } from './realism/socialAndCodex';
 
 // The feelings of the world: the happiness of the village (0 to 100) and the friendship with each person (0 to 100).
 // A happy village gives better prices, and friendships grow faster in it.
@@ -88,6 +89,7 @@ export function killNpc(game, npcId, lines) {
   state.alive = false;
   game.player.party = game.player.party.filter((id) => id !== npcId);
   if (game.player.spouse === npcId) game.player.spouse = null;
+  if (game?.realism) recordNpcFuneral(game, npcOf(npcId).name);
   addHappiness(game, -10);
   notify(game, '🕯️ ' + npcOf(npcId).name + ' is dead.', '#ff8080');
   if (lines) say(game, null, lines);

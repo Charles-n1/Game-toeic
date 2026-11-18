@@ -32,6 +32,10 @@ import {
 } from './camp/recipes';
 import { TASTES, characterDishOpinion } from './camp/tastes';
 import { frontTile } from './input';
+import { ensureRealism } from './realism/state';
+import { applySleepQualityRecovery, singCampfireSong, changeMorale } from './realism/bodyHealth';
+import { evaluateMealNutrition, saltRawFood, placeTrailCairn } from './realism/foodAndNature';
+import { canUseTinderboxInRain } from './realism/magicPhysics';
 
 // Camping in the wild: pitching camp, firewood vs Magic Auto-Heater, cooking pot recipes
 // (with timed stat boosts), dried meat, character tastes, and companion fatigue.
@@ -191,6 +195,14 @@ export function lightCampfire(game) {
     notify(game, '🔮 Magic Auto-Heater lights the campfire with zero firewood!', '#8fd6ff');
     return true;
   }
+  if (canUseTinderboxInRain(game) && countItem(game.player, 'firewood') < 1) {
+    camp.lit = true;
+    camp.heater = false;
+    cue(game, 'campFire');
+    burst(game, camp.x + 0.35, camp.y + 0.1, '#ff9a2b', 14);
+    notify(game, '🔥 Brass Tinderbox sparked dry kindling warmly!', '#ffd086');
+    return true;
+  }
   if (countItem(game.player, 'firewood') < 1) {
     notify(game, 'You need 1 Firewood to light the fire (craft from 2 branches or buy from the peddler).', '#ffb070');
     return false;
@@ -238,11 +250,16 @@ export function restAtCamp(game, hours = null) {
 
   if (hours === null) {
     sleepUntilMorning(game);
+    const hasTent = countItem(player, 'tentKit') > 0;
+    const real = game?.realism ? ensureRealism(game) : null;
+    if (real) applySleepQualityRecovery(game, hasTent ? 'tent' : 'ground');
     addCompanionFatigue(game, wasLit ? -80 : -50);
     healAllCompanions(game);
     const z = zoneAt(player.x, player.y);
-    const ambushChance = (z.danger || 0) >= 2 ? ((player.party || []).length > 0 ? 0.08 : 0.22) : 0;
+    const watchSafe = Boolean(real?.health?.watchMateId && (player.party || []).includes(real.health.watchMateId));
+    const ambushChance = watchSafe ? 0 : (z.danger || 0) >= 2 ? ((player.party || []).length > 0 ? 0.08 : 0.22) : 0;
     if (ambushChance > 0 && Math.random() < ambushChance && !game.run.fight) {
+      if (real) real.combatRealism.wakeSleepyTurn = true;
       const prowler = z.species?.length > 0 ? z.species[Math.floor(Math.random() * z.species.length)] : 'wolf';
       const ambusher = makeMonster(game, prowler, player.x + 1.5, player.y);
       game.run.monsters.push(ambusher);
@@ -305,15 +322,18 @@ function feedHeroFromItem(game, itemId) {
   const item = ITEMS[itemId];
   const player = game.player;
   if (!item || item.food === undefined) return;
-  player.hunger = clamp(player.hunger + item.food);
+  const repMult = game?.realism ? evaluateMealNutrition(game, itemId) : 1;
+  const gained = Math.max(1, Math.round(item.food * repMult));
+  player.hunger = clamp(player.hunger + gained);
   if (item.water) player.thirst = clamp(player.thirst + item.water);
-  if (item.heal) heal(player, item.heal);
+  if (item.heal) heal(player, item.heal, game);
+  if (item.morale && game?.realism) changeMorale(game, item.morale);
   if (item.raw && Math.random() < 0.35) {
     player.health = Math.max(1, player.health - 10);
     notify(game, '🤢 The raw meat made you ill. −10 HP!', '#ff8a95');
   }
   applyDishBoosts(game, itemId);
-  floatText(game, player.x, player.y - 1, '+' + item.food + ' 🍖', '#ffd086');
+  floatText(game, player.x, player.y - 1, '+' + gained + ' 🍖', '#ffd086');
 }
 
 export function cookCampDish(game, dishId, shareNow = false) {
@@ -467,10 +487,25 @@ function openRestMenu(game) {
   const lit = Boolean(ensureCamp(game).active?.lit);
   const partnerId = (game.player?.party || []).find((id) => isCouple(game, id) || game.player.spouse === id);
   const partner = partnerId ? npcOf(partnerId) : null;
+  const party = game.player?.party || [];
+  const real = game?.realism ? ensureRealism(game) : null;
+  const watchId = real?.health?.watchMateId && party.includes(real.health.watchMateId) ? real.health.watchMateId : null;
   const choices = [
     { label: 'Short rest (4 hours · HP/MP & fatigue relief)', icon: 'sleep', run: () => restAtCamp(game, 4) },
     { label: 'Sleep until morning (full HP/MP & deep rest)', icon: 'sleep', run: () => restAtCamp(game, null) },
   ];
+  if (party.length > 0 && real) {
+    const nextMate = watchId ? party[(party.indexOf(watchId) + 1) % (party.length + 1)] || null : party[0];
+    choices.push({
+      label: watchId ? `Night Watch: ${npcOf(watchId).name} (No ambush) · Switch` : 'Assign Companion Night Watch (Prevents ambush)',
+      icon: 'shield',
+      run: () => {
+        real.health.watchMateId = nextMate;
+        notify(game, nextMate ? `🛡️ ${npcOf(nextMate).name} will keep night watch.` : 'Night watch cleared.', '#9fd8ff');
+        openRestMenu(game);
+      },
+    });
+  }
   if (partner) {
     choices.push({ label: 'Spend the night with ' + partner.name, icon: 'people', run: () => spendNightTogether(game, partner) });
   }
@@ -538,6 +573,37 @@ export function openCampMenu(game) {
   }
   if (camp.lit && state.hasPot) {
     choices.push({ label: 'Cook & Share Meals (Cooking Pot)', icon: 'herbStew', run: () => openCookMenu(game) });
+  }
+  if (countItem(player, 'salt') > 0 && (countItem(player, 'rawMeat') > 0 || countItem(player, 'rawFish') > 0)) {
+    const srcId = countItem(player, 'rawMeat') > 0 ? 'rawMeat' : 'rawFish';
+    choices.push({
+      label: 'Salt ' + ITEMS[srcId].name + ' → Smoked Jerky (Never spoils)',
+      icon: 'smokedJerky',
+      run: () => {
+        saltRawFood(game, srcId, 1);
+        openCampMenu(game);
+      },
+    });
+  }
+  if (camp.lit) {
+    choices.push({
+      label: 'Sing by the Fire (+20 Morale, +2 MP)',
+      icon: 'powers',
+      run: () => {
+        singCampfireSong(game);
+        openCampMenu(game);
+      },
+    });
+  }
+  if (countItem(player, 'stone') >= 3) {
+    choices.push({
+      label: 'Build Trail Cairn (3 Stones → +12% Speed nearby)',
+      icon: 'stone',
+      run: () => {
+        placeTrailCairn(game);
+        openCampMenu(game);
+      },
+    });
   }
   if (camp.lit && countItem(player, 'rawMeat') > 0) {
     const rawCount = countItem(player, 'rawMeat');

@@ -8,6 +8,7 @@ import { say } from '../messages';
 import { cue } from '../cues';
 import { emote } from '../emotes';
 import { structureNear } from './common';
+import { cleanseAndWash } from '../realism/bodyHealth';
 
 // The hot springs of the mountains and the forests (world/wildPlaces.js): a bath of two hours heals everything,
 // cures a cold, and the friends who travel with the hero bathe too (a bit more friendship).
@@ -18,6 +19,7 @@ function bathe(game) {
   passHours(game, SPRING_HOURS);
   healFully(game.player, game);
   cureCold(game);
+  if (game?.realism) cleanseAndWash(game, 'innBath');
   cue(game, 'coin');
   emote(game, 'hero', 'sparkle');
   const friends = game.player.party.map(npcOf);

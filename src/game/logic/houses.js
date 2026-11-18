@@ -19,6 +19,11 @@ import { repairAllGear, repairCostOf, needsRepair } from './durability';
 import { studyLanguageChoices, gainLanguage } from './languages';
 import { changeKingdomRep } from './kingdomLaws';
 import { addHappiness } from './village';
+import { GODDESS_SHRINES } from '../data/realism';
+import { cleanseAndWash, healAtClinicRealism, applySleepQualityRecovery } from './realism/bodyHealth';
+import { sharpenWeaponAtForgeOrHome, temperEquipmentAtForge } from './realism/foodAndNature';
+import { inspectRepairInvoice, hearBardRumor, listGrimoireChoices, maybeTriggerEarthDream } from './realism/englishWorld';
+import { checkPalaceCourtEtiquette, holdChurchMemorialEulogy, prayAtGoddessShrine, orderTavernSpecial } from './realism/socialAndCodex';
 
 // Entering other villagers' and NPCs' houses: dining room, bathroom/toilets, and 1 or 2 bedrooms depending on family.
 
@@ -407,6 +412,25 @@ function talkToSpecialPatron(game, patron, visit) {
     if (isCursed(game)) {
       choices.unshift({ label: 'Purify Cursed Equipment', icon: 'book', run: () => offerRite(game, 'The altar of the church') });
     }
+    choices.push({ label: '🕯️ Attend Memorial Service (Eulogy)', icon: 'book', run: () => holdChurchMemorialEulogy(game) });
+    choices.push({
+      label: '🛐 Pray at Goddess Altar (24h Blessing)',
+      icon: 'star',
+      run: () =>
+        say(
+          game,
+          null,
+          ['Which Goddess Altar will you pray before?'],
+          [
+            ...GODDESS_SHRINES.map((s) => ({
+              label: `${s.icon} ${s.name} (${s.cost}L · ${s.desc})`,
+              icon: 'star',
+              run: () => prayAtGoddessShrine(game, s.id),
+            })),
+            { label: 'Step back', run: () => {} },
+          ]
+        ),
+    });
     choices.push({ label: 'Step back', run: () => {} });
     say(game, null, ['"May the light guard your steps across every border."'], choices);
     return;
@@ -414,7 +438,7 @@ function talkToSpecialPatron(game, patron, visit) {
   if (patron.kind === 'healer') {
     say(game, null, ['"Sit still — herbs and clean bandages fix most adventurer mistakes."'], [
       {
-        label: 'Full Medical Treatment (12 Lexis · Full HP & Cure Cold)',
+        label: 'Full Medical Treatment (12 Lexis · Cure Wounds, Infection & Cold)',
         icon: 'healthPotion',
         run: () => {
           if (game.player.lexis < 12) return say(game, null, ['"12 Lexis covers the herbs, traveler."']);
@@ -422,8 +446,9 @@ function talkToSpecialPatron(game, patron, visit) {
           healFully(game.player, game);
           game.player.fatigue = Math.max(0, (game.player.fatigue || 0) - 35);
           cureCold(game, '🩺 Herbal poultices cured your cold!');
+          const cured = game?.realism ? healAtClinicRealism(game) : [];
           cue(game, 'levelUp');
-          notify(game, '🩺 Treated at the clinic: Full HP restored!', '#8affb3');
+          notify(game, '🩺 Treated at clinic' + (cured.length > 0 ? ' (cured: ' + cured.join(', ') + ')' : '') + ': Full HP restored!', '#8affb3');
         },
       },
       { label: 'Leave', run: () => {} },
@@ -443,7 +468,19 @@ function talkToSpecialPatron(game, patron, visit) {
           repairAllGear(game, false);
         },
       });
+      choices.push({
+        label: '🧾 Review Itemized Invoice (Check for Billing Errors)',
+        icon: 'book',
+        run: () => inspectRepairInvoice(game, cost, (finalCost) => {
+          if (game.player.lexis < finalCost) return notify(game, 'Need ' + finalCost + ' Lexis.', '#ffb070');
+          game.player.lexis -= finalCost;
+          repairAllGear(game, false);
+        }),
+      });
     }
+    choices.push({ label: '🗡️ Sharpen Blade on Whetstone (+5% ATK today)', icon: 'ironSword', run: () => sharpenWeaponAtForgeOrHome(game) });
+    choices.push({ label: '⚒️ Temper Weapon Quality (+Ore, 15/30L)', icon: 'ore', run: () => temperEquipmentAtForge(game, 'weapon') });
+    choices.push({ label: '🛡️ Temper Armor Quality (+Ore, 15/30L)', icon: 'ironSword', run: () => temperEquipmentAtForge(game, 'armor') });
     choices.push({ label: 'Just admiring the steel', run: () => {} });
     say(game, null, [needsRepair(game) ? '"Dented edges lose fights! Let me re-temper your kit."' : '"Your steel rings sharp and true today."'], choices);
     return;
@@ -461,8 +498,23 @@ function talkToSpecialPatron(game, patron, visit) {
           game.player.fatigue = Math.max(0, (game.player.fatigue || 0) - 60);
           healFully(game.player, game);
           cureCold(game, '🍲 Hot stew chased the chill from your bones!');
+          if (game?.realism) applySleepQualityRecovery(game, 'inn');
           notify(game, '🍺 Inn supper & rest restored health and stamina!', '#ffd086');
         },
+      },
+      {
+        label: '🛁 Hot Bath & Scrub (15 Lexis · 100% Clean, +Morale, Cleans Cuts)',
+        icon: 'bath',
+        run: () => {
+          if (game.player.lexis < 15) return say(game, null, ['"Hot water and botanical soap cost 15 Lexis."']);
+          game.player.lexis -= 15;
+          cleanseAndWash(game, 'innBath');
+        },
+      },
+      {
+        label: '🍖 Order Regional Tavern Special (+Morale & Codex Recipe)',
+        icon: 'curryStew',
+        run: () => orderTavernSpecial(game, kId || 'lexia'),
       },
       { label: 'Just warming up', run: () => {} },
     ]);
@@ -470,14 +522,23 @@ function talkToSpecialPatron(game, patron, visit) {
   }
   if (patron.kind === 'archivist') {
     const langChoices = studyLanguageChoices(game, { name: patron.name });
+    const grimoires = game?.realism ? listGrimoireChoices(game) : [];
     say(game, null, ['"Every border speaks in its own tongue — runes, elvish, dwarvish, beastkin..."'], [
       ...langChoices,
+      ...grimoires,
       {
         label: 'Study Ancient Runes Tome (Free · +2 Runes)',
         icon: 'book',
         run: () => gainLanguage(game, 'runes', 2),
       },
       { label: 'Step back', run: () => {} },
+    ]);
+    return;
+  }
+  if (patron.kind === 'traveler') {
+    say(game, null, [patron.name + ': "Care for a fresh ballad or trading rumor from the roads?"'], [
+      { label: '🎵 Hear Bard Rumor (15 Lexis)', icon: 'powers', run: () => hearBardRumor(game) },
+      { label: 'Not now', run: () => {} },
     ]);
     return;
   }
@@ -550,6 +611,10 @@ export function actionsOfHouses(game, travelFn) {
       icon: 'talk',
       run: () => {
         const p = visit.patrons.find((pat) => Math.hypot(pat.x - game.player.x, pat.y - game.player.y) < 1.8);
+        if (visit?.palace && game?.realism) {
+          const court = checkPalaceCourtEtiquette(game);
+          if (!court.ok) return say(game, null, [court.reason]);
+        }
         if (p?.npcId) talkTo(game, NPCS.find((n) => n.id === p.npcId));
         else if (visit.specialRole && p) talkToSpecialPatron(game, p, visit);
         else if (p) say(game, null, [p.name + ': "Stand tall before the throne, traveler."']);
@@ -630,6 +695,10 @@ export function actionsOfHouses(game, travelFn) {
               passHours(game, 4);
               game.player.fatigue = Math.max(0, (game.player.fatigue || 0) - 55);
               healFully(game.player, game);
+              if (game?.realism) {
+                applySleepQualityRecovery(game, isInn ? 'inn' : 'home');
+                if (isInn) maybeTriggerEarthDream(game);
+              }
               cureCold(game, '😴 Resting inside a warm bedroom cured your cold!');
               notify(game, '💤 Rested indoors: HP, MP & fatigue restored!', '#9fd8ff');
             },

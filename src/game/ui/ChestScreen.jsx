@@ -11,6 +11,8 @@ import {
   closeChest,
   bagSummaryForChest,
 } from '../logic/chest';
+import { ensureRealism } from '../logic/realism/state';
+import { pickSealedLockWithLockpick } from '../logic/realism/magicPhysics';
 
 const GRID_SLOTS = 27;
 
@@ -75,6 +77,21 @@ export default function ChestScreen({ game, refresh }) {
             Chest ({Object.keys(chest.items || {}).length}/{chest.maxSlots || 27} slots)
           </span>
           <div className="row" style={styles.actions}>
+            {chest.kind === 'treasure' &&
+              (game.player.bag?.lockpick || 0) > 0 &&
+              !ensureRealism(game).combatRealism?.pickedLocks?.[chest.key] && (
+                <button
+                  className="px-button"
+                  onClick={() => {
+                    const k = chest.key;
+                    closeChest(game);
+                    pickSealedLockWithLockpick(game, k);
+                    refresh();
+                  }}
+                >
+                  🗝️ Pick Sealed Vault
+                </button>
+              )}
             {chest.allowDeposit && (
               <button
                 className="px-button"

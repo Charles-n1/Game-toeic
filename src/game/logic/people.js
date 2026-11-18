@@ -32,6 +32,11 @@ import { revealCrystalCave, isVillain } from './society';
 import { addInfamy } from './society/state';
 import { isStationedInTraining, setExpression, voiceSoundFor, npcBondChoices } from './bonds';
 import { recognizeChoice, rivalChoice } from './isekai/classmates';
+import { EARTH_ROYALTIES } from '../data/realism';
+import { canShopServeHero } from './realism/index';
+import { ensureRealism, isTierEnabled } from './realism/state';
+import { reportWitnessedCrime, payOffFinesOrDefend, registerEarthRecipeRoyalty } from './realism/financeAndLaw';
+import { rememberNpcInteraction, recallNpcMemoryLine, triggerJealousyCheck } from './realism/socialAndCodex';
 
 // The people on the map: where they are, and everything the player can do with them.
 
@@ -194,13 +199,22 @@ function chat(game, npc) {
   const state = game.npcs[npc.id];
   if (state.talkedDay !== game.day) addFriendship(game, npc.id, 3); // the first talk of the day counts
   state.talkedDay = game.day;
-  say(game, npc.id, [nextLifeLine(game, npc) || pickRandom(npc.hello)]);
+  const mem = game?.realism ? recallNpcMemoryLine(game, npc.id) : null;
+  const lines = [nextLifeLine(game, npc) || pickRandom(npc.hello)];
+  if (mem && Math.random() < 0.6) lines.push(npc.name + ' recalls: "' + mem + '"');
+  say(game, npc.id, lines);
 }
 
 function greeting(game, npc) {
   const children = childrenOf(game, npc.id);
   if (game.player.spouse === npc.id) return children.length > 0 ? 'Welcome home. ' + children[children.length - 1] + ' finally sleeps.' : 'Welcome home, my love.';
   if (children.length > 0 && Math.random() < 0.4) return 'Little ' + children[children.length - 1] + ' said a first word today!';
+  const scars = game?.realism ? ensureRealism(game).health.scars : [];
+  if (scars?.length > 0 && Math.random() < 0.22) {
+    return npc.romance
+      ? 'That scar looks serious... You really should be more careful out there.'
+      : 'Those battle scars tell everyone you have faced real beasts.';
+  }
   return pickRandom(npc.hello);
 }
 
@@ -216,6 +230,7 @@ function giftChoice(game, npc) {
   function give() {
     removeItem(game.player, itemId);
     addFriendship(game, npc.id, 6);
+    if (game?.realism) rememberNpcInteraction(game, npc.id, 'Gave you a cherished ' + ITEMS[itemId].name + '.');
     shareFeelings(game, npc.id); // their friends are happy for them, their rivals a bit jealous
     emote(game, npc.id, 'heart');
     say(game, npc.id, ['A ' + ITEMS[itemId].name.toLowerCase() + '? For me? Thank you!']);
@@ -254,10 +269,32 @@ function newQuestChoice(game, npc) {
 function shopChoice(game, npc) {
   if (!npc.shop) return null;
   function open() {
+    const vid = npc.at?.[0] || 'lexia';
+    if (game?.realism) {
+      const gate = canShopServeHero(game, npc.shop, vid);
+      if (!gate.open) {
+        const fineAmt = ensureRealism(game).fines?.total || 0;
+        const choices = fineAmt > 0 ? [{ label: 'Resolve Municipal Fines (' + fineAmt + 'L)', icon: 'lexis', run: () => payOffFinesOrDefend(game) }, { label: 'Leave', run: () => {} }] : [];
+        say(game, npc.id, [gate.reason], choices);
+        return;
+      }
+    }
     game.run.shop = { npcId: npc.id, kind: npc.shop };
     game.run.screen = 'shop';
   }
   return { label: npc.shop === 'forge' ? 'Forge: upgrade my gear' : 'Shop', icon: npc.shop === 'forge' ? 'ironSword' : 'lexis', run: open };
+}
+
+function earthRoyaltyChoice(game, npc) {
+  if (npc.shop !== 'otherworld' || !game?.realism) return null;
+  const r = ensureRealism(game);
+  const candidate = Object.keys(EARTH_ROYALTIES).find((id) => countItem(game.player, id) > 0 && !r.patents.royalties[id]?.active);
+  if (!candidate) return null;
+  return {
+    label: 'License ' + (ITEMS[candidate]?.name || candidate) + ' Royalty',
+    icon: candidate,
+    run: () => registerEarthRecipeRoyalty(game, candidate),
+  };
 }
 
 function workChoice(game, npc) {
@@ -328,8 +365,18 @@ function dateChoice(game, npc) {
     } else if (state.datedDay === game.day) {
       say(game, npc.id, ['We already spent today together. Tomorrow?']);
     } else {
+      const real = game?.realism ? ensureRealism(game) : null;
+      if (real && isTierEnabled(game, 'C') && (real.health.cleanliness ?? 90) < 35) {
+        addFriendship(game, npc.id, -1);
+        say(game, npc.id, ['Phew... You smell like swamp mud and goblin blood! Wash with soap or take a bath first!']);
+        return;
+      }
       state.datedDay = game.day;
       addFriendship(game, npc.id, 8);
+      if (real) {
+        rememberNpcInteraction(game, npc.id, 'Went for a pleasant walk together.');
+        triggerJealousyCheck(game, npc.id);
+      }
       addHappiness(game, 1);
       passHours(game, 2);
       say(game, null, ['You walk together until the light changes. ' + npc.name + ' talks, and you listen to every word.']);
@@ -373,6 +420,7 @@ function strikeNpcChoice(game, npc) {
       addFriendship(game, npc.id, -20);
       addInfamy(game, 15);
       addHappiness(game, -3);
+      if (game?.realism) reportWitnessedCrime(game, 'Assaulted ' + npc.name, 40);
       const place = game.run.people[npc.id];
       if (place) burst(game, place.x, place.y - 0.6, '#ff5a6e', 16);
       if (game.run.villagers) {
@@ -419,6 +467,7 @@ const CHOICE_MAKERS = [
   activeQuestChoice,
   newQuestChoice,
   shopChoice,
+  earthRoyaltyChoice,
   crystalChoice,
   guildChoice,
   teacherChoice,

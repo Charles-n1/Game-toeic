@@ -149,6 +149,11 @@ export function useCombatScroll(game, fight, scrollId) {
   }
   burst(game, game.player.x, game.player.y, '#ffd23f', 16);
   cue(game, 'spell');
+  if (foe.health <= 0 && Array.isArray(fight.opponents)) {
+    const next = fight.opponents.find((o) => o.health > 0);
+    if (!next) fight.phase = 'won';
+    else fight.opponent = next;
+  }
   return true;
 }
 
@@ -195,7 +200,18 @@ export function stepManaLanternDaily(game) {
   }
 }
 
-export function fightEnvironmentMods(game) {
+export function consumeFightStartEnv(game) {
+  const r = ensureRealism(game);
+  const wakeSleepyTurn = Boolean(r.combatRealism.wakeSleepyTurn);
+  const ambushReady = Boolean(r.combatRealism.ambushReady || game.player?.accessory === 'hoodedCloak');
+  r.combatRealism.wakeSleepyTurn = false;
+  r.combatRealism.ambushReady = false;
+  r.combatRealism.spellChain = 0;
+  r.combatRealism.activeCircle = null;
+  return { wakeSleepyTurn, ambushReady };
+}
+
+export function fightEnvironmentMods(game, fight = null) {
   const r = ensureRealism(game);
   const z = zoneAt(game.player.x, game.player.y);
   let timeMult = 1.0;
@@ -211,14 +227,14 @@ export function fightEnvironmentMods(game) {
     timeMult *= 0.85;
     notes.push('❄️ Heavy ground (-15% time)');
   }
-  if (r.combatRealism.wakeSleepyTurn) {
-    r.combatRealism.wakeSleepyTurn = false;
+  const sleepy = fight ? fight.wakeSleepyTurn && fight.asked === 0 : r.combatRealism.wakeSleepyTurn;
+  if (sleepy) {
     timeMult *= 0.75;
     notes.push('🥱 Sleepy ambush');
   }
-  if (r.combatRealism.ambushReady || game.player.accessory === 'hoodedCloak') {
+  const ambush = fight ? fight.ambushReady : r.combatRealism.ambushReady || game.player.accessory === 'hoodedCloak';
+  if (ambush) {
     dmgMult *= 1.2;
-    r.combatRealism.ambushReady = false;
     notes.push('🥷 Surprise +20%');
   }
   if (r.combatRealism.heirloom) {

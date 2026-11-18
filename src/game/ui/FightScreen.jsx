@@ -18,9 +18,30 @@ import { WRITTEN_INCANTATIONS, ELEMENTAL_SPIRITS } from '../data/isekaiTodo';
 import { ensureIsekaiTodo } from '../logic/isekaiTodo/state';
 import { hasSilentCasting, castWrittenIncantation, hasTimeMagic, castTimeDilate, hasGravityMagic, castGravityCrush, summonSpiritInFight } from '../logic/isekaiTodo/magicPlus';
 import { monsterRankInfo } from '../logic/isekaiTodo/monstersPlus';
+import { ensureRealism } from '../logic/realism/state';
+import { traceChalkCircle, useCombatScroll, dischargeCrystalBattery, fightEnvironmentMods } from '../logic/realism/magicPhysics';
+import { currentFormation } from '../logic/realism/socialAndCodex';
 
 const AUTO_NEXT = 1100; // milliseconds: after a GOOD answer, the next question comes by itself
-const POTIONS = ['healthPotion', 'bigPotion', 'antidote', 'bread', 'roastMeat', 'herbStew', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
+const POTIONS = [
+  'healthPotion',
+  'bigPotion',
+  'antidote',
+  'herbalPoultice',
+  'antiseptic',
+  'honeyLemonTea',
+  'bread',
+  'roastMeat',
+  'herbStew',
+  'manaPotion',
+  'speedPotion',
+  'timePotion',
+  'hintPotion',
+  'fireScroll',
+  'healScroll',
+  'wardScroll',
+  'blinkScroll',
+];
 const ANSWER_KEYS = ['1', '2', '3', '4', 'a', 'b', 'c', 'd']; // 1 = a, 2 = b...
 
 // One sentence that tells what the last answer did.
@@ -117,7 +138,11 @@ function Commands({ game, fight, refresh, onFlee }) {
   }
 
   function drink(itemId) {
-    usePotion(game, itemId);
+    if (ITEMS[itemId]?.kind === 'scroll') {
+      useCombatScroll(game, fight, itemId);
+    } else {
+      usePotion(game, itemId);
+    }
     setList('main');
     refresh();
   }
@@ -127,11 +152,51 @@ function Commands({ game, fight, refresh, onFlee }) {
     const activeSpId = todo.spirits?.active;
     const activeSp = activeSpId ? ELEMENTAL_SPIRITS.find((s) => s.id === activeSpId) : null;
     const silentReady = hasSilentCasting(game);
+    const real = game?.realism ? ensureRealism(game) : null;
     return (
       <div className="window commands commands-open">
         <button className="command" onClick={() => setList('main')}>
           ◀ Back
         </button>
+        {real && countItem(player, 'chalk') > 0 && !fight.opponent.duel && !real.combatRealism?.activeCircle && (
+          <>
+            <button
+              className="command"
+              onClick={() => {
+                traceChalkCircle(game, 'ward');
+                setList('main');
+                refresh();
+              }}
+            >
+              <span>🛡️</span>
+              <span style={styles.spell}>Chalk: Ward</span>
+            </button>
+            <button
+              className="command"
+              onClick={() => {
+                traceChalkCircle(game, 'regen');
+                setList('main');
+                refresh();
+              }}
+            >
+              <span>💚</span>
+              <span style={styles.spell}>Chalk: Regen</span>
+            </button>
+          </>
+        )}
+        {real && (real.manaTrain?.crystalCharge || 0) > 0 && (
+          <button
+            className="command"
+            onClick={() => {
+              dischargeCrystalBattery(game);
+              setList('main');
+              refresh();
+            }}
+          >
+            <span>🔮</span>
+            <span style={styles.spell}>Battery +{Math.min(5, real.manaTrain.crystalCharge)}MP</span>
+          </button>
+        )}
         {activeSp && !fight.opponent.duel && (
           <button
             className="command"
@@ -214,7 +279,7 @@ function Commands({ game, fight, refresh, onFlee }) {
         </button>
         {potions.length === 0 && <span className="small">Nothing to use.</span>}
         {potions.map((id) => (
-          <button key={id} className="command" disabled={!canUsePotion(game, id)} onClick={() => drink(id)}>
+          <button key={id} className="command" disabled={ITEMS[id]?.kind !== 'scroll' && !canUsePotion(game, id)} onClick={() => drink(id)}>
             <PixelIcon name={id} size={14} />
             <span>×{countItem(player, id)}</span>
           </button>
@@ -289,19 +354,38 @@ function Ending({ game, fight, onContinue }) {
 }
 
 // The question, its clock, its four answers. After the answer: what happened, and why.
-function QuestionWindow({ fight, onAnswer, onNext }) {
+function QuestionWindow({ game, fight, onAnswer, onNext }) {
   const question = fight.question;
   const isAsking = fight.phase === 'ask';
   const timeLeft = isAsking ? 1 - (Date.now() - fight.startedAt) / fight.limit : 0;
   const story = fight.last && !isAsking ? storyOf(fight.last) : null;
   const isLong = question.answers.some((label) => label.length > 22); // long answers: one per line
   const mood = !story ? 'question-ask' : fight.last.critical ? 'question-critical' : story.good ? 'question-good' : 'question-bad';
+  const real = game?.realism ? ensureRealism(game) : null;
+  const activeCircle = real?.combatRealism?.activeCircle;
+  const envNotes = game?.realism && !fight.opponent?.duel ? fightEnvironmentMods(game, fight).notes : [];
+  const formation = game?.realism ? currentFormation(game) : null;
   return (
     <div key={question.id + '-' + fight.asked} className={'window grow question-window ' + mood}>
       <Bar value={timeLeft} color={timeLeft > 0.5 ? '#7cfc9a' : timeLeft > 0.25 ? '#ffd23f' : '#ff5a6e'} height={8} />
       <div className="row" style={styles.questionTop}>
         <TagBadge tag={question.difficulty} />
         {fight.combo >= 2 && <span className="result-good" style={styles.combo}>Combo x{fight.combo}</span>}
+        {activeCircle && (
+          <span className="badge" style={{ backgroundColor: activeCircle === 'regen' ? '#2c7a4a' : '#2c5a8a' }}>
+            {activeCircle === 'regen' ? '💚 Regen Circle' : '🛡️ Ward Circle'}
+          </span>
+        )}
+        {formation && formation.id !== 'midguard' && (
+          <span className="badge" style={{ backgroundColor: '#484064' }}>
+            {formation.icon} {formation.name}
+          </span>
+        )}
+        {envNotes.map((n, i) => (
+          <span key={'env-' + i} className="badge" style={{ backgroundColor: '#2c3448' }}>
+            {n}
+          </span>
+        ))}
         {Object.keys(fight.statuses?.player || {}).map((st) => (
           <span key={'p-' + st} className="badge" style={{ backgroundColor: '#b8303a' }}>
             You: {st}
@@ -483,7 +567,7 @@ export default function FightScreen({ game, refresh }) {
         {!isOver && (
           <div className="row" style={styles.bottom}>
             {fight.phase === 'ask' && <Commands game={game} fight={fight} refresh={refresh} onFlee={runAway} />}
-            <QuestionWindow fight={fight} onAnswer={submit} onNext={goOn} />
+            <QuestionWindow game={game} fight={fight} onAnswer={submit} onNext={goOn} />
           </div>
         )}
       </div>

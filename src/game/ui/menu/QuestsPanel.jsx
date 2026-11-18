@@ -167,6 +167,8 @@ export default function QuestsPanel({ game, refresh, onClose }) {
   const [villageFilter, setVillageFilter] = useState('all');
   const [showCompleted, setShowCompleted] = useState(false);
   const [guildName, setGuildName] = useState('Dawnblade Guild');
+  const [guildBanner, setGuildBanner] = useState('#ffd23f');
+  const BANNER_COLORS = ['#ffd23f', '#e8423f', '#3a7bff', '#4cc35a', '#b48cff', '#ff6fa8'];
   const todo = ensureIsekaiTodo(game);
   const og = todo.ownGuild;
   const tower = towerState(game);
@@ -364,12 +366,31 @@ export default function QuestsPanel({ game, refresh, onClose }) {
                 onChange={(e) => setGuildName(e.target.value)}
                 style={{ padding: '4px 6px', background: '#141a33', color: '#fff', border: '1px solid #6b7ab8', fontFamily: 'inherit' }}
               />
+              <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                <span className="small">Banner Crest:</span>
+                {BANNER_COLORS.map((col) => (
+                  <button
+                    key={col}
+                    type="button"
+                    onClick={() => setGuildBanner(col)}
+                    title={col}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      backgroundColor: col,
+                      border: guildBanner === col ? '2px solid #ffffff' : '1px solid #141a33',
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                    }}
+                  />
+                ))}
+              </div>
               {!foundCheck.ok && <span className="small" style={{ color: '#ffb070' }}>🔒 {foundCheck.reason}</span>}
               <button
                 className="px-button px-gold"
                 disabled={!foundCheck.ok}
                 onClick={() => {
-                  foundOwnGuild(game, guildName.trim() || 'Dawnblade Guild');
+                  foundOwnGuild(game, guildName.trim() || 'Dawnblade Guild', guildBanner);
                   if (refresh) refresh();
                 }}
               >
@@ -377,9 +398,12 @@ export default function QuestsPanel({ game, refresh, onClose }) {
               </button>
             </div>
           ) : (
-            <div className="quest-card">
+            <div className="quest-card" style={{ borderLeft: `4px solid ${og.banner || '#ffd23f'}` }}>
               <div className="row between">
-                <span className="gold" style={styles.cardTitle}>{og.name} (Lv.{og.level}/5)</span>
+                <span className="gold" style={styles.cardTitle}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: og.banner || '#ffd23f', marginRight: 6, border: '1px solid #0e1430' }} />
+                  {og.name} (Lv.{og.level}/5)
+                </span>
                 <span className="small">Members {og.members.length}/{ownGuildCap(game)} · Dorm Rooms {og.rooms}</span>
               </div>
               {og.level < 5 && (

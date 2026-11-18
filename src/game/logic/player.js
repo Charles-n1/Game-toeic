@@ -12,6 +12,8 @@ import { gearConditionFactor, resetSlotDurability } from './durability';
 import { obsidianBladeBonus } from './obsidian';
 import { ensureIsekaiTodo } from './isekaiTodo/state';
 import { skillTreeBonuses, awardSkillPointOnLevelUp, refineBonusForItem, checkAchievements } from './isekaiTodo/progression';
+import { ensureRealism } from './realism/state';
+import { bodyMaxHpMultiplier, registerPotionDose, treatWithMedicalItem } from './realism/bodyHealth';
 
 const EQUIP_SLOTS = ['weapon', 'armor', 'boots', 'accessory'];
 
@@ -40,17 +42,19 @@ export function spellPowerBonus(game) {
   return equippedStat(game.player, 'spell', game) + boostOf(game, 'spell') + statLinkBonus(game, 'spell') + stBonus;
 }
 
-// Health and mana grow with the level, gear, boosts, skill tree, and English stat links.
+// Health and mana grow with the level, gear, boosts, skill tree, balanced diet, infection, and English stat links.
 export function maxHealth(player, game = null) {
   const gear = equippedStat(player, 'health', game);
   const link = game ? boostOf(game, 'health') + statLinkBonus(game, 'health') + (skillTreeBonuses(game).health || 0) : 0;
-  return Math.round(Math.max(20, 100 + (player.level - 1) * 10 + gear + link));
+  const hpAdj = game?.realism ? bodyMaxHpMultiplier(game) : { scale: 1, flatBonus: 0 };
+  return Math.round(Math.max(20, (100 + (player.level - 1) * 10 + gear + link + hpAdj.flatBonus) * hpAdj.scale));
 }
 
 export function maxMana(player, game = null) {
   const treeMana = game ? skillTreeBonuses(game).mana || 0 : 0;
   const exhMana = game ? ensureIsekaiTodo(game).manaExhaustions || 0 : 0;
-  return 5 + (player.level - 1) + treeMana + exhMana;
+  const deepMana = game?.realism ? ensureRealism(game).manaTrain?.bonusMaxMp || 0 : 0;
+  return 5 + (player.level - 1) + treeMana + exhMana + deepMana;
 }
 
 // The speed of the player in a fight: more speed = more time to answer.
@@ -58,7 +62,8 @@ export function speedOf(player, game = null) {
   const tree = game ? skillTreeBonuses(game).speed || 0 : 0;
   const link = game ? boostOf(game, 'speed') + statLinkBonus(game, 'speed') + tree : 0;
   const fatiguePenalty = (player.fatigue || 0) >= 85 ? -2 : 0;
-  return Math.max(4, 10 + equippedStat(player, 'speed', game) + Math.floor(player.level / 2) + link + fatiguePenalty);
+  const backlashPenalty = game?.realism && (ensureRealism(game).manaTrain?.backlashHours || 0) > 0 ? -2 : 0;
+  return Math.max(4, 10 + equippedStat(player, 'speed', game) + Math.floor(player.level / 2) + link + fatiguePenalty + backlashPenalty);
 }
 
 // The damage of one strike, in HP (before the resistance of the monster).
@@ -196,20 +201,25 @@ function hideWrongAnswer(fight) {
   if (wrong.length > 1) fight.hidden.push(pickRandom(wrong));
 }
 
-// Drinks a potion (or eats bread). Returns false if it can not be used now.
+// Drinks a potion (or eats bread / applies poultice/antiseptic). Returns false if it can not be used now.
 export function usePotion(game, itemId) {
   const player = game.player;
   const item = ITEMS[itemId];
   if (!canUsePotion(game, itemId)) return false;
+  if (game?.realism && (item.curesSprain || item.curesInfection || item.curesDysentery || item.curesSickness) && treatWithMedicalItem(game, itemId)) {
+    if (game.run.fight) game.run.fight.drankAt = Date.now();
+    return true;
+  }
+  const dose = item.kind === 'potion' && game?.realism ? registerPotionDose(game) : { ratio: 1 };
   removeItem(player, itemId);
-  if (item.heal) heal(player, item.heal, game);
+  if (item.heal) heal(player, Math.round(item.heal * dose.ratio), game);
   if (item.curesStatus && game.run.fight?.statuses?.player) {
     game.run.fight.statuses.player = {};
     notify(game, '💚 Status effects cured!', '#7cfc9a');
   }
   if (item.food) player.hunger = Math.min(100, player.hunger + item.food); // bread, eaten in a fight
   if (item.water) player.thirst = Math.min(100, player.thirst + item.water);
-  if (item.mana) restoreMana(player, item.mana);
+  if (item.mana) restoreMana(player, Math.max(1, Math.round(item.mana * dose.ratio)));
   if (item.haste) player.haste = true; // used by the next fight (or the current one)
   if (item.extraTime) game.run.fight.limit += item.extraTime * 1000;
   if (item.hint) hideWrongAnswer(game.run.fight);

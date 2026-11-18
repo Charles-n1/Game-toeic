@@ -13,6 +13,9 @@ import { BANDIT_CLANS } from '../data/kingdoms';
 import { makeBanditUnit } from './war/bandits';
 import { addBoost } from './boosts';
 import { pickRandom } from '../../logic/random';
+import { GODDESS_SHRINES } from '../data/realism';
+import { prayAtGoddessShrine } from './realism/socialAndCodex';
+import { ensureRealism } from './realism/state';
 
 // Runtime interactions for Isekai wilderness structures:
 // monsterCamp (destroy/clear spawn point), banditTrap (trip/disarm + lure crate), wayCamp (cauldron/rest), isekaiShrine (blessing).
@@ -133,7 +136,19 @@ function interactShrine(game, s) {
     return;
   }
   if (game.society.shrinesUsed[s.id]) {
-    say(game, null, ['The ancient runes hum softly. This sanctuary has already lent you its blessing.']);
+    say(
+      game,
+      null,
+      ['The ancient runes hum softly. Offer coin at the Goddess Altar for a 24h blessing?'],
+      [
+        ...GODDESS_SHRINES.map((al) => ({
+          label: `${al.icon} ${al.name} (${al.cost}L · ${al.desc})`,
+          icon: 'star',
+          run: () => prayAtGoddessShrine(game, al.id),
+        })),
+        { label: 'Step back', run: () => {} },
+      ]
+    );
     return;
   }
   game.society.shrinesUsed[s.id] = true;

@@ -12,6 +12,7 @@ import { monsterCrowd } from './isekai/events';
 import { dust } from './particles';
 import { isWorldTimeFrozen } from './isekaiTodo/magicPlus';
 import { monsterRankInfo } from './isekaiTodo/monstersPlus';
+import { ensureRealism } from './realism/state';
 
 // The monsters walking on the map. Touching one starts a fight.
 // Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
@@ -44,15 +45,19 @@ export function makeMonster(game, speciesId, x, y, extra = {}) {
   const species = SPECIES[speciesId];
   const category = extra.category || species.category || monsterCategory(game);
   const tag = tagFor(game, species, category, x, y, !extra.key && !extra.raid);
+  const nem = !extra.key && !extra.raid && game?.realism ? ensureRealism(game).world?.nemesis?.[speciesId] : null;
+  const isNemesis = Boolean(nem && !extra.boss);
   return {
     ...species,
     species: speciesId,
+    name: isNemesis ? nem.name : species.name,
+    isNemesis,
     category: category,
     tag: tag,
     rank: monsterRankInfo({ ...species, tag, x, y }).rank,
     health: species.health * TAG_POWER[tag],
     maxHealth: species.health * TAG_POWER[tag],
-    attack: species.attack * TAG_ATTACK[tag],
+    attack: Math.round(species.attack * TAG_ATTACK[tag] * (isNemesis ? 1.2 : 1)),
     magicAttack: species.magicAttack * TAG_ATTACK[tag],
     xp: species.xp * TAG_POWER[tag],
     lexis: species.lexis * TAG_POWER[tag],
@@ -269,10 +274,14 @@ function runTo(game, monster, target, dt) {
   }
 }
 
-// The player is safe inside a village (except during a raid).
+// The player is safe inside a village (except during a raid). Repellent or Disguise Hood reduces detection range.
 function canSeePlayer(game, monster) {
   const isPlayerSafe = zoneAt(game.player.x, game.player.y).kind === 'village' && !monster.raid;
-  return !isPlayerSafe && distance(monster, game.player) < SIGHT;
+  const r = game?.realism ? ensureRealism(game) : null;
+  let sight = SIGHT;
+  if (r?.health?.repellentHours > 0 && !monster.boss && !monster.raid) sight *= 0.5;
+  if (game.player?.accessory === 'hoodedCloak' && !monster.boss) sight *= 0.7;
+  return !isPlayerSafe && distance(monster, game.player) < sight;
 }
 
 // Where the monster looks (monster.dir) and if it walks (monster.moving), from how it really moved since the last

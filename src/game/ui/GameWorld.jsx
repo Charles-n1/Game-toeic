@@ -21,9 +21,10 @@ import { useGameOptions } from './gameOptions';
 import { songFor } from '../audio/soundtrack';
 import { playSong } from '../audio/music';
 import { playEffect } from '../audio/effects';
+import { ensureRealism } from '../logic/realism/state';
 
 const REFRESH_EVERY = 0.2; // seconds between two updates of the HUD (the world itself is drawn at every frame)
-const SHORTCUTS = { i: 'inventory', b: 'inventory', p: 'powers', j: 'quests', m: 'map', c: 'stats', o: 'options' }; // keyboard: a key opens a menu window
+const SHORTCUTS = { i: 'inventory', b: 'inventory', p: 'powers', j: 'quests', k: 'codex', m: 'map', c: 'stats', o: 'options' }; // keyboard: a key opens a menu window
 
 // The game being played: the world on a canvas, and the screens of the game on top of it.
 // goalRate: the success rate the player aims for (%). onAnswer(question, isCorrect): tells the app about each answer.
@@ -142,10 +143,27 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
   }
 
   const showIntroBanner = Boolean(game.run.introAnimUntil && game.run.introAnimUntil > Date.now());
+  const rHealth = game?.realism ? ensureRealism(game).health : null;
+  const feverEdge = Boolean(rHealth && (rHealth.infectionHours > 0 || rHealth.hypothermia || rHealth.heatstroke));
 
   return (
     <div className="screen">
       <canvas ref={canvasRef} className="game-canvas" onClick={doStrike} />
+      {feverEdge && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            boxShadow: rHealth.hypothermia
+              ? 'inset 0 0 60px rgba(127, 214, 255, 0.45)'
+              : rHealth.heatstroke
+                ? 'inset 0 0 60px rgba(255, 148, 43, 0.45)'
+                : 'inset 0 0 65px rgba(255, 70, 90, 0.4)',
+            zIndex: 5,
+          }}
+        />
+      )}
       {showIntroBanner && (
         <div style={introBannerStyle}>
           <span className="gold" style={introTitleStyle}>

@@ -4,6 +4,8 @@ import { sleepUntilMorning } from './days';
 import { killNpc } from './village';
 import { forgetGame } from './save';
 import { say } from './messages';
+import { changeMorale } from './realism/bodyHealth';
+import { onHeroKnockOutDropBag } from './realism/socialAndCodex';
 
 // The player lost a fight.
 // The first times, Aria carries them home (her "blessings"). When none is left, or if Aria is dead:
@@ -23,6 +25,10 @@ function loseFriends(game) {
 
 function carryHome(game) {
   const player = game.player;
+  if (game?.realism) {
+    onHeroKnockOutDropBag(game);
+    changeMorale(game, -12, 'Knocked out in battle');
+  }
   player.blessings -= 1;
   player.lexis -= Math.floor(player.lexis * LEXIS_LOST);
   player.soldiers = 0; // the obsidian soldiers broke

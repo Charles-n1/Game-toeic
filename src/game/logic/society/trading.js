@@ -35,6 +35,11 @@ import {
   revealCrystalCave,
   startSocietyFight,
 } from './state';
+import { canShopServeHero } from '../realism/index';
+import { ensureRealism } from '../realism/state';
+import { healAtClinicRealism } from '../realism/bodyHealth';
+import { reportWitnessedCrime, marketBoomSellMultiplier, payOffFinesOrDefend } from '../realism/financeAndLaw';
+import { isTownDayMarketBonus } from '../realism/foodAndNature';
 
 // Villager interactions (trading, bargaining, crystal cave tips, attacking, extorting),
 // hospital healing (24h check-in), downtown word games, and statue/totem blessings.
@@ -89,7 +94,8 @@ function sellToVillager(game, villager, itemId) {
     return;
   }
   const festivalBonus = isFestivalActive(game, villager.village) ? 1.15 : 1;
-  const fallbackPay = Math.max(1, Math.round((item.sell || 1) * festivalBonus));
+  const boomMult = game?.realism ? marketBoomSellMultiplier(game, villager.village, itemId) * isTownDayMarketBonus(game) : 1;
+  const fallbackPay = Math.max(1, Math.round((item.sell || 1) * festivalBonus * boomMult));
   removeItem(game.player, itemId);
   earnLexis(game, fallbackPay);
   cue(game, 'trade');
@@ -213,6 +219,15 @@ function tryTrade(game, villager) {
   const festival = isFestivalActive(game, villager.village);
   const mood = villageState(game, villager.village)?.mood ?? 50;
 
+  if (game?.realism) {
+    const gate = canShopServeHero(game, villager.job === 'merchant' ? 'market' : villager.job, villager.village);
+    if (!gate.open && !festival) {
+      const fineAmt = ensureRealism(game).fines?.total || 0;
+      const choices = fineAmt > 0 ? [{ label: 'Resolve Fines (' + fineAmt + 'L)', icon: 'lexis', run: () => payOffFinesOrDefend(game) }, { label: 'Leave', run: () => {} }] : [];
+      say(game, null, [villager.name + ': ' + gate.reason], choices);
+      return;
+    }
+  }
   if (isNight(game) && !festival) {
     say(game, null, [villager.name + ': "My stall is closed for the night! Come back at sunrise — or during a festival."']);
     return;
@@ -255,6 +270,7 @@ function attackVillager(game, villager) {
   addInfamy(game, infamyGain);
   changeVillageMood(game, villager.village, -10);
   addHappiness(game, -3);
+  if (game?.realism) reportWitnessedCrime(game, 'Attacked ' + villager.name, 35);
 
   // Alert nearby knights in the same village
   for (const other of game.run.villagers) {
@@ -412,22 +428,24 @@ function clearCompanionFatigue(game) {
 function applyHospitalTreatment(game, village) {
   const s = ensureSociety(game);
   passHours(game, 24);
-  healFully(game.player);
+  healFully(game.player, game);
   game.player.hunger = 100;
   game.player.thirst = 100;
   if (s.riding) s.riding.hunger = 0;
   clearCompanionFatigue(game);
+  const cured = game?.realism ? healAtClinicRealism(game) : [];
   s.healedAtHospital += 1;
   changeVillageMood(game, village.id, 2);
   game.run.fadeUntil = Date.now() + 650;
   cue(game, 'heal');
-  notify(game, '🏥 Rested 1 full day at ' + village.name + ' Clinic! HP, MP, hunger, thirst & companions restored.', '#7cfc9a');
+  notify(game, '🏥 Rested 1 full day at ' + village.name + ' Clinic' + (cured.length > 0 ? ' (cured: ' + cured.join(', ') + ')' : '') + '! HP, MP, hunger, thirst & companions restored.', '#7cfc9a');
 }
 
 export function interactHospital(game, village) {
   const mult = villagePriceMultiplier(game, village.id);
-  const fullCost = Math.max(60, Math.round(120 * mult));
-  const discountCost = Math.max(45, Math.round(90 * mult));
+  const lateMod = game?.realism ? canShopServeHero(game, 'clinic', village.id).clinicSurcharge || 1 : 1;
+  const fullCost = Math.max(60, Math.round(120 * mult * lateMod));
+  const discountCost = Math.max(45, Math.round(90 * mult * lateMod));
   const nurse = {
     id: null,
     name: 'Clinic Nurse',

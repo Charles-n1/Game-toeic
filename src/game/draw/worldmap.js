@@ -5,6 +5,7 @@ import { paintedGround, paintedForest } from '../world/painting';
 import paintedMapUrl from '../assets/world/map2.png';
 import { BLOCKS, isBlockKnown, isKnown } from '../logic/explore';
 import { PLACES, SHOP_MARKS, mainQuestMark, sideQuestMarks, blockedMarks } from '../logic/places';
+import { ensureRealism } from '../logic/realism/state';
 import { iconCanvas } from './icons';
 import { makeGrid, fillEllipse, drawLine, addOutline, toCanvas, once } from './pixels';
 
@@ -196,6 +197,15 @@ function drawMarks(ctx, game, frame, view, time) {
     TREASURES.filter((treasure) => !game.dug[treasure.key]).forEach((treasure) => drawMark(ctx, frame, 'treasure', treasure.x + 0.5, treasure.y + 0.5, size));
   }
   blockedMarks(game).filter((mark) => isKnown(game, mark.x, mark.y)).forEach((mark) => drawMark(ctx, frame, 'blocked', mark.x, mark.y, 14));
+  if (game?.realism) {
+    const r = ensureRealism(game);
+    for (const cairn of r.world?.trailCairns || []) {
+      if (isKnown(game, cairn.x, cairn.y)) drawMark(ctx, frame, 'stone', cairn.x, cairn.y, 8);
+    }
+    if (r.world?.lastDeathPos && r.world?.lastDeathBag) {
+      drawMark(ctx, frame, 'travelerPack', r.world.lastDeathPos.x, r.world.lastDeathPos.y, 16, bob);
+    }
+  }
   sideQuestMarks(game).forEach((mark) => drawMark(ctx, frame, 'sideQuest', mark.x, mark.y - 1.5, 14, bob));
   const main = mainQuestMark(game);
   if (main) drawMark(ctx, frame, 'mainQuest', main.x, main.y - 2, 21, bob);

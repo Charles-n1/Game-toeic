@@ -7,6 +7,9 @@ import { cureCold } from './weather';
 import { notify, say } from './messages';
 import { cue } from './cues';
 import { floatText } from './particles';
+import { isTierEnabled } from './realism/state';
+import { triggerDysentery, treatWithMedicalItem, changeMorale } from './realism/bodyHealth';
+import { evaluateMealNutrition, stampPerishableAdded } from './realism/foodAndNature';
 
 // Eating, drinking and sleep fatigue. The hero gets hungry, thirsty and tired.
 // Water from rivers is untreated until boiled at a campfire; wells & fountains provide clean water.
@@ -147,6 +150,7 @@ export function drink(game) {
   if (!tier.purify && player.bottleUntreated && Math.random() < 0.25) {
     player.health = Math.max(0, Math.round(player.health) - 5);
     notify(game, '🤢 Unboiled river water upset your stomach (−5 HP). Boil it over a fire or use a village well!', '#ff8a95');
+    if (isTierEnabled(game, 'B')) triggerDysentery(game, 24);
   }
   if (player.bottle === 0 || tier.purify) player.bottleUntreated = false;
   const badge = tier.heal > 0 ? `+${tier.restore} 💧 +${tier.heal} HP` : `+${tier.restore} 💧`;
@@ -198,19 +202,29 @@ export function eat(game, itemId) {
   if (!canEat(game, itemId)) return false;
   const item = ITEMS[itemId];
   const player = game.player;
+  if (item.curesDysentery || item.curesSickness) {
+    treatWithMedicalItem(game, itemId);
+    if (item.food) player.hunger = clamp(player.hunger + item.food);
+    floatText(game, player.x, player.y - 1, '+' + (item.food || 10) + ' 🍋', '#7cfc9a');
+    return true;
+  }
   removeItem(player, itemId);
-  player.hunger = clamp(player.hunger + item.food);
+  const repeatMult = evaluateMealNutrition(game, itemId);
+  const gainedFood = Math.max(1, Math.round(item.food * repeatMult));
+  player.hunger = clamp(player.hunger + gainedFood);
   if (item.water) player.thirst = clamp(player.thirst + item.water);
-  if (item.heal) heal(player, item.heal);
+  if (item.heal) heal(player, item.heal, game);
+  if (item.morale) changeMorale(game, item.morale);
   applyDishBoosts(game, itemId);
-  if (['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast', 'ramen', 'curryRice', 'roastedFish', 'mushroomSoup', 'spicedBroth'].includes(itemId)) {
+  if (item.curesCold || ['broth', 'herbStew', 'spicedStew', 'heartySoup', 'scholarTea', 'honeyPorridge', 'travelersFeast', 'ramen', 'curryRice', 'roastedFish', 'mushroomSoup', 'spicedBroth'].includes(itemId)) {
     cureCold(game, '🍲 That hot dish warmed you up — your cold is cured!');
   }
   if (item.raw && Math.random() < 0.35) {
     player.health = Math.max(1, player.health - 10);
     notify(game, '🤢 The raw meat did not agree with you. −10 HP. Cook it next time!', '#ff8a95');
+    if (isTierEnabled(game, 'B') && Math.random() < 0.65) triggerDysentery(game, 24);
   }
-  floatText(game, player.x, player.y - 1, '+' + item.food + ' 🍖', '#ffd086');
+  floatText(game, player.x, player.y - 1, '+' + gainedFood + ' 🍖', '#ffd086');
   return true;
 }
 
@@ -238,6 +252,7 @@ export function cook(game, recipe) {
   Object.entries(recipe.needs).forEach(([itemId, amount]) => removeItem(game.player, itemId, amount));
   game.player.bottle -= recipe.water;
   addItem(game.player, recipe.id);
+  stampPerishableAdded(game, recipe.id);
   notify(game, '🔥 You cooked: ' + ITEMS[recipe.id].name + '.', '#ffd086');
 }
 

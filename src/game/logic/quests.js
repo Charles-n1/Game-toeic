@@ -3,6 +3,7 @@ import { ITEMS } from '../data/items';
 import { countItem, addItem, removeItem, earnLexis } from './player';
 import { addFriendship, addHappiness } from './village';
 import { notify } from './messages';
+import { recordQuestPromise, resolveQuestPromise } from './realism/socialAndCodex';
 
 // game.quests: { questId: { done: false, killsAtStart: 3 } }. A quest that is not in it was never accepted.
 
@@ -61,11 +62,13 @@ export function startQuest(game, quest) {
     wallsAtStart: game.counts?.wallsRepaired || 0,
     helpedAtStart: game.counts?.helped || 0,
   };
+  if (game?.realism) recordQuestPromise(game, quest.id, quest.giver, 6);
   notify(game, '📜 New quest: ' + quest.title, '#ffd23f');
 }
 
 // The quest is given back: the items are taken, the rewards are given.
 export function finishQuest(game, quest) {
+  if (game?.realism) resolveQuestPromise(game, quest.id);
   if (quest.needs.item) {
     removeItem(game.player, quest.needs.item, quest.needs.count);
   } else if (Array.isArray(quest.needs.items)) {
