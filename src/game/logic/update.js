@@ -60,6 +60,13 @@ import { maybeTriggerEarthDream } from './realism/englishWorld';
 import { checkDungeonSalvageFee } from './realism/financeAndLaw';
 import { disarmDungeonTrapQuick } from './realism/magicPhysics';
 import { activeShrineBlessing, tryRecoverLostBag } from './realism/socialAndCodex';
+import {
+  isSilencedZone,
+  maybeTriggerDeepEarthDream,
+  slowSoul,
+  actionsOfSoul,
+  ensureSoul,
+} from './soul';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -136,7 +143,7 @@ function walk(game, input, dt) {
   player.step += dt * (game.run.running ? 11 : 7) * (mount > 1 ? 1.3 : 1);
   if (Math.floor(player.step) !== stepBefore && Math.floor(player.step) % 2 === 0) {
     dust(game, player.x, player.y);
-    cue(game, 'step');
+    cue(game, isSilencedZone(game) ? 'silentStep' : 'step');
     const under = tileAt(player.x, player.y);
     const wet = game.weather && (game.weather.kind === 'rain' || game.weather.kind === 'storm');
     if (under === TILE.SAND || biomeAt(player.x, player.y) === 'mountain' || wet) {
@@ -216,7 +223,9 @@ function goToBed(game) {
   sleepUntilMorning(game);
   if (game?.realism) {
     applySleepQualityRecovery(game, 'home');
-    maybeTriggerEarthDream(game);
+    if (!maybeTriggerEarthDream(game)) maybeTriggerDeepEarthDream(game);
+  } else {
+    maybeTriggerDeepEarthDream(game);
   }
   saveGame(game);
   notify(game, '💤 You slept well. HP and mana are full. (You wake up hungry.)', '#9fd8ff');
@@ -275,6 +284,15 @@ function offerWallRenovation(game, spot) {
 }
 
 function talkToVillager(game, villager) {
+  if (game.villages?.[villager.village]?.owner === 'monsters') {
+    say(game, null, [villager.name + ': "... (stares quietly at the blank signboard without making a sound)"']);
+    return;
+  }
+  const soul = ensureSoul(game);
+  if (villager.village === 'lexia' && soul.raidMemory.widowsMourningUntil >= game.day) {
+    say(game, null, [villager.name + ': "The bells haven’t felt the same since the last raid... Wait beside the memorial stone if you have a quiet minute."']);
+    return;
+  }
   const words = villager.working ? 'Hard work today. ' : 'Hello, traveler. ';
   say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + '"']);
 }
@@ -324,6 +342,7 @@ function actionsOf(game) {
     { when: () => personNear(game), icon: 'talk', run: () => talkTo(game, personNear(game)) },
     { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
     ...actionsOfIsekai(game),
+    ...actionsOfSoul(game),
     ...actionsOfWar(game),
     ...actionsOfParties(game),
     ...actionsOfBonds(game),
@@ -410,6 +429,7 @@ function slowUpdates(game, dt) {
     updateBorders(game);
     syncWeeklyChallenge(game);
     checkEpisodeProgression(game);
+    slowSoul(game);
     const rSlow = game?.realism ? ensureRealism(game) : null;
     if (rSlow?.world?.lastDeathPos && rSlow?.world?.lastDeathBag && Math.hypot(rSlow.world.lastDeathPos.x - game.player.x, rSlow.world.lastDeathPos.y - game.player.y) <= 1.2) {
       tryRecoverLostBag(game);

@@ -2,6 +2,7 @@ import Window from './Window';
 import { goalOf } from '../data/story';
 import { TYPES } from '../data/types';
 import { skillPercent } from '../logic/learning';
+import { ensureSoul } from '../logic/soul';
 
 // The best and the weakest grammar types of the player: [best, weakest].
 function bestAndWeakest(game) {
@@ -14,6 +15,7 @@ export default function GameOver({ game, onRestart, onQuit }) {
   const counts = game.counts;
   const percent = counts.answers === 0 ? 0 : Math.round((counts.correct / counts.answers) * 100);
   const [best, weakest] = bestAndWeakest(game);
+  const soul = ensureSoul(game);
 
   return (
     <div className="overlay" style={styles.page}>
@@ -41,6 +43,11 @@ export default function GameOver({ game, onRestart, onQuit }) {
         <span className="small" style={styles.text}>
           Your English stays: everything you answered is still in your stats and your recovery.
         </span>
+        {soul.pet?.adopted && (
+          <span className="small" style={styles.text}>
+            On your quiet porch, {soul.pet.name} waited beside your sandals until morning.
+          </span>
+        )}
         <button className="px-button px-gold" style={styles.button} onClick={onRestart}>
           Be reborn
         </button>

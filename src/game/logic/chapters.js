@@ -4,6 +4,7 @@ import { isNight } from './clock';
 import { say } from './messages';
 import { endingLines } from './isekai/lostHero';
 import { triggerEpisodeToBeContinued, unlockGallery } from './isekaiTodo/socialPlus';
+import { onChapterCompleteSoul, buildEpilogueLines } from './soul';
 
 // The story moving forward: the chapters of the chosen goal, and the scenes that happen once.
 
@@ -15,11 +16,13 @@ export function currentChapter(game) {
 function tellEnding(game) {
   game.ended = true;
   if (game.bosses?.king) unlockGallery(game, 'kingSlain');
-  say(game, null, endingLines(game, ENDINGS[game.goal]));
+  const epilogue = buildEpilogueLines(game);
+  say(game, null, [...endingLines(game, ENDINGS[game.goal]), ...epilogue]);
   say(game, null, ['THE END... of this story. The world stays open: live in it as long as you like.']);
 }
 
 function finishChapter(game, chapter) {
+  const finishedNumber = game.chapter + 1;
   game.chapter += 1;
   earnLexis(game, chapter.reward);
   const reward = chapter.reward > 0 ? ' (+' + chapter.reward + ' Lexis)' : '';
@@ -27,6 +30,7 @@ function finishChapter(game, chapter) {
   if (next) {
     triggerEpisodeToBeContinued(game, Math.min(5, game.chapter + 1));
     say(game, null, ['✔ ' + chapter.title + reward, 'New chapter: ' + next.title + '\n' + next.text]);
+    onChapterCompleteSoul(game, finishedNumber);
   } else {
     tellEnding(game);
   }

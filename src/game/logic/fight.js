@@ -48,6 +48,7 @@ import {
   checkRosetteSecondChance,
 } from './realism/magicPhysics';
 import { activeTitleBonus, currentFormation, activeShrineBlessing } from './realism/socialAndCodex';
+import { recordSoulAnswerTiming, onBossVictorySoul } from './soul';
 
 // A fight = questions. A good answer strikes the opponent, a bad one (or no answer in time) lets it strike.
 // The opponent is a monster, or a person in a "duel" (negotiating a price, a game, a job): same rules,
@@ -382,6 +383,7 @@ export function answer(game, fight, index) {
   if (!isCorrect) fight.mistakes.push(question);
   recordAnswer(game, question, isCorrect);
   const answerMs = Math.max(100, Date.now() - fight.startedAt);
+  recordSoulAnswerTiming(game, answerMs);
   recordWeeklyStat(game, { isCorrect, answerMs });
   if (isCorrect && answerMs <= 3000) checkAchievements(game, { fastAnswerMs: answerMs });
 
@@ -601,6 +603,8 @@ export function endFight(game) {
     else if (opponent.secretDungeonId) onSecretFloorWon(game, opponent.secretDungeonId);
     else if (opponent.emissaryId) onEmissaryDefeated(game, opponent.emissaryId);
     else offerTameIfEligible(game, fight);
+    const defeatedBoss = fight.opponents.find((o) => o.boss);
+    if (defeatedBoss) onBossVictorySoul(game, defeatedBoss);
   } else if (fight.phase === 'lost') {
     if (game?.realism) promoteNemesisOnDefeat(game, opponent);
     knockOut(game);

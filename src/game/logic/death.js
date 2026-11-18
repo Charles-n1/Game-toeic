@@ -6,6 +6,7 @@ import { forgetGame } from './save';
 import { say } from './messages';
 import { changeMorale } from './realism/bodyHealth';
 import { onHeroKnockOutDropBag } from './realism/socialAndCodex';
+import { triggerAriaRescueScene } from './soul';
 
 // The player lost a fight.
 // The first times, Aria carries them home (her "blessings"). When none is left, or if Aria is dead:
@@ -36,10 +37,10 @@ function carryHome(game) {
   player.y = SPAWN.y;
   player.dir = 'down';
   game.run.monsters = game.run.monsters.filter((monster) => monster.key || monster.raid); // the wild ones are far now
+  game.run.fadeUntil = Date.now() + 900;
   sleepUntilMorning(game);
-  const left = player.blessings === 0 ? 'I have no strength left to carry you again. Next time... there is no next time.' : 'I can still carry you ' + player.blessings + ' time(s). Not more.';
   say(game, null, ['You were carried home...']);
-  say(game, 'aria', ['You fell. I carried you home. You are heavy, you know?', left]);
+  triggerAriaRescueScene(game, player.blessings);
 }
 
 export function knockOut(game) {
@@ -49,6 +50,7 @@ export function knockOut(game) {
     carryHome(game);
   } else {
     forgetGame(game.slot); // the save of this slot is erased: the next game starts from zero
+    game.run.fadeUntil = Date.now() + 1000;
     game.run.screen = 'over';
   }
 }

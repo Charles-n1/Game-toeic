@@ -32,6 +32,7 @@ import { firstDurability, ensureDurability } from './durability';
 import { firstLanguages, ensureLanguages } from './languages';
 import { firstRealism, ensureRealism } from './realism/state';
 import { firstIsekaiTodo, ensureIsekaiTodo } from './isekaiTodo/state';
+import { firstSoul, ensureSoul } from './soul';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
 export const WORLD_VERSION = 4; // 4: the world of the painting art/MAP2.png (a save of an older world moves to it)
@@ -270,6 +271,7 @@ export function newGame(goalId, score = 450, stats = {}, hero, slot, customWeigh
     languages: firstLanguages(),
     realism: firstRealism(), // bank, currencies, health, spoilage, factions... (see realism/state.js)
     isekaiTodo: firstIsekaiTodo(), // skill tree, achievements, spirits, refine, tower, album...
+    soul: firstSoul(), // narrative memory, character arcs, dilemmas, memorials, epilogue...
     run: makeRun(),
   };
   game.focus.current = chooseFocus(game);
@@ -368,6 +370,7 @@ function addMissing(game) {
   ensureLanguages(game);
   ensureRealism(game); // an older save gets the realism state
   ensureIsekaiTodo(game); // an older save gets isekaiTodo systems
+  ensureSoul(game); // an older save gets the SOUL narrative & memory state
 
   ensureVillages(game);
   if (!game.puzzles) game.puzzles = firstPuzzles();

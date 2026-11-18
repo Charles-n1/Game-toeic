@@ -495,8 +495,31 @@ const PAINTERS = { slime, bat, wolf, wisp, imp, treant, golem, knight, lich, war
 // pose: 'walk' (on the map), 'idle', 'attack', 'death' (in a fight). The monsters of the sheets have real pictures
 // for each of them; the ones drawn with code only have 2 frames.
 export function monsterSprite(monster, dir, frame, pose = 'walk') {
-  if (monster.art && hasMonsterArt(monster.art)) return monsterArtSprite(monster.art, dir, pose, frame);
   const color = typeOf(monster.category).color;
+  if (monster.art && hasMonsterArt(monster.art)) {
+    const base = monsterArtSprite(monster.art, dir, pose, frame);
+    if (!color || !base?.canvas) return base;
+    const tinted = once('monsterCatArt|' + monster.art + '|' + dir + '|' + pose + '|' + frame + '|' + color, () => {
+      const c = document.createElement('canvas');
+      c.width = base.canvas.width;
+      c.height = base.canvas.height;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(base.canvas, 0, 0);
+      g.globalCompositeOperation = 'source-atop';
+      g.globalAlpha = 0.24;
+      g.fillStyle = color;
+      g.fillRect(0, 0, c.width, c.height);
+      g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 0.95;
+      g.fillStyle = color;
+      const bx = Math.round(base.ax);
+      const by = Math.max(1, Math.round(base.ay - 3));
+      g.fillRect(bx - 2, by, 4, 2);
+      return c;
+    });
+    return { canvas: tinted, white: base.white, ax: base.ax, ay: base.ay };
+  }
   return once('monster' + monster.shape + color + dir + (frame % 2), () => {
     const grid = padded(PAINTERS[monster.shape](color, frame % 2));
     const outlined = addOutline(dir === 'right' ? mirrored(grid) : grid, OUTLINE);

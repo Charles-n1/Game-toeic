@@ -16,6 +16,7 @@ import { pickRandom } from '../../logic/random';
 import { GODDESS_SHRINES } from '../data/realism';
 import { prayAtGoddessShrine } from './realism/socialAndCodex';
 import { ensureRealism } from './realism/state';
+import { offerReturnFarewells } from './soul';
 
 // Runtime interactions for Isekai wilderness structures:
 // monsterCamp (destroy/clear spawn point), banditTrap (trip/disarm + lure crate), wayCamp (cauldron/rest), isekaiShrine (blessing).
@@ -107,32 +108,22 @@ function interactTrap(game, s) {
 function interactShrine(game, s) {
   ensureStructState(game);
   if (s.isPortal && game.bosses && game.bosses.king) {
-    say(game, null, [
-      'The Ruined Summon Gate blazes with warm gold light. With Solecis freed from the Silence, the path between Earth and Lexia stands open!',
-    ], [
-      {
-        label: 'Step through: Return to Earth & pass your TOEIC',
-        icon: 'star',
-        run: () => {
-          game.flags.returnedHome = true;
-          game.ended = true;
-          cue(game, 'victory');
-          say(game, null, [
-            'Light wraps around your shoulders. You step across the threshold—and wake just before the crosswalk, clutching your exam ticket with new confidence.',
-            'Thank you for saving Lexia, Hero of Words. (You can keep exploring this save anytime.)',
-          ]);
-        },
+    offerReturnFarewells(
+      game,
+      () => {
+        game.flags.returnedHome = true;
+        game.ended = true;
+        cue(game, 'victory');
+        say(game, null, [
+          'Light wraps around your shoulders. You step across the threshold—and wake just before the crosswalk, clutching your exam ticket with new confidence.',
+          'Thank you for saving Lexia, Hero of Words. (You can keep exploring this save anytime.)',
+        ]);
       },
-      {
-        label: 'Stay in Lexia — this world is home now',
-        icon: 'heart',
-        run: () => {
-          game.flags.stayedInLexia = true;
-          notify(game, '✨ You chose to remain in Lexia!', '#ffd23f');
-        },
-      },
-      { label: 'Step back', run: () => {} },
-    ]);
+      () => {
+        game.flags.stayedInLexia = true;
+        notify(game, '✨ You chose to remain in Lexia!', '#ffd23f');
+      }
+    );
     return;
   }
   if (game.society.shrinesUsed[s.id]) {

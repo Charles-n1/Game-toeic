@@ -36,6 +36,7 @@ import { ensureRealism } from './realism/state';
 import { applySleepQualityRecovery, singCampfireSong, changeMorale } from './realism/bodyHealth';
 import { evaluateMealNutrition, saltRawFood, placeTrailCairn } from './realism/foodAndNature';
 import { canUseTinderboxInRain } from './realism/magicPhysics';
+import { triggerCampfireBanter } from './soul';
 
 // Camping in the wild: pitching camp, firewood vs Magic Auto-Heater, cooking pot recipes
 // (with timed stat boosts), dried meat, character tastes, and companion fatigue.
@@ -266,6 +267,7 @@ export function restAtCamp(game, hours = null) {
       notify(game, '⚠️ A nocturnal ' + ambusher.name + ' prowled into camp while you slept!', '#ff8a95');
     } else {
       notify(game, wasLit ? '💤 Slept warmly until morning. HP, MP and party energy restored!' : '💤 Slept until morning. HP and MP restored.', '#9fd8ff');
+      if (wasLit) triggerCampfireBanter(game);
     }
     saveGame(game);
   } else {

@@ -13,6 +13,7 @@ import { dust } from './particles';
 import { isWorldTimeFrozen } from './isekaiTodo/magicPlus';
 import { monsterRankInfo } from './isekaiTodo/monstersPlus';
 import { ensureRealism } from './realism/state';
+import { maybePlayPreBossScene } from './soul';
 
 // The monsters walking on the map. Touching one starts a fight.
 // Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
@@ -322,5 +323,11 @@ export function updateMonsters(game, dt) {
   }
 
   const touched = touchedMonster(game);
-  if (touched && Date.now() > game.run.safeUntil) startFight(game, touched, packOf(game, touched));
+  if (touched && Date.now() > game.run.safeUntil) {
+    if (touched.boss) {
+      maybePlayPreBossScene(game, touched, () => startFight(game, touched, packOf(game, touched)));
+    } else {
+      startFight(game, touched, packOf(game, touched));
+    }
+  }
 }

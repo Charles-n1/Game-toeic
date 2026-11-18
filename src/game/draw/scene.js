@@ -24,6 +24,7 @@ import { drawLights } from './lights';
 import { makeGrid, fillRect, fillEllipse, fillTriangle, addOutline, mirrored, toCanvas, once } from './pixels';
 import { ensureRealism } from '../logic/realism/state';
 import { hasManaLanternLit } from '../logic/realism/magicPhysics';
+import { ensureSoul, orinGravePosition, memorialStonePosition, strayPetPosition } from '../logic/soul';
 import * as props from './props';
 import { warDrawings, drawWarEffects } from './warArt';
 import { societyDrawings, drawSocietyEffects } from './societyArt';
@@ -80,8 +81,11 @@ function cameraAxis(center, size, low, high) {
 // The player stays in the middle. In a fight, the two fighters stand in the top third (the questions are below).
 function viewOf(game, width, height) {
   const fight = game.run.fight;
-  const centerX = (game.player.x + (fight ? battleGap(game) / 2 : 0)) * T;
-  const centerY = (game.player.y - 0.6) * T;
+  const focus = !fight && game.run.cameraTarget ? game.run.cameraTarget : null;
+  const targetX = focus ? game.player.x * 0.65 + focus.x * 0.35 : game.player.x;
+  const targetY = focus ? game.player.y * 0.65 + focus.y * 0.35 : game.player.y;
+  const centerX = (targetX + (fight ? battleGap(game) / 2 : 0)) * T;
+  const centerY = (targetY - 0.6) * T;
   const bounds = boundsOf(game);
   let x = cameraAxis(centerX, width, bounds.left, bounds.right);
   let y = cameraAxis(centerY + height * (fight ? 0.14 : 0), height, bounds.top, bounds.bottom);
@@ -344,6 +348,16 @@ function houses(view, game, time) {
           }
         }
         if (isBurning(game, house)) roofFires(house, time).forEach((fire) => fire(ctx, view));
+        const hPlace = house.role && house.role !== 'house' && game?.villages ? zoneAt(house.x + 1, house.y + 1) : null;
+        if (hPlace?.kind === 'village' && game.villages[hPlace.id]?.owner === 'monsters') {
+          // Conquered by Silence: blank signboard nailed across shops & halls
+          const sx = Math.round(house.x * T + Math.round(houseSize(house).w * T * 0.25) - view.x);
+          const sy = Math.round(bottom * T - 20 - view.y);
+          ctx.fillStyle = '#3b3740';
+          ctx.fillRect(sx, sy, 14, 7);
+          ctx.fillStyle = '#625c68';
+          ctx.fillRect(sx + 1, sy + 1, 12, 5);
+        }
       },
     };
   });
@@ -1502,6 +1516,91 @@ function drawHeroSlash(ctx, game, view) {
   ctx.lineWidth = 1;
 }
 
+// SOUL world memorials, Orin grave, faithful stray companion & Silence-taken atmosphere.
+function soulDrawings(game, view, time) {
+  if (!game?.player) return [];
+  const soul = ensureSoul(game);
+  const list = [];
+
+  if (game.npcs?.orin?.alive === false) {
+    const pos = orinGravePosition();
+    if (pos && isNear(view, pos.x - 1, pos.y - 2, 2, 3)) {
+      list.push({
+        y: pos.y,
+        draw: (ctx) => {
+          const px = Math.round(pos.x * T - view.x);
+          const py = Math.round(pos.y * T - view.y);
+          ctx.fillStyle = '#4f3a2a';
+          ctx.fillRect(px - 5, py - 10, 10, 8);
+          ctx.fillStyle = '#8b6847';
+          ctx.fillRect(px - 4, py - 12, 8, 9);
+          ctx.fillStyle = '#e9d8a6';
+          ctx.fillRect(px - 2, py - 9, 4, 2);
+          ctx.fillStyle = '#ffd23f';
+          if (Math.floor(time * 4) % 2 === 0) ctx.fillRect(px + 3, py - 4, 2, 2);
+        },
+      });
+    }
+  }
+
+  if (soul.raidMemory?.memorialNames?.length > 0) {
+    const st = memorialStonePosition();
+    if (st && isNear(view, st.x - 1, st.y - 2, 3, 3)) {
+      list.push({
+        y: st.y,
+        draw: (ctx) => {
+          const px = Math.round(st.x * T - view.x);
+          const py = Math.round(st.y * T - view.y);
+          ctx.fillStyle = '#383d4a';
+          ctx.fillRect(px - 7, py - 13, 14, 13);
+          ctx.fillStyle = '#70798c';
+          ctx.fillRect(px - 5, py - 11, 10, 9);
+          ctx.fillStyle = '#d4deec';
+          ctx.fillRect(px - 3, py - 9, 6, 1);
+          ctx.fillRect(px - 3, py - 7, 6, 1);
+          ctx.fillStyle = '#ff9ec4';
+          ctx.fillRect(px - 5, py - 1, 2, 2);
+          ctx.fillRect(px + 3, py - 1, 2, 2);
+        },
+      });
+    }
+  }
+
+  const petPos = strayPetPosition();
+  if (petPos && isNear(view, petPos.x - 1, petPos.y - 2, 2, 2)) {
+    const wag = Math.floor(time * 6) % 2;
+    list.push({
+      y: petPos.y,
+      draw: (ctx) => {
+        const px = Math.round(petPos.x * T - view.x);
+        const py = Math.round(petPos.y * T - view.y);
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.fillRect(px - 4, py - 1, 8, 2);
+        ctx.fillStyle = soul.pet?.adopted ? '#e0a958' : '#b89468';
+        ctx.fillRect(px - 4, py - 5, 7, 4);
+        ctx.fillRect(px + 1, py - 8, 4, 4);
+        ctx.fillStyle = '#2e2218';
+        ctx.fillRect(px + 3, py - 7, 1, 1);
+        ctx.fillStyle = '#ff5a6e';
+        if (soul.pet?.adopted) ctx.fillRect(px + 1, py - 5, 3, 1);
+        ctx.fillStyle = '#e0a958';
+        ctx.fillRect(px - 5 - wag, py - 7 + wag, 2, 2);
+      },
+    });
+  }
+
+  return list;
+}
+
+function drawSilenceAtmosphere(ctx, game) {
+  if (!game?.player || game.bosses?.king) return;
+  const z = zoneAt(game.player.x, game.player.y);
+  const conquered = Boolean(z?.kind === 'village' && game.villages?.[z.id]?.owner === 'monsters');
+  if (!conquered) return;
+  ctx.fillStyle = 'rgba(26, 28, 36, 0.36)';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
 // The world around the player. width, height: the size of the screen canvas. time: seconds.
 export function drawScene(ctx, game, width, height, time) {
   const scale = game.run.fight ? fightScale(width, height) : pixelScale(width, height);
@@ -1519,7 +1618,7 @@ export function drawScene(ctx, game, width, height, time) {
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
   const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...childDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
-  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time), ...isekaiTodoDrawings(game, view, time));
+  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time), ...isekaiTodoDrawings(game, view, time), ...soulDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) {
     drawHeroAura(art, game, view, time);
@@ -1543,6 +1642,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawIsekaiTodoIndicators(art, game, view, time);
   structuresArt.drawStructureAmbience(art, game, view, time);
   drawWeather(art, game, view, time);
+  drawSilenceAtmosphere(art, game);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));
   drawOpeningIntro(art, game, view, time);
   drawFade(art, game);

@@ -532,6 +532,9 @@ export function drawBattle(ctx, game, camera, time) {
   const opacity = foeOpacity(fight, ages);
   const middle = { x: foeHome.x, y: foeHome.y - Math.round(foeLook.ay / 2) }; // where the blows land
   if (opacity > 0) {
+    if (!fight.opponent.duel && fight.opponent.category) {
+      drawMagicCircle(ctx, foeHome.x, foeHome.y + 1, Math.min(18, Math.max(11, Math.round(foeLook.canvas.width * 0.35))), typeOf(fight.opponent.category).color, time * 1.4);
+    }
     const flashing = last && last.damage > 0 && isBlinking(ages.foeHit) && foeLook.white;
     ctx.globalAlpha = opacity;
     drawSprite(ctx, flashing ? { ...foeLook, canvas: foeLook.white } : foeLook, foe.x, foe.y + Math.round((1 - opacity) * 4));

@@ -34,6 +34,7 @@ const EFFECTS = {
   coin: (to, t) => arpeggio(to, t, ['B5', 'E6'], 0.06, 'square', 0.08),
   click: (to, t) => tone(to, { wave: 'square', frequency: 1300, start: t, duration: 0.025, volume: 0.04 }),
   step: (to, t) => noise(to, { start: t, duration: 0.03, volume: 0.06, lowpass: 900 }),
+  silentStep: (to, t) => noise(to, { start: t, duration: 0.03, volume: 0.02, lowpass: 420 }),
   victory: (to, t) => {
     arpeggio(to, t, ['G5', 'C6', 'E6', 'G6'], 0.1, 'square', 0.1);
     tone(to, { wave: 'triangle', frequency: frequencyOf('C5'), start: t + 0.4, duration: 0.5, volume: 0.2 });

@@ -74,4 +74,28 @@ export const SONGS = {
       { wave: 'drums', volume: 0.4, notes: 'K . . . H . . . K . . . H . . . K . . . H . . . K . K . H . H .' },
     ],
   },
+  // Character theme — Aria: gentle healing clinic harp.
+  aria: {
+    bpm: 78,
+    voices: [
+      { wave: 'triangle', volume: 0.16, notes: 'A4 - C5 - E5 - D5 - C5 - B4 - A4 - - - G4 - B4 - D5 - C5 - B4 - - - A4 - - -' },
+      { wave: 'sine', volume: 0.1, notes: 'A2 . E3 . A2 . E3 . G2 . D3 . G2 . D3 . F2 . C3 . F2 . C3 . E2 . B2 . A2 - - -' },
+    ],
+  },
+  // Character theme — Nyx: twilight minor starlight motif.
+  nyx: {
+    bpm: 84,
+    voices: [
+      { wave: 'sine', volume: 0.14, notes: 'D5 . F5 . A5 - G5 . F5 . E5 - D5 - - . C5 . E5 . G5 - F5 . E5 . D5 - - .' },
+      { wave: 'triangle', volume: 0.1, notes: 'D3 - - - A#2 - - - C3 - - - D3 - - - A#2 - - - C3 - - - D3 - - - - - - -' },
+    ],
+  },
+  // Character & boss motif — Solecis: haunting hollow silence echo.
+  solecis: {
+    bpm: 58,
+    voices: [
+      { wave: 'sine', volume: 0.12, notes: 'C4 - - - - - G3 - - - - - D#4 - - - C4 - - - - - - - - - - - - - - -' },
+      { wave: 'triangle', volume: 0.08, notes: 'C2 - - - - - - - G2 - - - - - - - C2 - - - - - - - - - - - - - - -' },
+    ],
+  },
 };

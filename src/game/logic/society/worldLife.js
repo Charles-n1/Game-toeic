@@ -14,6 +14,7 @@ import { notify, say } from '../messages';
 import { burst } from '../particles';
 import { cue } from '../cues';
 import { pickRandom } from '../../../logic/random';
+import { triggerFeastSpeechSoul } from '../soul';
 import {
   ensureSociety,
   isVillain,
@@ -527,7 +528,12 @@ function activateFestivalFor(game, village, state, quiet) {
   changeVillageMood(game, village.id, 5);
   if (!quiet) {
     const near = Math.hypot(village.x + village.w / 2 - game.player.x, village.y + village.h / 2 - game.player.y) < 160 || village.id === 'lexia';
-    if (near) notify(game, '🎉 ' + village.name + ' throws a Village Festival today! 25% off trade & fireworks tonight!', '#ffd23f');
+    if (near) {
+      notify(game, '🎉 ' + village.name + ' throws a Village Festival today! 25% off trade & fireworks tonight!', '#ffd23f');
+      if (village.id === 'lexia' && Math.hypot(village.x + village.w / 2 - game.player.x, village.y + village.h / 2 - game.player.y) < 35) {
+        triggerFeastSpeechSoul(game, village.name);
+      }
+    }
   }
 }
 

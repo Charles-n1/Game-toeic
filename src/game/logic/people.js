@@ -37,6 +37,14 @@ import { canShopServeHero } from './realism/index';
 import { ensureRealism, isTierEnabled } from './realism/state';
 import { reportWitnessedCrime, payOffFinesOrDefend, registerEarthRecipeRoyalty } from './realism/financeAndLaw';
 import { rememberNpcInteraction, recallNpcMemoryLine, triggerJealousyCheck } from './realism/socialAndCodex';
+import {
+  handleTomoSoulTalk,
+  personalArcChoice,
+  soulDynamicGreeting,
+  bondSceneChoice,
+  soulStoryQuestChoices,
+  triggerWeddingSpeechSoul,
+} from './soul';
 
 // The people on the map: where they are, and everything the player can do with them.
 
@@ -196,6 +204,7 @@ function nextLifeLine(game, npc) {
 }
 
 function chat(game, npc) {
+  if (npc.id === 'tomo' && handleTomoSoulTalk(game)) return;
   const state = game.npcs[npc.id];
   if (state.talkedDay !== game.day) addFriendship(game, npc.id, 3); // the first talk of the day counts
   state.talkedDay = game.day;
@@ -209,6 +218,8 @@ function greeting(game, npc) {
   const children = childrenOf(game, npc.id);
   if (game.player.spouse === npc.id) return children.length > 0 ? 'Welcome home. ' + children[children.length - 1] + ' finally sleeps.' : 'Welcome home, my love.';
   if (children.length > 0 && Math.random() < 0.4) return 'Little ' + children[children.length - 1] + ' said a first word today!';
+  const soulLine = soulDynamicGreeting(game, npc);
+  if (soulLine) return soulLine;
   const scars = game?.realism ? ensureRealism(game).health.scars : [];
   if (scars?.length > 0 && Math.random() < 0.22) {
     return npc.romance
@@ -400,6 +411,7 @@ function proposeChoice(game, npc) {
       marry(game, 'player', npc.id, 6);
       addHappiness(game, 5);
       say(game, npc.id, ['Yes. In every tense: I did, I do, I will.', 'The whole village comes to the wedding. ' + npc.name + ' moves into your home.']);
+      triggerWeddingSpeechSoul(game, npc.name);
     }
   }
   return { label: 'Will you marry me?', icon: 'ring', run: propose };
@@ -462,6 +474,8 @@ function strikeNpcChoice(game, npc) {
 const CHOICE_MAKERS = [
   recognizeChoice,
   talkChoice,
+  personalArcChoice,
+  bondSceneChoice,
   rivalChoice,
   sparringChoice,
   activeQuestChoice,
@@ -494,6 +508,7 @@ export function talkTo(game, npc) {
   const choices = [
     ...rulerChoices(game, npc),
     ...(studyChoice ? [studyChoice] : []),
+    ...soulStoryQuestChoices(game, npc),
     ...CHOICE_MAKERS.map((make) => make(game, npc)).filter((choice) => choice !== null),
     ...npcBondChoices(game, npc),
     strikeNpcChoice(game, npc),

@@ -73,6 +73,10 @@ export function stopSong() {
 
 // Plays a song of SONGS (nothing changes if it already plays). id: 'village', 'fight'...
 export function playSong(id) {
+  if (!id || id === 'silent' || !SONGS[id]) {
+    stopSong();
+    return;
+  }
   if (playing && playing.id === id) return;
   if (!isAwake()) return; // try again at the next frame, after the first tap
   stopSong();

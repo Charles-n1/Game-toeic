@@ -4,6 +4,7 @@ import { say, notify } from '../messages';
 import { burst, floatText } from '../particles';
 import { cue } from '../cues';
 import { structureNear } from './common';
+import { onLostHeroPageRead } from '../soul';
 
 // The Lost Hero: the first one the goddess summoned, long ago. He beat the Demon King of his time... then lost
 // the one he loved, and became the next Demon King: Solecis. The graves of his friends (world/wildPlaces.js)
@@ -22,7 +23,8 @@ function readGrave(game, grave) {
     return;
   }
   state.gravesRead[grave.id] = true;
-  const page = LOST_HERO_PAGES[state.pagesFound];
+  const pageIndex = state.pagesFound;
+  const page = LOST_HERO_PAGES[pageIndex];
   state.pagesFound += 1;
   const lines = [words, 'Under the stone, wrapped in leather: a page of a diary, written in the language of your old world.', ...page];
   if (state.pagesFound === LOST_HERO_PAGES.length) {
@@ -30,6 +32,7 @@ function readGrave(game, grave) {
     lines.push('You close the diary. You know the true name of the Demon King now: Louis.');
   }
   say(game, null, lines);
+  onLostHeroPageRead(game, pageIndex);
   cue(game, 'coin');
   burst(game, grave.x + 0.5, grave.y, '#cfe3ff', 16);
   floatText(game, grave.x + 0.5, grave.y - 1, 'Diary page ' + state.pagesFound + '/' + LOST_HERO_PAGES.length, '#cfe3ff');

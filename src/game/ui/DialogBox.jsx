@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Portrait from './Portrait';
 import PixelIcon from './PixelIcon';
 import { npcOf } from '../data/npcs';
-import { nextLine, choose } from '../logic/messages';
+import { nextLine, choose, dialogStepText } from '../logic/messages';
 import { lettersPerSecond } from '../logic/options';
 import { ACTION_KEYS } from '../logic/input';
 import { playEffect } from '../audio/effects';
@@ -16,10 +16,10 @@ function normalizeExpr(raw) {
   return EXPR_ALIASES[raw] || raw || 'neutral';
 }
 
-function ExpressionBadge({ game, speaker, dialog }) {
+function ExpressionBadge({ game, speaker, dialog, stepExpr }) {
   if (!speaker || !speaker.look || !speaker.look.sheet) return null;
   const active = game.run.dialogExpression;
-  const raw = dialog.expression || (active && active.npcId === speaker.id ? active.expr : 'neutral');
+  const raw = stepExpr || dialog.expression || (active && active.npcId === speaker.id ? active.expr : 'neutral');
   const expr = normalizeExpr(raw);
   const sheet = speaker.look.sheet;
   const url = hasExpression(sheet, expr) ? expressionUrl(sheet, expr) : null;
@@ -48,8 +48,14 @@ function lettersShown(line, textSpeed, elapsed) {
 // On the last line, the choices appear in a menu above the box (arrows + Enter work too).
 export default function DialogBox({ game, refresh }) {
   const dialog = game.run.dialog;
-  const speaker = dialog.speaker ? npcOf(dialog.speaker) : null;
-  const line = dialog.lines[dialog.index];
+  const rawLine = dialog.lines[dialog.index];
+  const line = dialogStepText(rawLine);
+  const stepObj = rawLine && typeof rawLine === 'object' ? rawLine : null;
+  const speakerKey = stepObj && stepObj.speaker !== undefined ? stepObj.speaker : dialog.speaker;
+  const npcSpeaker = speakerKey && speakerKey !== 'hero' ? npcOf(speakerKey) : null;
+  const speaker = speakerKey === 'hero'
+    ? { id: 'hero', name: game.player?.name || 'You', look: game.player?.look }
+    : npcSpeaker || (typeof speakerKey === 'string' && speakerKey ? { id: speakerKey, name: speakerKey, look: null } : null);
   const [startedAt, setStartedAt] = useState(Date.now());
   const [cursor, setCursor] = useState(0);
   const [, setTick] = useState(0);
@@ -143,11 +149,11 @@ export default function DialogBox({ game, refresh }) {
           ) : (
             <div />
           )}
-          <ExpressionBadge game={game} speaker={speaker} dialog={dialog} />
+          <ExpressionBadge game={game} speaker={speaker} dialog={dialog} stepExpr={stepObj?.expr} />
         </div>
       )}
       <div className="window dialog" onClick={showChoices ? null : tap}>
-        {speaker && <Portrait look={speaker.look} size={96} />}
+        {speaker && speaker.look && <Portrait look={speaker.look} size={96} />}
         <div className="grow">
           {speaker && <span className="dialog-name">{speaker.name}:</span>}
           <span className={'dialog-text' + (speaker ? '' : ' narrator')}>{line.slice(0, shown)}</span>

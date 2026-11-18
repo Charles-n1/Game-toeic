@@ -1,0 +1,274 @@
+LEXIA - SOUL
+What the game needs to feel alive, to make the player care
+==========================================================
+
+This file adds to GAME_OBJECTIVE.txt, REALISM.txt and ISEKAI_TODO.txt.
+The world of Lexia is already big and full of systems. What it lacks is not more mechanics:
+it is moments, memories and people who want something.
+All the names, scenes and lines below are first proposals, to change freely.
+Priority: (A) first, (B) then, (C) later.
+
+
+==========================================================
+1. THE RULES OF SOUL
+==========================================================
+
+- A moment is worth more than a mechanic. One good scene beats ten new bars on the HUD.
+- The world remembers. A big event (a death, a victory, a choice) changes what people say
+  and what the world looks like, for a long time.
+- People want things. Each important character has a wish, a fear and a secret.
+- Losses are real. Somebody the player liked can be gone, and the world shows it.
+- The player is known. The people use the hero's name, talk about what they did, and
+  react to how they did it (fast, kind, cruel, absent).
+- English first, still. Every scene is also something to read: a letter, a speech,
+  a diary page, a notice. Soul and learning go together.
+
+
+==========================================================
+2. THE STORY BETWEEN THE BIG MOMENTS
+==========================================================
+Today there are 6 written scenes (story.js SCENES). After the death of Orin, nothing is told
+until the gate of the Castle of Silence: chapters 7 to 10 are "go there, defeat the boss".
+
+(A) A scene before and after each story boss
+  - The Gerund Lich (Crystal Cave): a scholar who wanted to keep every word forever,
+    and became a thing that only repeats them. A few lines before the fight, one after.
+  - The Chrono Warden (Frostpeak Castle): the keeper of time who froze his castle on the
+    day he lost someone. He asks the hero: "If you could stop one moment, which one?"
+  - General Barbarism (Sandbandit Camp): "the teacher of war". The guardian ending says he
+    taught Lyra. Show it in the hero path too: Lyra goes with the hero, they talk before
+    the fight, and his last words are for her.
+  - The 3 generals of the castle (Ravnos, Thamuz, Velmora) and Lilith, the Demon Queen:
+    each one gets a voice, a reason to serve Solecis, and a last sentence.
+    Velmora is "the Cursed General": who cursed her, and why?
+  - Each boss scene is a short text in English (TOEIC style: a speech, a letter, a diary).
+
+(A) A scene for each new chapter
+  - Today a chapter ends with a toast ("Chapter done: ... +40 Lexis"). Replace it with
+    a short scene: who gives the next task, why it matters, what they are afraid of.
+
+(A) Solecis is present all along
+  - The final boss should not appear for the first time at the end.
+  - Through the Silence, Solecis speaks to the hero: in dreams, in the whispers of a raid,
+    in a village that has lost its words. Short, sad lines, never the full truth.
+  - The diary pages of Louis (data/isekai.js LOST_HERO_PAGES) each open a small scene:
+    the hero reads the page aloud, and understands a bit more.
+
+(B) Lexa, the goddess, comes back
+  - Today she speaks only at the start. She should come back at the turning points:
+    after Orin dies (she could not save him), before the castle (she is afraid too),
+    after the end (a goodbye).
+
+(B) A twist in the middle
+  - Something the player believed is wrong. Proposals: Nyx was sent by the castle to
+    watch the hero (and chose not to betray them); or Lexa is the one who summoned
+    Louis, and feels guilty for what he became.
+
+
+==========================================================
+3. GRIEF AND MEMORY
+==========================================================
+Today, after Elder Orin dies, nothing in the code mentions him again
+(only raid.js and chapters.js know his name).
+
+(A) Orin is remembered
+  - The next morning: a funeral on the square. The villagers come, Aria cries,
+    Tomo does not speak. A eulogy to read (the church memorial exists in houses.js).
+  - A grave in Eldermoor with his last words written on it: "Finish the sentence."
+  - His house stays empty for a while, then a villager takes the role of elder.
+  - In the final fight against Solecis, his words come back to the hero.
+
+(A) Tomo, the child who saw it
+  - For some days, Tomo does not talk. Then he asks the hero to teach him words, so that
+    next time he can fight too. A small arc: he grows, he learns, he is proud of the hero.
+  - If the hero ignores him, he becomes cold, then leaves to join the guard too young.
+
+(A) The raids leave marks
+  - The names of the villagers killed in a raid are carved on a memorial stone at the square.
+  - Their family mourns them: a closed shop, a widow on the bench at night.
+  - The burnt houses are rebuilt slowly, and the people talk about that night.
+
+(A) Aria's three rescues feel different
+  - Rescue 1: she is relieved and scolds the hero.
+  - Rescue 2: she is afraid, her hands shake, she asks the hero to be careful.
+  - Rescue 3: she is exhausted, she says it is the last time she can do it, and she means it.
+  - After that, before each boss fight, she says something.
+
+(B) The world remembers the big events
+  - The memory of the NPCs exists (realism/socialAndCodex.js rememberNpcInteraction),
+    but it has very few lines. Each big event should give a line to many people:
+    the first raid, each boss defeated, each death, the wedding of the hero, a betrayal.
+  - Gossip at the tavern and on the square changes with what happened this week.
+
+
+==========================================================
+4. PEOPLE WHO WANT THINGS
+==========================================================
+Today each NPC has 3 greetings ("hello") and 4 lines about their life ("life").
+After a few talks, the player has heard everything.
+
+(A) A personal arc for the main characters
+  - 3 to 5 steps each, opened by friendship and by the chapters of the story.
+  - Each arc has a wish, a fear and a secret. Proposals:
+    * Aria: the Silence took her mother's voice. She wants to find out where the stolen
+      voices go. Her arc ends in the Castle of Silence.
+    * Mira: she wants to forge a blade that can cut the Silence. She needs rare
+      materials, and she doubts herself.
+    * Yuki: she keeps a forbidden book in the library. It is about Louis.
+    * Garrick: he was on guard the night Orin died. He thinks it is his fault.
+    * Nyx: she ran away from the castle. What did she see there? Who is she running from?
+    * Lea (the rival classmate): she wants to be the one who ends the story. A duel
+      that becomes respect, or a fall.
+    * Hugo (the reborn classmate): he is happy here. He does not want to go back to Earth,
+      and he is afraid the hero will.
+
+(A) More lines, that change with time
+  - Lines unlocked by friendship (stranger, friend, close friend, love).
+  - Lines that depend on the chapter (before the first raid, after Orin, near the end).
+  - Lines that depend on the season, the weather, a recent event.
+
+(B) People talk about each other
+  - The bonds exist in data/npcs.js (friend, rival, student, family). Turn them into
+    scenes: Aria and Corvin argue, Mira teaches Darius, Elara and Aria share a tea.
+  - The hero can make peace between two rivals, or take a side.
+
+(B) People react to the hero
+  - The way the hero plays is noticed: always fast ("You never hesitate."), often wrong
+    ("Words are hard for you, eh?"), always away ("We never see you here anymore."),
+    kind or cruel with villagers.
+
+
+==========================================================
+5. CHOICES WITH WEIGHT
+==========================================================
+
+(B) A few real dilemmas
+  - A raid and a caravan are attacked the same night: the hero can only save one.
+  - Barbarism is beaten: kill him, or let him go (Lyra asks for mercy).
+  - The guards discover Nyx is a demon: hide her, or let them take her.
+  - Lea asks the hero to let her strike the last blow against a general.
+
+(B) Consequences that come later
+  - A spared enemy comes back in the last chapter (to help, or to betray).
+  - A person who was not saved is missing at the wedding, at the feast, in the epilogue.
+
+(B) Endings that reflect what the hero did
+  - Today the hero ending is 6 lines (+ the truth about Louis if the name is known).
+  - Add an epilogue part for each important person: alive or dead, close or far,
+    what became of them. ("Tomo became the youngest scribe of Eldermoor.")
+
+
+==========================================================
+6. SIDE QUESTS WITH STORIES
+==========================================================
+Today: 17 side quests, mostly "bring X" ("Firewood for the forge", "Branches for farm fences").
+
+(B) Some quests that tell a story
+  - Several steps, a twist, a choice. Proposals:
+    * "A letter to the coast": the letter is a love letter. The hero reads it (a text to
+      read) and discovers the sender is already dead.
+    * "Monsters under the bed": the child is not afraid of monsters, but of the Silence
+      that took his father's voice.
+    * "Thieves of words": the thieves are children who sell stolen words to survive.
+  - Some quests end sadly. Not every story has a happy end.
+
+(C) Quests that come from the world
+  - A quest born from what happened: after a raid, a family asks to find their lost dog;
+    after the death of the baker, her son tries to bake the bread alone.
+
+
+==========================================================
+7. THREATS YOU CAN FEEL
+==========================================================
+
+(B) The Silence spreads, and you see it
+  - The demon threat moves every day (war/demonThreat.js). Show it:
+    a village taken by the Silence has blank signs, mute people, grey colors,
+    no music. The player wants to give it back its voice.
+  - Freeing a village = its colors, its music and its people's voices come back.
+
+(B) Enemies with names
+  - The nemesis of REALISM.txt (the monster that knocked out the hero gets a name and
+    comes back) makes fear personal.
+  - The emissaries and clans of the Demon King (ISEKAI_TODO.txt) each have a leader
+    with a face, a voice and a reason.
+
+(B) Before and after a raid
+  - Before: the omen (it exists), then the village prepares: barricades, children hidden,
+    a speech at the gate.
+  - After: the morning after, the damage, the names, the hero walks among the people.
+
+
+==========================================================
+8. THE HERO'S OWN STORY
+==========================================================
+
+(B) A past on Earth
+  - The hero was running to their TOEIC exam. Who were they? A job interview waiting,
+    a parent who believed in them, a friend they never called back.
+  - Dreams of Earth when the hero sleeps (REALISM.txt part 5): short texts in English,
+    a memory each time.
+
+(B) The final choice means something
+  - The portal "Return to Earth & pass your TOEIC" exists (isekaiStructures.js).
+    Make it a real goodbye: the hero says farewell to each friend, or decides to stay.
+  - It is the meaning of the whole game: you learned the words, now you can go and use them.
+
+(C) A small inner voice
+  - A short thought of the hero at the big moments ("I couldn't save him.",
+    "Is this what Louis felt?").
+
+
+==========================================================
+9. SMALL MOMENTS
+==========================================================
+
+(C) Campfire talks
+  - The camp exists. Add short written talks between the friends of the party at night:
+    their past, their jokes, their fears.
+
+(C) Feasts, birthdays, weddings of the villagers
+  - The hero is invited. A speech to read, a dance, a gift to choose.
+
+(C) The children grow up
+  - The babies of the village grow (families.js). As adults, they remember the hero:
+    "You saved my mother during the third raid."
+
+(C) Something to protect
+  - A small animal that follows the hero home and waits at the door.
+
+
+==========================================================
+10. PRESENTATION
+==========================================================
+
+(B) Silence as an effect
+  - The enemy is the Silence: use real silence. In the lands of the Demon King, the music
+    fades, the footsteps get quiet. When a village is freed, the music comes back.
+
+(B) A theme for the important characters
+  - A short melody for Aria, Nyx, Solecis (audio/songs.js), played in their scenes.
+
+(B) The faces in the dialogs
+  - The expressions atlas exists (joy, sadness, anger, fear, surprise, love, disgust).
+    Use them in every story scene: the face changes with the line.
+
+(B) The monsters wear their grammar color
+  - Today, the monsters of the sprite sheets are not tinted: a "gerunds" slime is blue.
+    Give them the color of their category (a tint, an aura or a mark), like the README says.
+
+(C) Scene direction
+  - The camera moves slowly toward a speaker, a short pause before a big line,
+    a fade to black after a death.
+
+
+==========================================================
+11. HOW TO KNOW IT WORKS
+==========================================================
+
+After 1 hour of play, ask a tester:
+  - Can you name 3 characters? What does each one want?
+  - Was there a moment you felt something (sad, angry, proud)?
+  - Who do you want to protect? Who do you want to defeat, and why?
+  - What do you want to do next in the game?
+If the answers are vague, the game needs more soul, not more systems.

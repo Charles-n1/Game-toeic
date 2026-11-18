@@ -7,6 +7,7 @@ import { isNight, NIGHTFALL, SUNRISE } from './clock';
 import { killNpc, addHappiness } from './village';
 import { earnLexis, awaken } from './player';
 import { say, notify } from './messages';
+import { recordRaidFallenSoul, triggerRaidVsCaravanDilemma, ensureSoul } from './soul';
 
 // Every 7 nights, the north attacks Eldermoor. The monsters walk to the villagers and kill them,
 // unless the player fights them first. Each raid is bigger than the one before.
@@ -50,7 +51,13 @@ function playNightOfSilence(game) {
 function startRaid(game) {
   game.raid.active = true;
   game.raid.deaths = 0;
+  const soul = ensureSoul(game);
   if (game.raid.count === 0) playNightOfSilence(game);
+  else if (game.raid.count === 1 && !soul.dilemmas.raidVsCaravan) triggerRaidVsCaravanDilemma(game);
+  else if (soul.raidMemory.lastPreRaidWarnDay !== game.day) {
+    soul.raidMemory.lastPreRaidWarnDay = game.day;
+    notify(game, '🪵 Guards barricade the gates and hurry children indoors!', '#ffb070');
+  }
   for (let i = 0; i < raidSize(game); i++) spawnRaider(game);
   notify(game, '🔥 LEXIA IS UNDER ATTACK! Protect the villagers!', '#ff6060');
 }
@@ -100,6 +107,7 @@ function hunt(game, monster, dt) {
   if (monster.biteTime >= BITE_SECONDS) {
     monster.biteTime = 0;
     game.raid.deaths += 1;
+    recordRaidFallenSoul(game, [victim.name]);
     killNpc(game, victim.id, [victim.name + ' screams. Then the scream stops, like a sentence cut in the middle.']);
   }
 }
@@ -120,6 +128,7 @@ function endRaid(game, won) {
   const reward = 40 * raid.count;
   earnLexis(game, reward);
   addHappiness(game, raid.deaths === 0 ? 10 : 4);
+  if (raid.deaths > 0) notify(game, '🕯️ At dawn, flowers appear beneath Eldermoor Square’s memorial stone.', '#cfe3ff');
   notify(game, '🛡️ The raid is over! The village gives you ' + reward + ' Lexis.', '#7CFC9A');
 }
 

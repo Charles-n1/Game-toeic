@@ -375,6 +375,10 @@ export function interactVillager(game, villager) {
   const s = ensureSociety(game);
   const village = villageOf(villager.village);
   const state = villageState(game, villager.village);
+  if (state?.owner === 'monsters') {
+    say(game, null, [villager.name + ': "... (stares quietly at the blank signpost without speaking)"']);
+    return;
+  }
 
   if (villager.angry > 0) {
     say(game, null, [villager.name + ': "Stay back! I have nothing to say to you!"'], [

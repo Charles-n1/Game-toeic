@@ -3,6 +3,7 @@ import { SPAWN, zoneAt } from '../data/zones';
 import { pickRandom } from '../../logic/random';
 import { addHappiness, addFriendship } from './village';
 import { say, notify } from './messages';
+import { grownChildSoulGreeting } from './soul';
 
 // The families of the world. game.families: [{ parents: ['finn', 'lila'], children: ['Verba'], nextBabyDay: 4 }]
 // The player is the parent named 'player'. People fall in love, marry and have babies while the days pass,
@@ -175,8 +176,8 @@ export function talkToKid(game, kid) {
     return;
   }
   const parents = kid.family.parents.map(nameOf).join(' & ');
+  const grownText = kid.isYouth ? '"' + grownChildSoulGreeting(game, kid.name, kid.family.parents) + '"' : '"Hello, Hero! Look how tall I am getting!"';
   say(game, null, [
-    kid.name + (kid.isYouth ? ' (Youth, age ' + kid.ageDays + 'd)' : ' (Child of ' + parents + ')') + ': ' +
-      (kid.isYouth ? '"Everyone in town talks about how fast you master the runes!"' : '"Hello, Hero! Look how tall I am getting!"'),
+    kid.name + (kid.isYouth ? ' (Youth, age ' + kid.ageDays + 'd)' : ' (Child of ' + parents + ')') + ': ' + grownText,
   ]);
 }
