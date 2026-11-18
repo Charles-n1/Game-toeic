@@ -1,4 +1,4 @@
-import { insideOf } from '../data/zones';
+import { insideOf, HOME_DOOR, zoneAt } from '../data/zones';
 import { ITEMS } from '../data/items';
 import { TILE, tileAt, isSolid } from '../world/map';
 import { countItem, addItem, removeItem } from './player';
@@ -11,6 +11,7 @@ import { openHomeChest } from './chest';
 
 export const WALL_COLORS = ['#e6d3ad', '#c9e4f2', '#f2c9d9', '#d4e8c4', '#e0d0f0', '#5a4a3a'];
 export const BED_COLORS = ['#d6302f', '#3a7bff', '#4cc35a', '#a066ff', '#ffd23f', '#f2f2f2'];
+export const LIGHT_FURNITURE_IDS = ['homeLamp', 'candelabra', 'hearthTorch', 'crystalLantern'];
 
 export function firstHome() {
   return { furniture: [], wall: 0, bed: 0, storage: {} };
@@ -22,9 +23,29 @@ export function isAtHome(game) {
   return x >= home.x && x < home.x + home.w && y >= home.y && y < home.y + home.h;
 }
 
+export function isLightFurniture(itemId) {
+  return LIGHT_FURNITURE_IDS.includes(itemId) || ITEMS[itemId]?.furniture === 'lamp';
+}
+
+export function isNearLetterbox(game) {
+  if (!game?.player || zoneAt(game.player.x, game.player.y).kind === 'inside') return false;
+  return Math.hypot(game.player.x - (HOME_DOOR.x + 2), game.player.y - (HOME_DOOR.y + 0.5)) < 1.8;
+}
+
 // The furniture of the home, as props (they block the way, and are drawn).
 export function furnitureProps(game) {
-  return game.home.furniture.map((piece) => ({ kind: 'furniture', x: piece.x, y: piece.y, w: 1, h: 1, itemId: piece.itemId, look: ITEMS[piece.itemId].furniture, color: ITEMS[piece.itemId].color }));
+  return (game.home?.furniture || [])
+    .filter((piece) => ITEMS[piece.itemId])
+    .map((piece) => ({
+      kind: 'furniture',
+      x: piece.x,
+      y: piece.y,
+      w: 1,
+      h: 1,
+      itemId: piece.itemId,
+      look: ITEMS[piece.itemId].furniture,
+      color: ITEMS[piece.itemId].color,
+    }));
 }
 
 // Can a piece of furniture go on the tile (x, y)? (A free tile of the floor, not the door mat.)

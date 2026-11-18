@@ -7,6 +7,8 @@ import ShopScreen from './ShopScreen';
 import ChestScreen from './ChestScreen';
 import MenuScreen from './menu/MenuScreen';
 import GameOver from './GameOver';
+import LevelUpModal from './LevelUpModal';
+import EpisodeCardModal from './EpisodeCardModal';
 import { drawScene } from '../draw/scene';
 import { makeInput, releaseAll, normalizeKey, ACTION_KEYS } from '../logic/input';
 import { updateGame, updateEffects, act } from '../logic/update';
@@ -163,6 +165,24 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
       {screen === 'chest' && <ChestScreen game={game} refresh={refresh} />}
       {screen === 'menu' && <MenuScreen game={game} refresh={refresh} onClose={close} onQuit={quit} />}
       {screen === 'over' && <GameOver game={game} onRestart={onRestart} onQuit={onQuit} />}
+      {screen === 'play' && game.run.levelUpQueue?.length > 0 && (
+        <LevelUpModal
+          entry={game.run.levelUpQueue[0]}
+          onClose={() => {
+            game.run.levelUpQueue.shift();
+            refresh();
+          }}
+        />
+      )}
+      {screen === 'play' && !(game.run.levelUpQueue?.length > 0) && game.run.episodeModal && (
+        <EpisodeCardModal
+          modal={game.run.episodeModal}
+          onClose={() => {
+            game.run.episodeModal = null;
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

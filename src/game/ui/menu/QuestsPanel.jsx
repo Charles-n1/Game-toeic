@@ -16,6 +16,9 @@ import { partnerOf, childrenOf } from '../../logic/families';
 import { bountyProgress } from '../../logic/society/worldLife';
 import { isVillageUnderAttack, isNpcKidnapped } from '../../logic/war';
 import { ensureGuild, rankInfo, nextRankInfo, guildContractProgress, abandonGuildContract } from '../../logic/guild/ranks';
+import { ensureIsekaiTodo } from '../../logic/isekaiTodo/state';
+import { canFoundOwnGuild, foundOwnGuild, ownGuildCap, recruitableGuildCandidates, addOwnGuildMember, sendOwnGuildMission, upgradeOwnGuildHall } from '../../logic/isekaiTodo/ownGuild';
+import { towerState, enterTowerFloor, SECRET_CLUES, canOpenSecretFloor, trySecretFloorRiddle, raidSquadRoles, startGroupRaid } from '../../logic/isekaiTodo/dungeonsPlus';
 
 function nameOf(id) {
   return id === 'player' ? 'you' : npcOf(id).name;
@@ -159,10 +162,17 @@ function PersonLine({ game, npc }) {
 }
 
 // Beautiful tabbed Quests & Journal menu, crafted to feel crisp on both mobile and desktop.
-export default function QuestsPanel({ game, refresh }) {
+export default function QuestsPanel({ game, refresh, onClose }) {
   const [tab, setTab] = useState('quests');
   const [villageFilter, setVillageFilter] = useState('all');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [guildName, setGuildName] = useState('Dawnblade Guild');
+  const todo = ensureIsekaiTodo(game);
+  const og = todo.ownGuild;
+  const tower = towerState(game);
+  const raidRoles = raidSquadRoles(game);
+  const foundCheck = canFoundOwnGuild(game);
+  const candidates = recruitableGuildCandidates(game);
 
   const focus = typeOf(game.focus.current);
   const quests = activeQuests(game);
@@ -186,8 +196,9 @@ export default function QuestsPanel({ game, refresh }) {
 
   const tabs = [
     { id: 'quests', icon: '📜', label: 'Quests', count: quests.length + bounties.length + guildContracts.length },
+    { id: 'expeditions', icon: '🏰', label: 'Guild & Spire' },
     { id: 'focus', icon: '🎯', label: 'Focus' },
-    { id: 'villages', icon: '🏰', label: 'Towns', count: VILLAGES.length },
+    { id: 'villages', icon: '🧭', label: 'Towns', count: VILLAGES.length },
     { id: 'people', icon: '♥', label: 'Bonds', count: met.length },
     { id: 'diary', icon: '📖', label: 'Diary' },
   ];
@@ -336,6 +347,169 @@ export default function QuestsPanel({ game, refresh }) {
               {game.bosses.king ? '☀ The North speaks again — no raids remain.' : `⚔ Next raid in ${daysBeforeRaid(game)} day(s) · Raids survived: ${game.raid.count}`}
             </span>
           </div>
+        </>
+      )}
+
+      {tab === 'expeditions' && (
+        <>
+          <span className="section">Own Adventurer Guild</span>
+          {!og.founded ? (
+            <div className="quest-card">
+              <span>Found Your Own Guild Charter</span>
+              <span className="small">Recruit companions &amp; friendly monsters, build dorm rooms, and dispatch idle missions.</span>
+              <input
+                type="text"
+                value={guildName}
+                maxLength={26}
+                onChange={(e) => setGuildName(e.target.value)}
+                style={{ padding: '4px 6px', background: '#141a33', color: '#fff', border: '1px solid #6b7ab8', fontFamily: 'inherit' }}
+              />
+              {!foundCheck.ok && <span className="small" style={{ color: '#ffb070' }}>🔒 {foundCheck.reason}</span>}
+              <button
+                className="px-button px-gold"
+                disabled={!foundCheck.ok}
+                onClick={() => {
+                  foundOwnGuild(game, guildName.trim() || 'Dawnblade Guild');
+                  if (refresh) refresh();
+                }}
+              >
+                Found Guild (150 Lexis)
+              </button>
+            </div>
+          ) : (
+            <div className="quest-card">
+              <div className="row between">
+                <span className="gold" style={styles.cardTitle}>{og.name} (Lv.{og.level}/5)</span>
+                <span className="small">Members {og.members.length}/{ownGuildCap(game)} · Dorm Rooms {og.rooms}</span>
+              </div>
+              {og.level < 5 && (
+                <button
+                  className="px-button"
+                  disabled={game.player.lexis < 120 * og.level}
+                  onClick={() => { upgradeOwnGuildHall(game); if (refresh) refresh(); }}
+                >
+                  Expand Guild Hall ({120 * og.level} Lexis)
+                </button>
+              )}
+              {og.members.map((m) => (
+                <div key={m.id} className="line">
+                  <div className="grow">
+                    <span>{m.name} <span className="small">({m.kind})</span></span>
+                    <span className="small">
+                      {m.status === 'mission' ? `On expedition (returns Day ${m.returnDay})` : m.injuredUntilDay > game.day ? `Resting injury until Day ${m.injuredUntilDay}` : `Idle · Power ${m.power}`}
+                    </span>
+                  </div>
+                  <button
+                    className="px-button px-gold"
+                    disabled={m.status !== 'idle' || m.injuredUntilDay > game.day}
+                    onClick={() => { sendOwnGuildMission(game, m.id); if (refresh) refresh(); }}
+                  >
+                    Dispatch
+                  </button>
+                </div>
+              ))}
+              {candidates.length > 0 && og.members.length < ownGuildCap(game) && (
+                <>
+                  <span className="small">Recruit available allies:</span>
+                  <div className="row wrap" style={{ gap: 4 }}>
+                    {candidates.slice(0, 6).map((c) => (
+                      <button
+                        key={c.id}
+                        className="px-button"
+                        onClick={() => { addOwnGuildMember(game, c); if (refresh) refresh(); }}
+                      >
+                        + {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <span className="section">Spire of Babel · 10-Floor Dungeon Tower</span>
+          <div className="quest-card">
+            <span>Unlocked Floor: <strong className="gold">{tower.maxFloor} / 10</strong> · Checkpoint: Floor {tower.checkpoint}</span>
+            <span className="small">Bosses wait on Floors 5 &amp; 10. Beating Floor 5 unlocks a permanent Floor 6 Checkpoint!</span>
+            <div className="row wrap" style={{ gap: 6 }}>
+              <button
+                className="px-button px-gold"
+                onClick={() => {
+                  if (onClose) onClose();
+                  enterTowerFloor(game, tower.maxFloor);
+                  if (refresh) refresh();
+                }}
+              >
+                Enter Floor {tower.maxFloor}
+              </button>
+              {tower.checkpoint > 1 && (
+                <button
+                  className="px-button"
+                  onClick={() => {
+                    if (onClose) onClose();
+                    enterTowerFloor(game, tower.checkpoint);
+                    if (refresh) refresh();
+                  }}
+                >
+                  Warp Floor {tower.checkpoint}
+                </button>
+              )}
+              <button
+                className="px-button"
+                onClick={() => {
+                  if (onClose) onClose();
+                  enterTowerFloor(game, 1);
+                  if (refresh) refresh();
+                }}
+              >
+                Climb From F1
+              </button>
+            </div>
+          </div>
+
+          <span className="section">Group Raid · 3-Role Squad</span>
+          <div className="quest-card">
+            <span>Roles: {raidRoles.map((r) => `${r.name} (${r.role})`).join(' · ')}</span>
+            <span className="small">Answer fast to issue All-Out Raid Volley; answer steady for Phalanx &amp; Heal!</span>
+            <button
+              className="px-button px-gold"
+              onClick={() => {
+                if (onClose) onClose();
+                startGroupRaid(game);
+                if (refresh) refresh();
+              }}
+            >
+              Launch Group Raid
+            </button>
+          </div>
+
+          <span className="section">Secret Dungeon Floors (English Clues)</span>
+          {Object.values(SECRET_CLUES).map((clue) => {
+            const unlocked = Boolean(todo.tower?.secretUnlocked?.[clue.dungeonId]);
+            const cleared = Boolean(todo.tower?.secretCleared?.[clue.dungeonId]);
+            const avail = canOpenSecretFloor(game, clue.dungeonId);
+            return (
+              <div key={clue.dungeonId} className="line">
+                <div className="grow">
+                  <span>{clue.chamberName} <span className="small">({clue.dungeonName})</span></span>
+                  <span className="small">
+                    {cleared ? '✓ Secret Treasure Claimed' : unlocked ? 'Opened — Defeat Hidden Boss!' : 'Decipher the ancient wall riddle to unlock.'}
+                  </span>
+                </div>
+                <button
+                  className="px-button"
+                  disabled={!avail}
+                  onClick={() => {
+                    if (onClose) onClose();
+                    trySecretFloorRiddle(game, clue.dungeonId);
+                    if (refresh) refresh();
+                  }}
+                >
+                  {cleared ? 'Done' : unlocked ? 'Fight Boss' : 'Solve Clue'}
+                </button>
+              </div>
+            );
+          })}
         </>
       )}
 

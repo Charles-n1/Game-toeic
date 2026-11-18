@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Window from './Window';
 import PixelIcon from './PixelIcon';
 import Portrait from './Portrait';
@@ -10,6 +11,7 @@ import { villageOf } from '../data/zones';
 import { negotiate } from '../logic/duels';
 import { countItem } from '../logic/player';
 import { upgradeBottle, nextBottleUpgrade } from '../logic/survival';
+import { refineLevelOf, refinedItemName, refineBonusForItem, refineRequirements, refineGear } from '../logic/isekaiTodo/progression';
 import { notify } from '../logic/messages';
 
 function dealText(game) {
@@ -19,6 +21,8 @@ function dealText(game) {
 
 // A shop: buy, sell, and negotiate the prices with a duel of words (once a day).
 export default function ShopScreen({ game, refresh, onClose }) {
+  const [useProt, setUseProt] = useState(false);
+  const [useStone, setUseStone] = useState(false);
   const shop = game.run.shop;
   const seller = npcOf(shop.npcId);
   const player = game.player;
@@ -125,6 +129,63 @@ export default function ShopScreen({ game, refresh, onClose }) {
                 1 Ore/Pelt
               </button>
             </div>
+          </>
+        )}
+
+        {shop.kind === 'forge' && (
+          <>
+            <span className="section">Blacksmith Refining (+1 to +10)</span>
+            <div className="row wrap" style={{ gap: 8, marginBottom: 4 }}>
+              <label className="small row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={useProt && countItem(player, 'protectionScroll') > 0} disabled={countItem(player, 'protectionScroll') <= 0} onChange={(e) => setUseProt(e.target.checked)} />
+                Protection Scroll ({countItem(player, 'protectionScroll')})
+              </label>
+              <label className="small row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={useStone && countItem(player, 'refineStone') > 0} disabled={countItem(player, 'refineStone') <= 0} onChange={(e) => setUseStone(e.target.checked)} />
+                Whetstone +15% ({countItem(player, 'refineStone')})
+              </label>
+            </div>
+            {['weapon', 'armor'].map((slot) => {
+              const id = player[slot];
+              if (!id || !ITEMS[id]) return null;
+              const lv = refineLevelOf(game, id);
+              const req = refineRequirements(lv);
+              const bonus = refineBonusForItem(game, id);
+              const rate = useStone && countItem(player, 'refineStone') > 0 ? Math.min(98, req.ratePct + 15) : req.ratePct;
+              const canTry =
+                lv < 10 &&
+                player.lexis >= req.lexis &&
+                countItem(player, 'ore') >= req.ore &&
+                countItem(player, 'crystal') >= req.crystal;
+              return (
+                <div key={slot} className="line">
+                  <PixelIcon name={id} size={28} />
+                  <div className="grow">
+                    <span>
+                      {refinedItemName(game, id)} <span className="gold">(+{bonus} {slot === 'weapon' ? 'Atk' : 'Def'})</span>
+                    </span>
+                    <span className="small">
+                      {lv >= 10
+                        ? 'Maximum refine level reached (+10).'
+                        : `Rate ${rate}% · ${req.lexis}L · ${req.ore} Ore${req.crystal > 0 ? ` · ${req.crystal} Crystal` : ''}${lv >= 3 ? ' (Fail drops −1 unless protected)' : ''}`}
+                    </span>
+                  </div>
+                  <button
+                    className="px-button px-gold"
+                    disabled={!canTry}
+                    onClick={() => {
+                      refineGear(game, slot, {
+                        useProtection: useProt && countItem(player, 'protectionScroll') > 0,
+                        useStone: useStone && countItem(player, 'refineStone') > 0,
+                      });
+                      refresh();
+                    }}
+                  >
+                    {lv >= 10 ? 'MAX' : `Refine +${lv + 1}`}
+                  </button>
+                </div>
+              );
+            })}
           </>
         )}
 

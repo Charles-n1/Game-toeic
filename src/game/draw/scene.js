@@ -1,11 +1,14 @@
 import { NPCS, npcOf } from '../data/npcs';
-import { HOUSES, SEALS, WORLD_SIZE, INSIDE_TOP, HOME_DOOR, zoneAt, houseSize } from '../data/zones';
+import { HOUSES, SEALS, VILLAGES, DUNGEONS, LANDS, WORLD_SIZE, INSIDE_TOP, HOME_DOOR, zoneAt, houseSize } from '../data/zones';
+import { SPECIES } from '../data/monsters';
+import { ELEMENTAL_SPIRITS, INTELLIGENT_MONSTERS, MONSTER_RANKS } from '../data/isekaiTodo';
 import { typeOf } from '../data/types';
 import { TILE, tileAt, biomeAt, noise, CHESTS, PORTS, propsInArea, getMapRevision } from '../world/map';
 import { activeQuestOf, offeredQuest, isQuestReady } from '../logic/quests';
 import { isCropReady, closestTreasure } from '../logic/farm';
 import { isSealOpen } from '../logic/seals';
 import { hasLight } from '../logic/torch';
+import { isNight } from '../logic/clock';
 import { visibleVillagers } from '../logic/villagers';
 import { isRiddleSolved } from '../logic/puzzles';
 import { BED_COLORS, WALL_COLORS } from '../logic/home';
@@ -380,6 +383,10 @@ function propSprite(prop, time, game) {
     bars: () => buildings.bars(),
     wordDoor: () => buildings.wordDoor(blink),
     furniture: () => buildings.furniture(prop.look, prop.color),
+    candelabra: () => buildings.furniture('lamp', '#ffbe44'),
+    hearthTorch: () => buildings.furniture('lamp', '#ff8a2a'),
+    crystalLantern: () => buildings.furniture('lamp', '#7fd6ff'),
+    homeLamp: () => buildings.furniture('lamp', '#ffd23f'),
     keepFacade: () => buildings.keepFacade(prop.look, prop.w, blink),
     turret: () => buildings.turret(prop.look),
     hotSpring: () => isekaiArt.hotSpring(Math.floor(time * 3) % 3),
@@ -959,13 +966,152 @@ function drawSmoke(ctx, game, view, time) {
 // ---------- Lights ----------
 
 // The things that burn or glow.
-const LIGHT_KINDS = { lamp: 58, torch: 52, campfire: 70, cauldron: 50, crystal: 40, wallTorch: 58, stove: 44, homeLamp: 44, obelisk: 24, shrine: 40, portalRuins: 46, hotSpring: 40, heroGrave: 26 }; // their radius, in pixels
-const COLD_LIGHTS = ['crystal', 'obelisk', 'shrine', 'portalRuins', 'hotSpring', 'heroGrave']; // a magic light: no warm halo
+const LIGHT_KINDS = { lamp: 58, torch: 52, campfire: 70, cauldron: 50, crystal: 40, wallTorch: 58, stove: 44, homeLamp: 48, candelabra: 56, hearthTorch: 52, crystalLantern: 62, obelisk: 24, shrine: 40, portalRuins: 46, hotSpring: 40, heroGrave: 26 }; // their radius, in pixels
+const COLD_LIGHTS = ['crystal', 'crystalLantern', 'obelisk', 'shrine', 'portalRuins', 'hotSpring', 'heroGrave']; // a magic light: no warm halo
+const LIGHT_FURNITURE_IDS = ['homeLamp', 'candelabra', 'hearthTorch', 'crystalLantern'];
 const HERO_TORCH_LIGHT = 92; // pixels
 const WINDOW_LIGHT = 44;
 const KNIGHT_TORCH_LIGHT = 46;
 const DEMON_GLOW = 26;
 const BEDTIME = [21, 24]; // each house puts its lights out between these hours (and lights them again before dawn)
+
+const COURIER_LOOK = { skin: '#fde0c8', hair: '#5a3a1e', style: 'short', eyes: '#3a6fd8', outfit: '#2f50a0', trim: '#ffd23f', scarf: '#e8423f' };
+
+function spiritAltarPositions(game) {
+  if (Array.isArray(game?.run?.spiritAltars)) return game.run.spiritAltars;
+  const molten = DUNGEONS.find((d) => d.id === 'molten');
+  const emerald = LANDS.find((l) => l.id === 'emerald');
+  const watchtower = DUNGEONS.find((d) => d.id === 'watchtower');
+  const mineWest = DUNGEONS.find((d) => d.id === 'mineWest');
+  const spots = {
+    salamander: molten ? { x: molten.x + 2, y: molten.y + molten.h + 2 } : { x: 382, y: 518 },
+    undine: emerald ? { x: emerald.x * 10, y: emerald.y * 10 } : { x: 2350, y: 720 },
+    sylph: watchtower ? { x: watchtower.x + 4, y: watchtower.y + watchtower.h + 2 } : { x: 1544, y: 1622 },
+    gnome: mineWest ? { x: mineWest.x + 3, y: mineWest.y + mineWest.h + 2 } : { x: 303, y: 912 },
+  };
+  return ELEMENTAL_SPIRITS.map((sp) => ({ id: sp.id, name: sp.name, color: sp.color, ...spots[sp.id] }));
+}
+
+function intelligentMonsterEntities(game) {
+  if (Array.isArray(game?.run?.intelligentMonsters)) return game.run.intelligentMonsters;
+  const v0 = VILLAGES[0];
+  if (!v0) return [];
+  const cx = v0.x + Math.floor(v0.w / 2);
+  const cy = v0.y + Math.floor(v0.h / 2);
+  const recruited = game?.isekaiTodo?.intelligent?.recruited || [];
+  return INTELLIGENT_MONSTERS.filter((m) => !recruited.includes(m.id)).map((m) => ({
+    ...m,
+    x: cx + (m.offset?.dx || 0),
+    y: cy + (m.offset?.dy || 0),
+    dir: 'left',
+  }));
+}
+
+function drawEnvelope(ctx, x, y, urgent = false) {
+  ctx.fillStyle = '#1c1726';
+  ctx.fillRect(x - 4, y - 3, 9, 6);
+  ctx.fillStyle = urgent ? '#fff4d4' : '#ffffff';
+  ctx.fillRect(x - 3, y - 2, 7, 4);
+  ctx.fillStyle = urgent ? '#e8324c' : '#3a7bff';
+  ctx.fillRect(x, y - 1, 1, 2);
+}
+
+export function isekaiTodoDrawings(game, view, time) {
+  if (!game || !game.run) return [];
+  const list = [];
+
+  // 1. Royal Courier Messenger holding an urgent Part 6 envelope
+  const courier = game.run.courier;
+  if (courier && isNear(view, courier.x - 1, courier.y - 2, 2, 2)) {
+    list.push({
+      y: courier.y,
+      draw: (ctx) => {
+        put(ctx, shadow(), courier.x * T, courier.y * T, view);
+        put(ctx, personSprite(COURIER_LOOK, courier.dir || 'down', walkPose(courier.step || 0, courier.walking, time, 77)), courier.x * T, courier.y * T, view);
+        const bob = Math.round(Math.sin(time * 5) * 1.5);
+        const cx = Math.round(courier.x * T - view.x);
+        const cy = Math.round(courier.y * T - view.y);
+        drawEnvelope(ctx, cx + 6, cy - 12 + bob, true);
+        put(ctx, props.bubble('!'), courier.x * T, courier.y * T - 32 + bob, view);
+      },
+    });
+  }
+
+  // 2. Demon Emissary Warbands & Crimson Banners
+  for (const em of Array.isArray(game.run.emissaries) ? game.run.emissaries : []) {
+    if (!em || em.defeated || !isNear(view, em.x - 2, em.y - 3, 4, 4)) continue;
+    const spec = SPECIES[em.species] || SPECIES.warGeneral;
+    list.push({
+      y: em.y,
+      draw: (ctx) => {
+        const ex = Math.round(em.x * T - view.x);
+        const ey = Math.round(em.y * T - view.y);
+        ctx.fillStyle = 'rgba(220, 32, 48, ' + (0.24 + Math.sin(time * 4) * 0.1).toFixed(2) + ')';
+        ctx.fillRect(ex - 11, ey - 3, 22, 6);
+        put(ctx, props.monsterBanner(), (em.x - 0.9) * T, em.y * T, view);
+        put(ctx, shadow(), em.x * T, em.y * T, view);
+        const sprite = monsterSprite({ ...spec, species: em.species || 'warGeneral', category: spec.category || 'vocabulary' }, em.dir || 'left', Math.floor(time * 2) % 2, 'idle');
+        put(ctx, sprite, em.x * T, em.y * T, view);
+        put(ctx, props.tagMark('extreme'), em.x * T + 7, em.y * T - sprite.ay - 2, view);
+      },
+    });
+  }
+
+  // 3. Peaceful Intelligent Monsters (Chief Grog, Sszarak, Aeris)
+  for (const im of intelligentMonsterEntities(game)) {
+    if (!isNear(view, im.x - 1, im.y - 2, 3, 3)) continue;
+    const spec = SPECIES[im.species] || SPECIES.goblin;
+    const befriended = Boolean(game.isekaiTodo?.intelligent?.befriended?.[im.id]);
+    list.push({
+      y: im.y,
+      draw: (ctx) => {
+        put(ctx, shadow(), im.x * T, im.y * T, view);
+        const sprite = monsterSprite({ ...spec, species: im.species, category: spec.category || 'vocabulary' }, im.dir || 'left', Math.floor(time * 1.5) % 2, 'idle');
+        put(ctx, sprite, im.x * T, im.y * T, view);
+        const bob = Math.round(Math.sin(time * 3.5 + im.x) * 1.5);
+        put(ctx, props.bubble(befriended ? '?' : '!'), im.x * T, im.y * T - sprite.ay - 4 + bob, view);
+      },
+    });
+  }
+
+  // 4. Elemental Spirit Altars (Salamander, Undine, Sylph, Gnome)
+  for (const altar of spiritAltarPositions(game)) {
+    if (!isNear(view, altar.x - 2, altar.y - 2, 4, 4)) continue;
+    const contracted = Boolean(game.isekaiTodo?.spirits?.contracted?.[altar.id]);
+    list.push({
+      y: altar.y,
+      draw: (ctx) => {
+        const ax = Math.round(altar.x * T - view.x);
+        const ay = Math.round(altar.y * T - view.y);
+        ctx.fillStyle = altar.color || '#8fd6ff';
+        ctx.globalAlpha = 0.28 + Math.sin(time * 4 + altar.x) * 0.12;
+        ctx.fillRect(ax - 7, ay - 3, 14, 6);
+        ctx.globalAlpha = 1;
+        for (let i = 0; i < 4; i++) {
+          const life = (time * 0.55 + i * 0.25) % 1;
+          const sx = Math.round(ax + Math.cos(time * 2.5 + i * 1.6) * 6);
+          const sy = Math.round(ay - 4 - life * 16);
+          ctx.fillStyle = i % 2 === 0 ? (altar.color || '#8fd6ff') : '#ffffff';
+          ctx.fillRect(sx, sy, contracted ? 1 : 2, contracted ? 1 : 2);
+        }
+      },
+    });
+  }
+
+  return list;
+}
+
+function drawIsekaiTodoIndicators(ctx, game, view, time) {
+  if (!game || zoneAt(game.player.x, game.player.y).kind === 'inside') return;
+  if (!isNear(view, HOME_DOOR.x + 1, HOME_DOOR.y - 2, 3, 4)) return;
+  const letters = game.isekaiTodo?.letters;
+  const hasUnread = Boolean(letters?.urgentPending || (letters?.delivered || []).some((l) => !l.read || !l.replied));
+  if (!hasUnread) return;
+  const bob = Math.round(Math.sin(time * 5) * 1.5);
+  const mx = Math.round((HOME_DOOR.x + 2.5) * T - view.x);
+  const my = Math.round((HOME_DOOR.y - 0.55) * T - view.y + bob);
+  drawEnvelope(ctx, mx, my, Boolean(letters?.urgentPending));
+}
 
 // No light by default at night: only the torch of the hero, the lamps, the fires and the magic.
 function lightsOf(game, view, time = 0) {
@@ -979,14 +1125,37 @@ function lightsOf(game, view, time = 0) {
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
+  const night = isNight(game);
   for (const prop of propsOfView(view, game)) {
     if (!isNear(view, prop.x, prop.y, prop.w, prop.h)) continue;
+    if (prop.kind === 'window') {
+      lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 6 - view.y, radius: night ? 26 : 62, warm: false });
+      continue;
+    }
+    if (prop.kind === 'furniture' && (prop.look === 'lamp' || LIGHT_FURNITURE_IDS.includes(prop.itemId))) {
+      const isCold = prop.itemId === 'crystalLantern';
+      const baseRadius = prop.itemId === 'crystalLantern' ? 62 : prop.itemId === 'candelabra' ? 56 : prop.itemId === 'hearthTorch' ? 52 : 48;
+      const flick = Math.round(Math.sin(time * 7.5 + prop.x * 2.1 + prop.y * 1.3) * 3);
+      lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: baseRadius + flick, warm: !isCold });
+      continue;
+    }
     const spec = structuresArt.structureLightSpec(prop.kind) || decorArt.decorLightSpec(prop.kind);
     const radius = LIGHT_KINDS[prop.kind] || (spec ? spec.radius : 0);
     if (!radius) continue;
     const flick = Math.round(Math.sin(time * 6 + prop.x * 1.7 + prop.y) * 3);
     const warm = LIGHT_KINDS[prop.kind] ? !COLD_LIGHTS.includes(prop.kind) : !spec.cold;
     lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 12 - view.y, radius: radius + flick, warm: warm });
+  }
+  for (const em of Array.isArray(game.run.emissaries) ? game.run.emissaries : []) {
+    if (em && !em.defeated && isNear(view, em.x - 2, em.y - 2, 4, 4)) {
+      lights.push({ x: em.x * T - view.x, y: em.y * T - 10 - view.y, radius: 44, warm: true });
+    }
+  }
+  for (const altar of spiritAltarPositions(game)) {
+    if (isNear(view, altar.x - 2, altar.y - 2, 4, 4)) {
+      const flick = Math.round(Math.sin(time * 4 + altar.x) * 2);
+      lights.push({ x: altar.x * T - view.x, y: altar.y * T - 6 - view.y, radius: 36 + flick, warm: altar.id === 'salamander' });
+    }
   }
   for (const house of burningHouses(game, view)) {
     lights.push({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h * 0.3) * T - view.y, radius: Math.max(70, house.w * 8), warm: true });
@@ -1086,6 +1255,26 @@ function writeNames(ctx, game, view, scale) {
     if (!speaker || speaker.hp <= 0) continue;
     if (Math.hypot(speaker.x - game.player.x, speaker.y - game.player.y) > 9) continue;
     writeText(ctx, speaker.name + ': ' + party.chat.text, (speaker.x * T - view.x) * scale, (speaker.y * T - 38 - view.y) * scale, 12, '#e6f6ff');
+  }
+  if (game.run.courier && Math.hypot(game.run.courier.x - game.player.x, game.run.courier.y - game.player.y) <= 5) {
+    const c = game.run.courier;
+    writeText(ctx, c.name || 'Royal Courier', (c.x * T - view.x) * scale, (c.y * T - 38 - view.y) * scale, 13, '#ffd23f');
+  }
+  for (const im of intelligentMonsterEntities(game)) {
+    if (Math.hypot(im.x - game.player.x, im.y - game.player.y) <= NAME_RANGE + 1.5) {
+      writeText(ctx, im.name, (im.x * T - view.x) * scale, (im.y * T - 34 - view.y) * scale, 13, '#98f5a6');
+    }
+  }
+  for (const em of Array.isArray(game.run.emissaries) ? game.run.emissaries : []) {
+    if (em && !em.defeated && Math.hypot(em.x - game.player.x, em.y - game.player.y) <= NAME_RANGE + 3) {
+      writeText(ctx, em.name, (em.x * T - view.x) * scale, (em.y * T - 44 - view.y) * scale, 13, '#ff6b7a');
+    }
+  }
+  const rankColors = Object.fromEntries(MONSTER_RANKS.map((r) => [r.rank, r.color]));
+  for (const monster of game.run.monsters || []) {
+    if (Math.hypot(monster.x - game.player.x, monster.y - game.player.y) > NAME_RANGE + 3.5) continue;
+    const rank = monster.rank || 'F';
+    writeText(ctx, `[${rank}] ${monster.name}`, (monster.x * T - view.x) * scale, (monster.y * T - 24 - view.y) * scale, 11, rankColors[rank] || '#ffffff');
   }
 }
 
@@ -1230,7 +1419,7 @@ export function drawScene(ctx, game, width, height, time) {
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
   const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...childDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
-  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time));
+  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time), ...isekaiTodoDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) {
     drawHeroAura(art, game, view, time);
@@ -1250,6 +1439,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawBondsEffects(art, game, view, time);
   drawPartyEffects(art, game, view);
   isekaiArt.drawIsekaiEffects(art, game, view, time);
+  drawIsekaiTodoIndicators(art, game, view, time);
   structuresArt.drawStructureAmbience(art, game, view, time);
   drawWeather(art, game, view, time);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));

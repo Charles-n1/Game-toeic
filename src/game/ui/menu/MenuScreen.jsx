@@ -8,6 +8,7 @@ import PeoplePanel from './PeoplePanel';
 import InventoryPanel from './InventoryPanel';
 import PowersPanel from './PowersPanel';
 import QuestsPanel from './QuestsPanel';
+import TrophiesPanel from './TrophiesPanel';
 import MapPanel from './MapPanel';
 import OptionsPanel from '../OptionsPanel';
 import { saveGame } from '../../logic/save';
@@ -22,13 +23,14 @@ const ENTRIES = [
   { tab: 'inventory', label: 'Inventory' },
   { tab: 'powers', label: 'Powers' },
   { tab: 'quests', label: 'Quests' },
+  { tab: 'trophies', label: 'Trophies' },
   { tab: 'map', label: 'Map' },
   { tab: 'options', label: 'Options' },
   { tab: 'save', label: 'Save' },
   { tab: 'quit', label: 'Quit' },
 ];
 
-const PANELS = { stats: StatsPanel, classes: ClassesPanel, people: PeoplePanel, inventory: InventoryPanel, powers: PowersPanel, quests: QuestsPanel, map: MapPanel, options: OptionsPanel };
+const PANELS = { stats: StatsPanel, classes: ClassesPanel, people: PeoplePanel, inventory: InventoryPanel, powers: PowersPanel, quests: QuestsPanel, trophies: TrophiesPanel, map: MapPanel, options: OptionsPanel };
 
 // The pause menu: the list of entries, then the window of the chosen one. game.run.menuTab: null = the list.
 // onQuit: back to the title menu (the game is saved first).

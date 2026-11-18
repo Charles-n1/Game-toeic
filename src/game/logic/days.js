@@ -19,6 +19,9 @@ import { newDayBonds } from './bonds';
 import { newDayEconomy, stepEconomyHours } from './economy';
 import { newDayGuild, healAllCompanions } from './guild/ranks';
 import { advanceClassmatesDay } from './isekai/classmates';
+import { resolveOwnGuildMissions } from './isekaiTodo/ownGuild';
+import { refreshDailyLetters, syncWeeklyChallenge } from './isekaiTodo/socialPlus';
+import { checkAchievements } from './isekaiTodo/progression';
 
 // Time passing: the clock moves, and a new day changes the world.
 
@@ -38,6 +41,10 @@ function newDay(game) {
   newDayEconomy(game);
   newDayGuild(game);
   advanceClassmatesDay(game);
+  resolveOwnGuildMissions(game);
+  refreshDailyLetters(game);
+  syncWeeklyChallenge(game);
+  checkAchievements(game);
   notify(game, '🌅 Day ' + game.day);
 }
 

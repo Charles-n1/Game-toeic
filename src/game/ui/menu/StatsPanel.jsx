@@ -18,6 +18,9 @@ import { kingdomRep } from '../../logic/kingdomLaws';
 import { WORLD_LANGUAGES, languageLevel } from '../../logic/languages';
 import { obsidianRankInfo } from '../../logic/obsidian';
 import { SPECIES, speciesForSkill } from '../../data/monsters';
+import { ensureIsekaiTodo } from '../../logic/isekaiTodo/state';
+import { refinedItemName, weaponMasteryInfo } from '../../logic/isekaiTodo/progression';
+import { WEAPON_CLASSES } from '../../data/isekaiTodo';
 
 // The skill (spell) of a type: learned at which level, or who teaches it.
 function skillText(game, type) {
@@ -75,6 +78,8 @@ export default function StatsPanel({ game, refresh }) {
   const villain = isVillain(game);
   const guild = ensureGuild(game);
   const doom = ensureDoom(game).silenceDoom || 0;
+  const todo = ensureIsekaiTodo(game);
+  const mastery = weaponMasteryInfo(game);
 
   function changeWeight(categoryId, value) {
     setToeicWeight(game, categoryId, value === '' ? 0 : Number(value));
@@ -93,8 +98,13 @@ export default function StatsPanel({ game, refresh }) {
           {Math.round(criticalChance(player) * 100 + classBonus(game, 'critical'))}%
         </span>
         <span className="small">
-          {ITEMS[player.weapon].name} · {ITEMS[player.armor].name} · {ITEMS[player.boots].name}
+          {refinedItemName(game, player.weapon)} · {refinedItemName(game, player.armor)} · {ITEMS[player.boots].name}
           {player.accessory && ITEMS[player.accessory] ? ' · ' + ITEMS[player.accessory].name : ''}
+        </span>
+        <span className="small">
+          {WEAPON_CLASSES[mastery.wClass]?.name || mastery.wClass} Mastery Lv.{mastery.lv}/10 ({Math.round((mastery.dmgMult - 1) * 100)}% Dmg
+          {mastery.specialMove ? ` · ★ ${mastery.specialMove}` : ''}) · Skill Pts: {todo.skillPoints}
+          {todo.manaExhaustions > 0 ? ` · Mana Limit +${todo.manaExhaustions}` : ''}
         </span>
         <span className="small">
           Class: {current ? current.title : 'none yet (Menu → Classes)'} · Guild: {guild.registered ? rankInfo(guild.rank).title + ' (' + guild.points + ' pts)' : 'Unregistered'} · Infamy: {society.infamy}

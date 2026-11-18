@@ -10,6 +10,8 @@ import { isBarrier } from './powers';
 import { isLairCleared } from './isekaiStructures';
 import { monsterCrowd } from './isekai/events';
 import { dust } from './particles';
+import { isWorldTimeFrozen } from './isekaiTodo/magicPlus';
+import { monsterRankInfo } from './isekaiTodo/monstersPlus';
 
 // The monsters walking on the map. Touching one starts a fight.
 // Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
@@ -47,6 +49,7 @@ export function makeMonster(game, speciesId, x, y, extra = {}) {
     species: speciesId,
     category: category,
     tag: tag,
+    rank: monsterRankInfo({ ...species, tag, x, y }).rank,
     health: species.health * TAG_POWER[tag],
     maxHealth: species.health * TAG_POWER[tag],
     attack: species.attack * TAG_ATTACK[tag],
@@ -305,7 +308,9 @@ export function updateMonsters(game, dt) {
     spawnWild(game);
     removeFarMonsters(game);
   }
-  game.run.monsters.forEach((monster) => moveMonster(game, monster, dt));
+  if (!isWorldTimeFrozen(game)) {
+    game.run.monsters.forEach((monster) => moveMonster(game, monster, dt));
+  }
 
   const touched = touchedMonster(game);
   if (touched && Date.now() > game.run.safeUntil) startFight(game, touched, packOf(game, touched));

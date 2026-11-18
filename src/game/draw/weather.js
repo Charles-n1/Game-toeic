@@ -11,11 +11,17 @@ import { drawStarShower } from './isekaiArt';
 
 const T = TILE_PX;
 
-// How dark it is where the hero stands (0 = day, 1 = black). The dungeons are always dark (a torch!),
-// the home is lit by its windows, the clouds and the storms darken the day.
+// How dark it is where the hero stands (0 = day, 1 = black). Caves/dungeons are always dark (a torch!),
+// the home & visited NPC houses/guild halls receive soft daylight by day and warm lamp contrast at night.
 export function darknessHere(game) {
   const zone = zoneAt(game.player.x, game.player.y);
-  if (zone.kind === 'inside') return zone.id === 'home' ? darkness(game) * 0.5 : 0.95;
+  if (zone.kind === 'inside') {
+    if (zone.id === 'home' || zone.id === 'visitHouse' || Boolean(game.run?.visitHouse)) {
+      const d = darkness(game);
+      return d < 0.5 ? d * 0.52 + 0.08 : Math.min(0.72, 0.08 + d * 0.64);
+    }
+    return 0.94;
+  }
   const clouds = { clear: 0, cloudy: 0.12, rain: 0.25, storm: 0.45 }[game.weather.kind] || 0;
   return Math.min(1, darkness(game) + clouds);
 }

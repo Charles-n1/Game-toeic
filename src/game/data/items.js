@@ -4,6 +4,7 @@ import { SOCIETY_ITEMS } from './items/society';
 import { WAR_ITEMS } from './items/war';
 import { ISEKAI_ITEMS } from './items/isekai';
 import { REALISM_ITEMS } from './items/realism';
+import { ISEKAI_TODO_ITEMS } from './items/isekaiTodo';
 
 // Everything the player can own.
 // kind: 'weapon' | 'armor' | 'boots' (equipment), 'potion', 'map', 'seed', 'goods' (to sell or to give),
@@ -107,6 +108,7 @@ export const ITEMS = {
   ...WAR_ITEMS,
   ...ISEKAI_ITEMS,
   ...REALISM_ITEMS,
+  ...ISEKAI_TODO_ITEMS,
 };
 
 // The order of the upgrades at the smith: each one replaces the one before.
@@ -123,8 +125,8 @@ export const SHOPS = {
   clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion', 'herbalPoultice', 'antiseptic'],
   bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil', 'smokedJerky', 'pickledRadish', 'spicedBroth', 'honeyLemonTea'],
   potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion', 'herbalPoultice', 'antiseptic'],
-  carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'painting', 'rugRed', 'rugBlue'],
-  market: ['map1', 'map2', 'map3', 'travelerPack', 'repairKit', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil', 'hoodedCloak', 'monocle'],
+  carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'candelabra', 'hearthTorch', 'crystalLantern', 'painting', 'rugRed', 'rugBlue'],
+  market: ['map1', 'map2', 'map3', 'travelerPack', 'repairKit', 'protectionScroll', 'refineStone', 'spiritCharm', 'hunterBow', 'oakLongbow', 'crimsonDagger', 'sageStaff', 'frostAxe', 'griffinWhistle', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil', 'hoodedCloak', 'monocle'],
   weaver: ['cloth', 'travelerPack'],
   otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion', 'curryStew', 'omeletteRice', 'honeyToast', 'misoBroth', 'karagePlate'],
 };

@@ -10,6 +10,8 @@ import { culturalPriceDiscount } from './languages';
 import { npcOf } from '../data/npcs';
 import { resetSlotDurability, repairCostOf, repairAllGear, needsRepair } from './durability';
 import { recipesForStation, canPlayerCraft, craftPlayerItem } from './craftingPlayer';
+import { adventurerShopDiscount } from './guild/ranks';
+import { skillTreeBonuses } from './isekaiTodo/progression';
 import {
   ensureEconomy,
   econVillage,
@@ -41,9 +43,11 @@ export function shopStock(game, itemId) {
   return Math.max(0, econ.stock[itemId]);
 }
 
-// Buying and selling. Prices respond to happiness, negotiations, festivals, class, and real local scarcity.
+// Buying and selling. Prices respond to happiness, negotiations, festivals, class, guild card, skill tree, and real local scarcity.
 export function priceOf(game, itemId) {
-  const guild = 1 - classBonus(game, 'discount') / 100;
+  const cardDiscount = adventurerShopDiscount(game);
+  const treeDiscount = (skillTreeBonuses(game).discount || 0) / 100;
+  const guild = Math.max(0.4, 1 - classBonus(game, 'discount') / 100 - cardDiscount - treeDiscount);
   const zone = zoneAt(game.player.x, game.player.y);
   const vid = currentShopVillageId(game);
   const villageMod = zone.kind === 'village' ? villagePriceMultiplier(game, zone.id) : 1;

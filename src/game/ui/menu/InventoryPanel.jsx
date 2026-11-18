@@ -16,7 +16,10 @@ import { interactMountedHorse, interactParkedHorse } from '../../logic/society/h
 import { frontTile } from '../../logic/input';
 import { durabilityOf, gearConditionLabel, DURABILITY_SLOTS, useRepairKit, needsRepair } from '../../logic/durability';
 import { encumbranceStatus, itemWeight } from '../../logic/weight';
-import { companionHpOf, companionMaxHp, dailyWageOf } from '../../logic/guild/ranks';
+import { companionHpOf, companionMaxHp, dailyWageOf, adventurerCardView } from '../../logic/guild/ranks';
+import { ensureIsekaiTodo } from '../../logic/isekaiTodo/state';
+import { refinedItemName } from '../../logic/isekaiTodo/progression';
+import { isFlyingMountUnlocked, toggleFlyingMount, setTamedLocation } from '../../logic/isekaiTodo/monstersPlus';
 
 // The torch of the hero: always in hand. One button lights it or puts it out.
 function TorchSwitch({ game, refresh }) {
@@ -79,7 +82,7 @@ function EquipmentSlot({ game, label, itemId }) {
       <PixelIcon name={itemId} size={28} />
       <div className="grow">
         <span>
-          {item.name}{' '}
+          {refinedItemName(game, itemId)}{' '}
           {hasWear && (
             <span className="small" style={{ color: dur < 25 ? '#ff7a7a' : dur < 50 ? '#ffb070' : '#7cfc9a' }}>
               ({dur}% {gearConditionLabel(dur)})
@@ -177,6 +180,9 @@ export default function InventoryPanel({ game, refresh }) {
   const campReady = canSetCamp(game);
   const enc = encumbranceStatus(game);
   const bottle = bottleUpgradeView(game);
+  const card = adventurerCardView(game);
+  const todo = ensureIsekaiTodo(game);
+  const canFly = isFlyingMountUnlocked(game);
 
   function useItem(action) {
     action();
@@ -196,6 +202,34 @@ export default function InventoryPanel({ game, refresh }) {
           Lexis <span className="gold">{player.lexis}</span>
         </span>
       </div>
+
+      <span className="section">Adventurer Card</span>
+      <div className="line" style={{ borderLeft: `4px solid ${card.color}` }}>
+        <PixelIcon name="quests" size={28} />
+        <div className="grow">
+          <span>
+            <strong style={{ color: card.color }}>{card.registered ? `${card.rank}-Rank · ${card.title}` : 'Unregistered Traveler'}</strong>
+          </span>
+          <span className="small">
+            {card.name} · Lv.{card.level} {card.className} · Slain {card.kills}
+            {card.discountPct > 0 ? ` · Shop −${card.discountPct}%` : ''}
+            {card.borderFree ? ' · Border Free Pass' : ''}
+          </span>
+        </div>
+      </div>
+
+      {canFly && (
+        <div className="line">
+          <PixelIcon name="griffinWhistle" size={28} />
+          <div className="grow">
+            <span>Sky Griffin Mount {todo.flyingMount?.riding ? '· 🦅 Flying!' : '· Grounded'}</span>
+            <span className="small">Soars over rivers &amp; peaks; lands only on open plains outside towns &amp; forests.</span>
+          </div>
+          <button className="px-button px-gold" onClick={() => useItem(() => toggleFlyingMount(game))}>
+            {todo.flyingMount?.riding ? 'Land' : 'Fly'}
+          </button>
+        </div>
+      )}
 
       <span className="section">Equipment</span>
       <EquipmentSlot game={game} label="Weapon" itemId={player.weapon} />
@@ -323,6 +357,33 @@ export default function InventoryPanel({ game, refresh }) {
           </button>
         </div>
       ))}
+
+      {(todo.tamed || []).length > 0 && (
+        <>
+          <span className="section">Tamed Monsters ({todo.tamed.length}/8)</span>
+          {todo.tamed.map((pet) => (
+            <div key={pet.uid} className="line">
+              <PixelIcon name="spiritCharm" size={28} />
+              <div className="grow">
+                <span>
+                  {pet.name} <span className="gold">Lv.{pet.level}</span> · {pet.place}
+                </span>
+                <span className="small">Assign to travel in Party, rest at Home, or guard Own Guild.</span>
+              </div>
+              {['party', 'home', 'guild'].map((loc) => (
+                <button
+                  key={loc}
+                  className={'px-button' + (pet.place === loc ? ' px-gold' : '')}
+                  disabled={pet.place === loc}
+                  onClick={() => useItem(() => setTamedLocation(game, pet.uid, loc))}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
     </>
   );
 }

@@ -9,9 +9,12 @@ import { say, notify } from './messages';
 import { emote } from './emotes';
 import { cue } from './cues';
 import { talkTo } from './people';
+import { maxHealth, healFully } from './player';
+import { sleepUntilMorning } from './days';
+import { cureCold } from './weather';
 import { interactBoard } from './society/worldLife';
 import { openGuildDesk, openGuildContractsMenu } from './guild';
-import { ensureGuild, boardContractsFor } from './guild/ranks';
+import { ensureGuild, rankIndex, boardContractsFor } from './guild/ranks';
 
 // The inside of the Guild of Adventurers: a tavern. Adventurers drink at the tables, two servers carry the drinks
 // from the bar, the guild members wait for work, and the quest board hangs on the wall.
@@ -80,7 +83,10 @@ export function buildGuildHall(game, house) {
     { kind: 'tavernTable', x: x + 15, y: y + 10, w: 2, h: 1, fixed: true },
     { kind: 'wallTorch', x: x + 6, y: y + 1, w: 1, h: 1, walkable: true },
     { kind: 'wallTorch', x: x + 10, y: y + 1, w: 1, h: 1, walkable: true },
+    { kind: 'hearthTorch', x: x + 15, y: y + 1, w: 1, h: 1, walkable: true },
+    { kind: 'candelabra', x: x + 18, y: y + 7, w: 1, h: 1, walkable: true },
     { kind: 'window', x: x + 7, y: y + 1, w: 2, h: 1, walkable: true },
+    { kind: 'window', x: x + 12, y: y + 1, w: 2, h: 1, walkable: true },
     { kind: 'banner', color: '#d0202a', x: x + 2, y: y + 2, w: 1, h: 1, walkable: true },
     { kind: 'banner', color: '#2f50a0', x: x + 9, y: y + 2, w: 1, h: 1, walkable: true },
     { kind: 'weaponRack', x: x + 4, y: y + 2, w: 2, h: 1 },
@@ -90,6 +96,7 @@ export function buildGuildHall(game, house) {
     { kind: 'flowerPot', variant: 0, x: x + 20, y: y + 13, w: 1, h: 1, walkable: true },
     { kind: 'flowerPot', variant: 2, x: x + 1, y: y + 13, w: 1, h: 1, walkable: true },
     { kind: 'diningTable', x: x + 13, y: y + 12, w: 2, h: 1, fixed: true },
+    { kind: 'guildBed', x: x + 18, y: y + 12, w: 2, h: 2, fixed: true },
     { kind: 'toilet', x: x + 20, y: y + 2, w: 1, h: 1, fixed: true },
     { kind: 'basin', x: x + 20, y: y + 3, w: 1, h: 1, fixed: true },
   ];
@@ -157,8 +164,8 @@ function patronsOf(game, x, y) {
   }));
   const receptionist = {
     kind: 'receptionist',
-    name: 'Guild Clerk',
-    look: { skin: '#f1c9a5', hair: '#3a5a8a', style: 'pony', eyes: '#3a6fd8', outfit: '#3a5a8a', trim: '#ffd23f' },
+    name: 'Elena · Guild Receptionist',
+    look: { skin: '#fde0c8', hair: '#b86b3a', style: 'pony', eyes: '#3fa090', outfit: '#1f7a72', trim: '#ffd23f' },
     x: x + 5.5,
     y: y + 4.2,
     dir: 'down',
@@ -236,10 +243,80 @@ function drinkChoices(game) {
   return DRINKS.map((drink) => ({ label: drink.name + (drink.price > 0 ? ' (' + drink.price + ' Lexis)' : ' (free)'), icon: 'water', run: () => buyDrink(game, drink) }));
 }
 
+/** Dynamic greeting from Elena reacting to hero injuries, surprise drake/boss kills, and guild rank. */
+export function elenaGreeting(game) {
+  const g = ensureGuild(game);
+  const player = game.player;
+  if (player && player.health < maxHealth(player, game) * 0.45) {
+    return "Elena gasps: 'Wait — you're bleeding! Rest in an upstairs Guild Room before going back out!'";
+  }
+  if (
+    rankIndex(g.rank) <= 1 &&
+    ((game.kills?.drake || 0) > 0 || (game.kills?.demonKnight || 0) > 0 || Object.keys(game.bosses || {}).length > 0)
+  ) {
+    return "Elena drops her quill: 'T-this is impossible! A rank " + g.rank + " defeated a terrifying drake/boss?! The whole guild is talking about you!'";
+  }
+  const idx = rankIndex(g.rank);
+  if (g.rank === 'S') {
+    return "Elena rises with a bright salute: 'Rank S legend " + (player?.name || 'Hero') + "! The Guild Hall and every expedition desk stand at your command.'";
+  }
+  if (idx >= 4) {
+    return "Elena smiles warmly: 'Welcome back, veteran " + (player?.name || 'Hero') + " (Rank " + g.rank + "). Your upstairs suite is always complimentary!'";
+  }
+  if (idx >= 2) {
+    return "Elena beams: 'Back again, rising star " + (player?.name || 'Hero') + "! Ready for higher contracts past Rank " + g.rank + "?'";
+  }
+  if (g.registered) {
+    return "Elena waves cheerfully: 'Welcome back, " + (player?.name || 'Hero') + "! Check the contract board or ask about your Adventurer Card anytime.'";
+  }
+  return "Elena greets you from behind the ledger: 'Welcome to the Adventurer Guild! Let's register your Adventurer Card.'";
+}
+
+/** Rests safely in the upstairs Guild Bedroom until morning (15 Lexis, free at Rank C+). */
+export function restInGuildRoom(game) {
+  if (game.raid?.active) {
+    say(game, null, ['The raid alarm is ringing! We cannot rest while the village is under attack.']);
+    return false;
+  }
+  const g = ensureGuild(game);
+  const free = rankIndex(g.rank) >= rankIndex('C');
+  if (!free && (game.player.lexis || 0) < 15) {
+    say(game, null, ['Elena checks the room ledger: "An upstairs Guild Room costs 15 Lexis (free once you reach Rank C)."']);
+    return false;
+  }
+  if (!free) game.player.lexis -= 15;
+  sleepUntilMorning(game);
+  game.player.fatigue = 0;
+  healFully(game.player, game);
+  cureCold(game, '😴 Resting in a warm Guild Room cured your cold!');
+  cue(game, 'levelUp');
+  notify(
+    game,
+    free
+      ? '🛏️ Rested free (Rank C+ perk) in an upstairs Guild Room until morning!'
+      : '🛏️ Rented an upstairs Guild Room (15 Lexis) and slept until morning!',
+    '#9fd8ff'
+  );
+  return true;
+}
+
+function offerGuildBed(game) {
+  const free = rankIndex(ensureGuild(game).rank) >= rankIndex('C');
+  say(game, null, ['Upstairs Guild Quarters — clean wool blankets and warm candlelight.' + (free ? ' (Complimentary for Rank C+!)' : '')], [
+    { label: 'Rent Guild Room Upstairs (15 Lexis · free C+)', icon: 'sleep', run: () => restInGuildRoom(game) },
+    { label: 'Step back', run: () => {} },
+  ]);
+}
+
 function talkToPatron(game, patron) {
   if (patron.kind === 'receptionist') {
     const vid = game.run.visitHouse?.house?.village || 'lexia';
-    openGuildDesk(game, { id: null, name: 'Guild Clerk', look: patron.look }, vid);
+    const examiner = { id: null, name: patron.name, look: patron.look };
+    say(game, null, [elenaGreeting(game)], [
+      { label: 'Guild Desk, Ranks & Contracts', icon: 'quests', run: () => openGuildDesk(game, examiner, vid) },
+      { label: 'Rent Guild Room Upstairs (15 Lexis · free C+)', icon: 'sleep', run: () => restInGuildRoom(game) },
+      { label: 'Step back', run: () => {} },
+    ]);
     return;
   }
   if (patron.kind === 'member') {
@@ -276,6 +353,7 @@ export function actionsOfGuildHall(game) {
   const near = inside ? propsAround(game.player.x, game.player.y, 1.8) : [];
   return [
     { when: () => inside && patronNear(game) !== null, icon: 'talk', run: () => talkToPatron(game, patronNear(game)) },
+    { when: () => inside && near.some((prop) => prop.kind === 'guildBed'), icon: 'sleep', run: () => offerGuildBed(game) },
     { when: () => inside && near.some((prop) => prop.kind === 'board'), icon: 'quests', run: () => readBoard(game) },
     { when: () => inside && near.some((prop) => prop.kind === 'barCounter'), icon: 'water', run: () => say(game, null, ['The bar smells of wood, smoke and honey. What will it be?'], [...drinkChoices(game), { label: 'Nothing', run: () => {} }]) },
   ];

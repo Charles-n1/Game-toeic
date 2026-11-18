@@ -10,6 +10,8 @@ import { boostOf } from './boosts';
 import { statLinkBonus } from './statLinks';
 import { gearConditionFactor, resetSlotDurability } from './durability';
 import { obsidianBladeBonus } from './obsidian';
+import { ensureIsekaiTodo } from './isekaiTodo/state';
+import { skillTreeBonuses, awardSkillPointOnLevelUp, refineBonusForItem, checkAchievements } from './isekaiTodo/progression';
 
 const EQUIP_SLOTS = ['weapon', 'armor', 'boots', 'accessory'];
 
@@ -17,9 +19,11 @@ function equippedStat(player, field, game = null) {
   let total = 0;
   for (const slot of EQUIP_SLOTS) {
     const id = player[slot];
-    if (id && ITEMS[id] && ITEMS[id][field]) {
+    if (id && ITEMS[id] && (ITEMS[id][field] || game)) {
       const wearScale = game && field !== 'health' ? gearConditionFactor(game, slot) : 1;
-      total += Math.round(ITEMS[id][field] * wearScale);
+      const base = ITEMS[id][field] || 0;
+      const refBonus = game && ((slot === 'weapon' && field === 'power') || (slot === 'armor' && field === 'defense')) ? refineBonusForItem(game, id) : 0;
+      if (base || refBonus) total += Math.round((base + refBonus) * wearScale);
     }
   }
   return total;
@@ -32,23 +36,27 @@ export function accessoryStat(player, field) {
 
 export function spellPowerBonus(game) {
   if (!game) return 0;
-  return equippedStat(game.player, 'spell', game) + boostOf(game, 'spell') + statLinkBonus(game, 'spell');
+  const stBonus = skillTreeBonuses(game).spell || 0;
+  return equippedStat(game.player, 'spell', game) + boostOf(game, 'spell') + statLinkBonus(game, 'spell') + stBonus;
 }
 
-// Health and mana grow with the level, gear, boosts, and English stat links.
+// Health and mana grow with the level, gear, boosts, skill tree, and English stat links.
 export function maxHealth(player, game = null) {
   const gear = equippedStat(player, 'health', game);
-  const link = game ? boostOf(game, 'health') + statLinkBonus(game, 'health') : 0;
+  const link = game ? boostOf(game, 'health') + statLinkBonus(game, 'health') + (skillTreeBonuses(game).health || 0) : 0;
   return Math.round(Math.max(20, 100 + (player.level - 1) * 10 + gear + link));
 }
 
-export function maxMana(player) {
-  return 5 + (player.level - 1);
+export function maxMana(player, game = null) {
+  const treeMana = game ? skillTreeBonuses(game).mana || 0 : 0;
+  const exhMana = game ? ensureIsekaiTodo(game).manaExhaustions || 0 : 0;
+  return 5 + (player.level - 1) + treeMana + exhMana;
 }
 
 // The speed of the player in a fight: more speed = more time to answer.
 export function speedOf(player, game = null) {
-  const link = game ? boostOf(game, 'speed') + statLinkBonus(game, 'speed') : 0;
+  const tree = game ? skillTreeBonuses(game).speed || 0 : 0;
+  const link = game ? boostOf(game, 'speed') + statLinkBonus(game, 'speed') + tree : 0;
   const fatiguePenalty = (player.fatigue || 0) >= 85 ? -2 : 0;
   return Math.max(4, 10 + equippedStat(player, 'speed', game) + Math.floor(player.level / 2) + link + fatiguePenalty);
 }
@@ -56,20 +64,23 @@ export function speedOf(player, game = null) {
 // The damage of one strike, in HP (before the resistance of the monster).
 export function strikePower(player, game = null) {
   const obsidian = obsidianBladeBonus(player);
-  const link = game ? boostOf(game, 'attack') + statLinkBonus(game, 'attack') : 0;
+  const tree = game ? skillTreeBonuses(game).attack || 0 : 0;
+  const link = game ? boostOf(game, 'attack') + statLinkBonus(game, 'attack') + tree : 0;
   return Math.max(2, equippedStat(player, 'power', game) + obsidian + link);
 }
 
 // What the armor removes from each hit.
 export function armorOf(player, game = null) {
   const stoneSkin = player.stoneSkin ? 20 : 0;
-  const link = game ? boostOf(game, 'defense') + statLinkBonus(game, 'defense') : 0;
+  const tree = game ? skillTreeBonuses(game).armor || 0 : 0;
+  const link = game ? boostOf(game, 'defense') + statLinkBonus(game, 'defense') + tree : 0;
   return Math.max(0, equippedStat(player, 'defense', game) + stoneSkin + link);
 }
 
-// The chance of a critical hit (double damage): 8%, +1% every 2 levels.
-export function criticalChance(player) {
-  return 0.08 + Math.floor(player.level / 2) * 0.01;
+// The chance of a critical hit (double damage): 8%, +1% every 2 levels + Skill Tree.
+export function criticalChance(player, game = null) {
+  const tree = game ? (skillTreeBonuses(game).critical || 0) / 100 : 0;
+  return 0.08 + Math.floor(player.level / 2) * 0.01 + tree;
 }
 
 // XP needed to finish a level (3x slower progression for a realistic RPG curve).
@@ -81,25 +92,62 @@ export function heal(player, amount, game = null) {
   player.health = Math.min(maxHealth(player, game), Math.round(player.health + amount));
 }
 
-export function restoreMana(player, amount) {
-  player.mana = Math.min(maxMana(player), Math.round(player.mana + amount));
+export function restoreMana(player, amount, game = null) {
+  player.mana = Math.min(maxMana(player, game), Math.round(player.mana + amount));
 }
 
 export function healFully(player, game = null) {
   player.health = maxHealth(player, game);
-  player.mana = maxMana(player);
+  player.mana = maxMana(player, game);
 }
 
 function levelUp(game) {
   const player = game.player;
+  const fromLevel = player.level;
+  const beforeStats = {
+    hp: maxHealth(player, game),
+    mp: maxMana(player, game),
+    atk: strikePower(player, game),
+    def: armorOf(player, game),
+    spd: speedOf(player, game),
+  };
   player.xp -= xpForLevel(player.level);
   player.level += 1;
+  awardSkillPointOnLevelUp(game, 1);
   healFully(player, game);
-  notify(game, '⭐ Level ' + player.level + '!', '#ffd23f');
+  const afterStats = {
+    hp: maxHealth(player, game),
+    mp: maxMana(player, game),
+    atk: strikePower(player, game),
+    def: armorOf(player, game),
+    spd: speedOf(player, game),
+  };
+  const abilities = ['+1 Skill Point (Menu → Powers → Skill Tree)'];
+  if (player.level === 3) abilities.push('Obsidian Awakening triggered!');
+  if (player.level === 6) abilities.push('Time Magic Resonance awakened!');
+  if (player.level === 7) abilities.push('Gravity Magic Resonance awakened!');
+  if (game.run) {
+    if (!Array.isArray(game.run.levelUpQueue)) game.run.levelUpQueue = [];
+    game.run.levelUpQueue.push({
+      fromLevel,
+      toLevel: player.level,
+      skillPointsGained: 1,
+      stats: [
+        { label: 'Max HP', before: beforeStats.hp, after: afterStats.hp, delta: afterStats.hp - beforeStats.hp },
+        { label: 'Max MP', before: beforeStats.mp, after: afterStats.mp, delta: afterStats.mp - beforeStats.mp },
+        { label: 'Attack', before: beforeStats.atk, after: afterStats.atk, delta: afterStats.atk - beforeStats.atk },
+        { label: 'Armor', before: beforeStats.def, after: afterStats.def, delta: afterStats.def - beforeStats.def },
+        { label: 'Speed', before: beforeStats.spd, after: afterStats.spd, delta: afterStats.spd - beforeStats.spd },
+      ],
+      abilities,
+    });
+  }
+  notify(game, '⭐ Level ' + player.level + '! (+1 Skill Point)', '#ffd23f');
   cue(game, 'levelUp');
   burst(game, player.x, player.y, '#ffd23f', 40);
   emote(game, 'hero', 'sparkle');
   if (player.level === 3) awaken(game, 'obsidian', SCENES.obsidian);
+  checkAchievements(game);
 }
 
 export function gainXp(game, amount) {
@@ -165,7 +213,10 @@ export function usePotion(game, itemId) {
   if (item.haste) player.haste = true; // used by the next fight (or the current one)
   if (item.extraTime) game.run.fight.limit += item.extraTime * 1000;
   if (item.hint) hideWrongAnswer(game.run.fight);
-  if (game.run.fight) game.run.fight.drankAt = Date.now(); // for the animation (the hero drinks)
+  if (game.run.fight) {
+    game.run.fight.drankAt = Date.now(); // for the animation (the hero drinks)
+    if (item.kind === 'potion') game.run.fight.usedPotion = true;
+  }
   return true;
 }
 

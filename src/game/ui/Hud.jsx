@@ -20,6 +20,10 @@ import { isVillain, ensureSociety } from '../logic/society/state';
 import { ensureGuild } from '../logic/guild/ranks';
 import { encumbranceStatus } from '../logic/weight';
 import { ensureDoom } from '../logic/war/demonThreat';
+import { ELEMENTAL_SPIRITS } from '../data/isekaiTodo';
+import { ensureIsekaiTodo } from '../logic/isekaiTodo/state';
+import { isLevitating, isWorldTimeFrozen } from '../logic/isekaiTodo/magicPlus';
+import { snapAdventurePhoto } from '../logic/isekaiTodo/socialPlus';
 
 const WEATHER_SIGNS = { cloudy: '☁', rain: '🌧', storm: '⛈' };
 
@@ -149,6 +153,9 @@ export default function Hud({ game, input, onAction, onStrike, onMenu }) {
   const guild = ensureGuild(game);
   const enc = encumbranceStatus(game);
   const doom = ensureDoom(game).silenceDoom || 0;
+  const todo = ensureIsekaiTodo(game);
+  const activeSpirit = todo.spirits?.active ? ELEMENTAL_SPIRITS.find((s) => s.id === todo.spirits.active) : null;
+  const unreadMail = (todo.letters?.delivered || []).filter((m) => !m.read).length;
   const screen = useScreen();
   const showTouch = screen.touch || !screen.wide;
 
@@ -185,6 +192,18 @@ export default function Hud({ game, input, onAction, onStrike, onMenu }) {
           {enc.state !== 'Normal' && <span style={styles.raid}>🎒 {enc.state} ({enc.weight} kg)</span>}
           {(game.player.fatigue || 0) >= 85 && <span style={styles.raid}>🥱 Exhausted</span>}
           {guild.registered && <span style={styles.light}>🪪 Rank {guild.rank}</span>}
+          {todo.flyingMount?.riding && <span style={styles.event}>🦅 Flying</span>}
+          {isLevitating(game) && <span style={styles.event}>🪶 Levitating</span>}
+          {isWorldTimeFrozen(game) && <span style={styles.event}>⏳ Time Frozen</span>}
+          {activeSpirit && <span style={styles.light}>{activeSpirit.icon} {activeSpirit.element} Lv.{todo.spirits.contracted[activeSpirit.id]?.level || 1}</span>}
+          {unreadMail > 0 && (
+            <button style={styles.light} onClick={() => onMenu('people')}>
+              ✉️ {unreadMail} Mail
+            </button>
+          )}
+          <button style={styles.light} onClick={() => snapAdventurePhoto(game)} title="Take snapshot photo">
+            📷 Snap Photo
+          </button>
           {!game.bosses?.king && doom >= 40 && <span style={styles.curse}>🌑 Silence {doom}%</span>}
           {game.player.soldiers > 0 && (
             <span style={styles.light}>

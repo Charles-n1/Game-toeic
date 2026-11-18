@@ -3,6 +3,7 @@ import { earnLexis } from './player';
 import { isNight } from './clock';
 import { say } from './messages';
 import { endingLines } from './isekai/lostHero';
+import { triggerEpisodeToBeContinued, unlockGallery } from './isekaiTodo/socialPlus';
 
 // The story moving forward: the chapters of the chosen goal, and the scenes that happen once.
 
@@ -13,6 +14,7 @@ export function currentChapter(game) {
 
 function tellEnding(game) {
   game.ended = true;
+  if (game.bosses?.king) unlockGallery(game, 'kingSlain');
   say(game, null, endingLines(game, ENDINGS[game.goal]));
   say(game, null, ['THE END... of this story. The world stays open: live in it as long as you like.']);
 }
@@ -22,8 +24,12 @@ function finishChapter(game, chapter) {
   earnLexis(game, chapter.reward);
   const reward = chapter.reward > 0 ? ' (+' + chapter.reward + ' Lexis)' : '';
   const next = currentChapter(game);
-  if (next) say(game, null, ['✔ ' + chapter.title + reward, 'New chapter: ' + next.title + '\n' + next.text]);
-  else tellEnding(game);
+  if (next) {
+    triggerEpisodeToBeContinued(game, Math.min(5, game.chapter + 1));
+    say(game, null, ['✔ ' + chapter.title + reward, 'New chapter: ' + next.title + '\n' + next.text]);
+  } else {
+    tellEnding(game);
+  }
 }
 
 // Plays a scene only the first time.

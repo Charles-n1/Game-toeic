@@ -4,6 +4,7 @@ import PixelIcon from './PixelIcon';
 import useScreen from './useScreen';
 import { maxHealth, maxMana } from '../logic/player';
 import { bottleSize, bottleTierOf } from '../logic/survival';
+import { isLowMana } from '../logic/isekaiTodo/progression';
 
 // One compact stat line: "HP 48/70" and its bar.
 function StatLine({ label, value, max, color, wide }) {
@@ -38,6 +39,8 @@ export default function StatusPanel({ game }) {
   const wide = useScreen().wide;
   const maxBottle = bottleSize(player);
   const tier = bottleTierOf(player);
+  const maxMp = maxMana(player, game);
+  const lowMp = isLowMana(player, maxMp);
   return (
     <div className="row" style={styles.panel}>
       <div className="window" style={styles.face}>
@@ -46,12 +49,17 @@ export default function StatusPanel({ game }) {
       <div className="window" style={wide ? styles.statsWide : styles.stats}>
         <div className="row between" style={styles.header}>
           <span style={wide ? styles.levelWide : styles.level}>{player.name}</span>
+          {lowMp && (
+            <span style={{ color: '#c78bff', fontSize: 9, fontWeight: 'bold' }} title="Critically Low Mana">
+              LOW MP!
+            </span>
+          )}
           <span className="gold" style={wide ? styles.lvBadgeWide : styles.lvBadge}>
             Lv.{player.level}
           </span>
         </div>
         <StatLine label="HP" value={player.health} max={maxHealth(player, game)} color="#e8423f" wide={wide} />
-        <StatLine label="MP" value={player.mana} max={maxMana(player)} color="#3a7bff" wide={wide} />
+        <StatLine label="MP" value={player.mana} max={maxMp} color={lowMp ? '#ff5a6e' : '#3a7bff'} wide={wide} />
         <div className="row between" style={styles.needs}>
           <NeedBar icon="roastMeat" value={player.hunger} color="#e8a050" wide={wide} />
           <NeedBar icon="water" value={player.thirst} color="#5aa8ee" wide={wide} />

@@ -14,6 +14,10 @@ import { usePotion, canUsePotion, countItem } from '../logic/player';
 import { burst, floatText } from '../logic/particles';
 import { battlePlaces, hitMoments } from '../draw/battle';
 import { appraiseOpponent } from '../logic/obsidian';
+import { WRITTEN_INCANTATIONS, ELEMENTAL_SPIRITS } from '../data/isekaiTodo';
+import { ensureIsekaiTodo } from '../logic/isekaiTodo/state';
+import { hasSilentCasting, castWrittenIncantation, hasTimeMagic, castTimeDilate, hasGravityMagic, castGravityCrush, summonSpiritInFight } from '../logic/isekaiTodo/magicPlus';
+import { monsterRankInfo } from '../logic/isekaiTodo/monstersPlus';
 
 const AUTO_NEXT = 1100; // milliseconds: after a GOOD answer, the next question comes by itself
 const POTIONS = ['healthPotion', 'bigPotion', 'antidote', 'bread', 'roastMeat', 'herbStew', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion'];
@@ -119,12 +123,72 @@ function Commands({ game, fight, refresh, onFlee }) {
   }
 
   if (list === 'skills') {
+    const todo = ensureIsekaiTodo(game);
+    const activeSpId = todo.spirits?.active;
+    const activeSp = activeSpId ? ELEMENTAL_SPIRITS.find((s) => s.id === activeSpId) : null;
+    const silentReady = hasSilentCasting(game);
     return (
       <div className="window commands commands-open">
         <button className="command" onClick={() => setList('main')}>
           ◀ Back
         </button>
-        {spells.length === 0 && <span className="small">No skill yet. The researchers teach them (Yuki, Luna, Selene...).</span>}
+        {activeSp && !fight.opponent.duel && (
+          <button
+            className="command"
+            disabled={Boolean(fight.spiritSummoned)}
+            onClick={() => {
+              summonSpiritInFight(game, fight);
+              setList('main');
+              refresh();
+            }}
+          >
+            <span>{activeSp.icon}</span>
+            <span style={styles.spell}>{fight.spiritSummoned ? 'Summoned' : `Call ${activeSp.element}`}</span>
+          </button>
+        )}
+        {hasTimeMagic(game) && !fight.opponent.duel && (
+          <button
+            className="command"
+            disabled={Boolean(fight.timeDilated) || player.mana < 2}
+            onClick={() => {
+              if (castTimeDilate(game, fight)) fight.timeDilated = true;
+              setList('main');
+              refresh();
+            }}
+          >
+            <span>⏳</span>
+            <span style={styles.spell}>Time Dilate (2MP)</span>
+          </button>
+        )}
+        {hasGravityMagic(game) && !fight.opponent.duel && (
+          <button
+            className="command"
+            disabled={Boolean(fight.gravityCrushed) || player.mana < 2}
+            onClick={() => {
+              if (castGravityCrush(game, fight)) fight.gravityCrushed = true;
+              setList('main');
+              refresh();
+            }}
+          >
+            <span>🪨</span>
+            <span style={styles.spell}>Gravity (2MP)</span>
+          </button>
+        )}
+        {silentReady && !fight.opponent.duel && (
+          <button
+            className="command"
+            disabled={player.mana < WRITTEN_INCANTATIONS[0].mpCost}
+            onClick={() => {
+              castWrittenIncantation(game, WRITTEN_INCANTATIONS[0].id, 0, fight);
+              setList('main');
+              refresh();
+            }}
+          >
+            <span>📜</span>
+            <span style={styles.spell}>Silent Chant</span>
+          </button>
+        )}
+        {spells.length === 0 && !activeSp && <span className="small">No skill yet. The researchers teach them (Yuki, Luna, Selene...).</span>}
         {spells.map((type) => {
           const tag = TAGS[spellLevel(game, type.id) - 1];
           return (
@@ -384,6 +448,14 @@ export default function FightScreen({ game, refresh }) {
               <span>{type.name}</span>
             </div>
             {(fight.question?.difficulty || opponent.tag) && <TagBadge tag={fight.question?.difficulty || opponent.tag} />}
+            {!opponent.duel && (() => {
+              const rInfo = monsterRankInfo(opponent);
+              return (
+                <span className="badge" style={{ backgroundColor: rInfo.color, color: '#14101e' }}>
+                  {rInfo.label}
+                </span>
+              );
+            })()}
             {opponent.duel ? (
               <span className="small">mistakes {fight.asked - fight.correct} / 3</span>
             ) : (

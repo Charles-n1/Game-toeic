@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items';
 import { ensureSociety } from './society/state';
+import { skillTreeBonuses } from './isekaiTodo/progression';
 
 // Encumbrance & carry capacity: items in the bag have physical weight (kg).
 // Keeping a light bag preserves 100% normal speed; overloading slows movement and fight focus.
@@ -77,7 +78,8 @@ export function horsePackBonus(game) {
 export function carryCapacity(game) {
   const player = game.player;
   const levelBonus = Math.max(0, (player.level || 1) - 1) * 1.5;
-  return Math.round((45 + levelBonus + packBonus(player) + horsePackBonus(game)) * 10) / 10;
+  const treeCarry = game ? skillTreeBonuses(game).carry || 0 : 0;
+  return Math.round((45 + levelBonus + treeCarry + packBonus(player) + horsePackBonus(game)) * 10) / 10;
 }
 
 export function bagWeight(game) {

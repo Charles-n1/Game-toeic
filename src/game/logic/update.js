@@ -1,4 +1,4 @@
-import { zoneAt, HOME_DOOR } from '../data/zones';
+import { zoneAt, HOME_DOOR, WORLD_SIZE } from '../data/zones';
 import { isSolid, tileAt, biomeAt, linkAt, TILE, propsAround } from '../world/map';
 import { directionOf, facingOf, isRunning, frontTile } from './input';
 import { advanceClock, sleepUntilMorning } from './days';
@@ -27,7 +27,7 @@ import { updateWeather, knockedOutNear, carry, checkRescue, checkKnockedOut, put
 import { updateEncounters } from './encounters';
 import { pushBoulder, wordDoorAt, openWordDoor, obeliskNear, readObelisk, boulderPuzzleAt, offerBoulderReset } from './puzzles';
 import { canRefill, refill, fireToCookNear, offerCooking } from './survival';
-import { isAtHome, furnitureAt, pickUpFurniture, openStorage, nextWallColor, nextBedColor } from './home';
+import { isAtHome, furnitureAt, pickUpFurniture, openStorage, nextWallColor, nextBedColor, isNearLetterbox } from './home';
 import { practiceAtDummy } from './school';
 import { refreshWorld } from './worldState';
 import { portNear, offerSail } from './ports';
@@ -48,6 +48,11 @@ import { wallRepairSpotNear, applyWallRenovation } from './walls';
 import { countItem, removeItem, gainXp } from './player';
 import { addHappiness } from './village';
 import { knockOut } from './death';
+import { ensureIsekaiTodo } from './isekaiTodo/state';
+import { isLevitating, spiritLocations, talkToSpirit } from './isekaiTodo/magicPlus';
+import { nearIntelligentMonster, interactIntelligentMonster, tickEmissaries } from './isekaiTodo/monstersPlus';
+import { canOpenSecretFloor, trySecretFloorRiddle } from './isekaiTodo/dungeonsPlus';
+import { courierNear, deliverCourierMail, tickCourierMessenger, deliveredLettersList, readPart6Letter, checkEpisodeProgression, syncWeeklyChallenge, refreshDailyLetters } from './isekaiTodo/socialPlus';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -61,7 +66,12 @@ const FADE = 350; // milliseconds: the screen goes black when the hero takes sta
 // ---------- Walking ----------
 
 // Is the hero's body (a small square around x, y) free of walls and of closed seals?
+// Flying Mount soars freely outdoors across terrain; Levitate crosses water & lava smoothly.
 function canStand(game, x, y) {
+  const flying = Boolean(ensureIsekaiTodo(game).flyingMount?.riding);
+  if (flying) {
+    if (x < 2 || y < 2 || x > WORLD_SIZE - 2 || y > WORLD_SIZE - 2) return false;
+  }
   const corners = [
     [x - BODY, y - BODY],
     [x + BODY, y - BODY],
@@ -70,7 +80,15 @@ function canStand(game, x, y) {
   ];
   const seal = corners.map(([cx, cy]) => closedSealAt(game, cx, cy)).find((found) => found);
   if (seal) explainSeal(game, seal);
-  return !seal && corners.every(([cx, cy]) => !isSolid(cx, cy));
+  if (seal) return false;
+  if (flying) return true;
+  const levitating = isLevitating(game);
+  return corners.every(([cx, cy]) => {
+    if (!isSolid(cx, cy)) return true;
+    if (!levitating) return false;
+    const t = tileAt(cx, cy);
+    return t === TILE.WATER || t === TILE.LAVA;
+  });
 }
 
 // The hero walks into a boulder: it rolls one tile (the boulder puzzles of the dungeons).
@@ -91,7 +109,8 @@ function walk(game, input, dt) {
 
   const enc = encumbranceStatus(game);
   game.run.running = enc.canSprint && isRunning(input);
-  const mount = ridingSpeedMultiplier(game);
+  const flying = Boolean(ensureIsekaiTodo(game).flyingMount?.riding);
+  const mount = flying ? 1.75 : ridingSpeedMultiplier(game);
   const distance = (game.run.running ? RUN_SPEED : WALK_SPEED) * mount * enc.speedMult * (Date.now() < game.run.dashUntil ? 2 : 1) * dt;
   const steps = Math.max(1, Math.ceil(distance / MAX_MOVE_STEP));
   const stepDist = distance / steps;
@@ -236,6 +255,26 @@ function talkToVillager(game, villager) {
   say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + '"']);
 }
 
+function nearbySpiritSpot(game) {
+  const { x, y } = game.player;
+  return spiritLocations().find((sp) => Math.hypot(sp.x - x, sp.y - y) < 2.2) || null;
+}
+
+function openHomeLetterbox(game) {
+  refreshDailyLetters(game);
+  const letters = deliveredLettersList(game);
+  if (letters.length === 0) {
+    say(game, null, ['Your wooden letterbox is empty right now. Couriers deliver fresh dispatches at sunrise.']);
+    return;
+  }
+  const choices = letters.slice(0, 4).map((mail) => ({
+    label: (mail.replied ? '✓ ' : '✉️ ') + mail.subject + ' (' + mail.sender + ')',
+    icon: 'mail',
+    run: () => readPart6Letter(game, mail.id),
+  }));
+  say(game, null, ['Home Letterbox (' + letters.filter((l) => !l.read).length + ' unread)'], [...choices, { label: 'Close', run: () => {} }]);
+}
+
 // What the action button does here: the first thing that applies, from the most important.
 // Each one is { when: () => boolean, icon, run }.
 function actionsOf(game) {
@@ -244,6 +283,10 @@ function actionsOf(game) {
   const atHome = isAtHome(game);
   return [
     { when: () => player.carrying !== null, icon: 'people', run: () => putDown(game) },
+    { when: () => courierNear(game) !== null, icon: 'mail', run: () => deliverCourierMail(game) },
+    { when: () => nearIntelligentMonster(game) !== null, icon: 'talk', run: () => interactIntelligentMonster(game, nearIntelligentMonster(game)) },
+    { when: () => nearbySpiritSpot(game) !== null, icon: 'powers', run: () => talkToSpirit(game, nearbySpiritSpot(game).id) },
+    { when: () => isNearLetterbox(game), icon: 'mail', run: () => openHomeLetterbox(game) },
     { when: () => personNear(game), icon: 'talk', run: () => talkTo(game, personNear(game)) },
     { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
     ...actionsOfIsekai(game),
@@ -264,6 +307,7 @@ function actionsOf(game) {
     { when: () => portNear(game), icon: 'map', run: () => offerSail(game, portNear(game), travelTo) },
     { when: () => fireToCookNear(game), icon: 'roastMeat', run: () => offerCooking(game) },
     { when: () => wordDoorAt(game, front.x, front.y), icon: 'book', run: () => openWordDoor(game, wordDoorAt(game, front.x, front.y), () => refreshWorld(game)) },
+    { when: () => zoneAt(player.x, player.y).kind === 'inside' && canOpenSecretFloor(game, zoneAt(player.x, player.y).dungeon) && propNear(game, ['wallTorch'], 2.0), icon: 'book', run: () => trySecretFloorRiddle(game, zoneAt(player.x, player.y).dungeon) },
     { when: () => obeliskNear(game), icon: 'book', run: () => readObelisk(game, obeliskNear(game)) },
     { when: () => boulderPuzzleAt(game, front.x, front.y), icon: 'dots', run: () => offerBoulderReset(game, boulderPuzzleAt(game, front.x, front.y), () => refreshWorld(game)) },
     { when: () => propNear(game, ['dummy'], 1.6), icon: 'woodSword', run: () => practiceAtDummy(game) },
@@ -330,6 +374,8 @@ function slowUpdates(game, dt) {
     syncWorldParties(game);
     slowEconomy(game);
     updateBorders(game);
+    syncWeeklyChallenge(game);
+    checkEpisodeProgression(game);
     if (game.player.health <= 0 && !game.run.fight && game.run.screen === 'play') {
       knockOut(game);
     }
@@ -365,6 +411,8 @@ export function updateGame(game, input, dt) {
   updateBonds(game, dt);
   updateWorldParties(game, dt);
   updateEconomy(game, dt);
+  tickEmissaries(game, dt);
+  tickCourierMessenger(game, dt);
   slowUpdates(game, dt);
 }
 

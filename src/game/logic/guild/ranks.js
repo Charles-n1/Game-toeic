@@ -11,6 +11,9 @@ import { makeDuel } from '../duels';
 import { say, notify } from '../messages';
 import { cue } from '../cues';
 import { companionRank } from '../bonds/training';
+import { heroClass } from '../classes';
+import { ensureIsekaiTodo } from '../isekaiTodo/state';
+import { unlockAchievement, checkAchievements } from '../isekaiTodo/progression';
 
 // Adventurer Guild System:
 // - F -> E -> D -> C -> B -> A -> S ranks with TOEIC promotion exams & party cap scaling (2 -> 3 -> 4)
@@ -27,6 +30,16 @@ export const GUILD_RANKS = [
   { id: 'S', minPts: 1250, partyCap: 4, payBonus: 1.8, examTag: 'extreme', examHp: 5, fee: 200, title: 'Mythril S-Rank' },
 ];
 
+const RANK_COLORS = {
+  F: '#a97142', // Bronze
+  E: '#8f9ba8', // Iron
+  D: '#4da6ff', // Copper-Blue
+  C: '#d6dce5', // Silver
+  B: '#ffd23f', // Gold
+  A: '#b8f2ff', // Platinum
+  S: '#ff70c8', // Mythril
+};
+
 const HEALER_NPCS = new Set(['aria', 'elara', 'sylvia']);
 const TANK_NPCS = new Set(['arthur', 'lyra', 'garrick']);
 const MAGE_NPCS = new Set(['luna', 'selene', 'vespera', 'yuki']);
@@ -37,6 +50,7 @@ export function firstGuild() {
     rank: 'F',
     points: 0,
     completed: 0,
+    examFailedDay: 0,
     activeContracts: [],
     boards: {},
     companionHp: {},
@@ -53,6 +67,7 @@ export function ensureGuild(game) {
   if (!GUILD_RANKS.some((r) => r.id === g.rank)) g.rank = 'F';
   if (typeof g.points !== 'number') g.points = 0;
   if (typeof g.completed !== 'number') g.completed = 0;
+  if (typeof g.examFailedDay !== 'number') g.examFailedDay = 0;
   if (!Array.isArray(g.activeContracts)) g.activeContracts = [];
   if (!g.boards || typeof g.boards !== 'object') g.boards = {};
   if (!g.companionHp || typeof g.companionHp !== 'object') g.companionHp = {};
@@ -86,6 +101,33 @@ export function contractRewardBonus(game) {
   return rankInfo(g.rank).payBonus;
 }
 
+/** Returns the shop discount fraction (0..0.18) granted by the player's Adventurer Card rank. */
+export function adventurerShopDiscount(game) {
+  const g = ensureGuild(game);
+  return g.registered ? Math.min(0.18, rankIndex(g.rank) * 0.03) : 0;
+}
+
+/** Returns display data for the player's Adventurer Card item/UI. */
+export function adventurerCardView(game) {
+  const g = ensureGuild(game);
+  const info = rankInfo(g.rank);
+  const player = game.player || {};
+  return {
+    registered: g.registered,
+    rank: g.rank,
+    title: info.title,
+    color: RANK_COLORS[g.rank] || '#a97142',
+    name: player.name || 'Hero',
+    level: player.level || 1,
+    className: heroClass(game)?.title || 'Adventurer',
+    kills: game.counts?.kills || 0,
+    points: g.points,
+    partyCap: info.partyCap,
+    discountPct: Math.round(adventurerShopDiscount(game) * 100),
+    borderFree: rankIndex(g.rank) >= rankIndex('B'),
+  };
+}
+
 export function registerAdventurerCard(game) {
   const g = ensureGuild(game);
   if (g.registered) return false;
@@ -111,6 +153,7 @@ export function canTakePromotionExam(game) {
   const g = ensureGuild(game);
   const next = nextRankInfo(g.rank);
   if (!next) return false;
+  if (g.examFailedDay === (game.day || 1)) return false;
   return g.points >= next.minPts && (game.player.lexis || 0) >= next.fee;
 }
 
@@ -120,6 +163,10 @@ export function startPromotionExam(game, examiner = null) {
   const next = nextRankInfo(g.rank);
   if (!next) {
     say(game, examiner?.id || null, ['You already hold the highest guild honor: Mythril S-Rank!']);
+    return false;
+  }
+  if (g.examFailedDay === (game.day || 1)) {
+    say(game, examiner?.id || null, ['You already attempted a promotion exam today. You may retake the exam tomorrow.']);
     return false;
   }
   if (g.points < next.minPts) {
@@ -132,29 +179,46 @@ export function startPromotionExam(game, examiner = null) {
   }
   game.player.lexis -= next.fee;
   const speakerName = examiner?.name || 'Guild Examiner';
+  const nextIdx = rankIndex(next.id);
+  const isAdvancedExam = nextIdx >= 3; // Rank C..S mock TOEIC exams include RC55/text reading
+  const hasQuestionBank = Array.isArray(game.run?.questions) && game.run.questions.length > 0;
+  const examSections = isAdvancedExam ? ['text', 'rc8', 'rc10'] : ['rc10', 'rc8'];
   const duel = makeDuel(
     { id: examiner?.id || null, name: speakerName + ' (Rank ' + next.id + ' Exam)', look: examiner?.look || null },
     {
       title: 'Guild Exam: ' + next.title,
       category: 'vocabulary',
       tag: next.examTag,
+      sections: examSections,
       health: next.examHp,
-      speed: 11 + rankIndex(next.id),
-      questions: next.examTag === 'normal' ? NEGOTIATION : undefined,
-      onWin: () => {
+      speed: 11 + nextIdx * (isAdvancedExam ? 1.5 : 1),
+      questions: !hasQuestionBank || !isAdvancedExam ? NEGOTIATION : undefined,
+      onWin: (fight) => {
+        const pct = fight && fight.asked > 0 ? Math.round((fight.correct / fight.asked) * 100) : 100;
         g.rank = next.id;
+        g.examFailedDay = 0;
         earnLexis(game, next.fee + 30);
         gainXp(game, 35 + rankIndex(next.id) * 15);
         cue(game, 'levelUp');
+        const st = ensureIsekaiTodo(game);
+        if (!st.gallery.unlocked.includes('guildPromo')) {
+          st.gallery.unlocked.push('guildPromo');
+        }
+        unlockAchievement(game, 'guildPromoted');
+        checkAchievements(game);
         say(game, examiner?.id || null, [
-          'Stamp complete! You passed the ' + next.title + ' examination.',
+          'Score: ' + pct + '% — Passed! Stamp complete for ' + next.title + '.',
           next.partyCap > rankInfo(GUILD_RANKS[rankIndex(next.id) - 1].id).partyCap
             ? 'Your party limit rises to ' + next.partyCap + ' companions, and higher-rank contracts are now open!'
             : 'Your contract rewards and kingdom border standing increased!',
         ]);
       },
-      onLose: () => {
-        say(game, examiner?.id || null, ['Not quite sharp enough for Rank ' + next.id + '. Train a bit more and retake the exam anytime.']);
+      onLose: (fight) => {
+        const pct = fight && fight.asked > 0 ? Math.round((fight.correct / fight.asked) * 100) : 0;
+        g.examFailedDay = game.day || 1;
+        say(game, examiner?.id || null, [
+          'Score: ' + pct + '% — Not quite sharp enough for Rank ' + next.id + '. You may retake the exam tomorrow.',
+        ]);
       },
     }
   );

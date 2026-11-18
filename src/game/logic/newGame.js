@@ -31,6 +31,7 @@ import { firstKingdoms, ensureKingdoms } from './kingdomLaws';
 import { firstDurability, ensureDurability } from './durability';
 import { firstLanguages, ensureLanguages } from './languages';
 import { firstRealism, ensureRealism } from './realism/state';
+import { firstIsekaiTodo, ensureIsekaiTodo } from './isekaiTodo/state';
 
 export const GAME_VERSION = 2; // 2: health in HP (a save of version 1 starts a new game)
 export const WORLD_VERSION = 4; // 4: the world of the painting art/MAP2.png (a save of an older world moves to it)
@@ -83,6 +84,10 @@ export function makeRun() {
     saveTime: 0,
     safeUntil: 0, // no fight can start before this time
     dashUntil: 0,
+    levelUpQueue: [], // queued animated level-up modals after fight/xp gain
+    episodeModal: null, // anime episode opening / ending preview modal
+    timeStopUntil: 0, // Time Magic: freezes wild monsters
+    levitateUntil: 0, // Gravity Magic: cross water/lava safely
     flashUntil: 0,
     slashUntil: 0,
     slashDir: 'down',
@@ -264,6 +269,7 @@ export function newGame(goalId, score = 450, stats = {}, hero, slot, customWeigh
     durability: firstDurability(),
     languages: firstLanguages(),
     realism: firstRealism(), // bank, currencies, health, spoilage, factions... (see realism/state.js)
+    isekaiTodo: firstIsekaiTodo(), // skill tree, achievements, spirits, refine, tower, album...
     run: makeRun(),
   };
   game.focus.current = chooseFocus(game);
@@ -361,6 +367,7 @@ function addMissing(game) {
   ensureKingdoms(game);
   ensureLanguages(game);
   ensureRealism(game); // an older save gets the realism state
+  ensureIsekaiTodo(game); // an older save gets isekaiTodo systems
 
   ensureVillages(game);
   if (!game.puzzles) game.puzzles = firstPuzzles();
