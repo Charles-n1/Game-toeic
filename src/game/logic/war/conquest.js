@@ -12,7 +12,6 @@ import { cue } from '../cues';
 import { ensureLife } from '../life/state';
 import { triggerHeroVictoryLife } from '../life/villageEvents';
 import {
-  dist,
   centerOfPlace,
   townOf,
   villageById,
@@ -25,6 +24,7 @@ import {
   addCorpse,
   isVillageUnderAttack,
 } from './state';
+import { distance, faceTo } from '../../world/geometry';
 
 const AWAKE_RANGE = 220;
 const MARCH_PER_DAY = 170;
@@ -209,7 +209,7 @@ export function advanceWarbandsDay(game) {
     if (isVillageNearPlayer(game, village, AWAKE_RANGE)) continue; // handled live on screen
     if (band.state === 'marching') {
       const target = centerOfPlace(village);
-      const far = dist(band, target);
+      const far = distance(band, target);
       if (far <= MARCH_PER_DAY) {
         band.x = target.x;
         band.y = target.y;
@@ -320,7 +320,7 @@ export function syncOnScreenWarbands(game) {
   for (const band of war.warbands) {
     const village = villageById(band.targetId);
     if (!village) continue;
-    const near = isVillageNearPlayer(game, village, AWAKE_RANGE) || dist(game.player, band) < 120;
+    const near = isVillageNearPlayer(game, village, AWAKE_RANGE) || distance(game.player, band) < 120;
     if (near) {
       if (band.state === 'marching') {
         const center = centerOfPlace(village);
@@ -359,7 +359,7 @@ function closestEntry(list, from) {
   let best = null;
   let bestFar = Infinity;
   for (const item of list) {
-    const far = dist(item, from);
+    const far = distance(item, from);
     if (far < bestFar) {
       best = item;
       bestFar = far;
@@ -391,9 +391,9 @@ function updateWarbandMonster(game, band, monster, village, defenders, dt) {
   const speed = (1 + (monster.speed || 8) * 0.12) * 0.9;
 
   if (band.state === 'occupying') {
-    const nearPlayer = dist(monster, game.player) < 7;
+    const nearPlayer = distance(monster, game.player) < 7;
     const goal = nearPlayer ? game.player : centerOfPlace(village);
-    const far = dist(monster, goal);
+    const far = distance(monster, goal);
     if (far > 0.8) moveSlide(game, monster, ((goal.x - monster.x) / far) * speed * dt, ((goal.y - monster.y) / far) * speed * dt);
     return;
   }
@@ -440,11 +440,11 @@ function updateWarbandMonster(game, band, monster, village, defenders, dt) {
     goal = wall;
   } else if (nearestDef && nearestDef.far < 18) {
     goal = nearestDef.item;
-  } else if (dist(monster, game.player) < 6) {
+  } else if (distance(monster, game.player) < 6) {
     goal = game.player;
   }
   monster.target = goal;
-  const far = dist(monster, goal);
+  const far = distance(monster, goal);
   if (far > 0.4) {
     moveSlide(game, monster, ((goal.x - monster.x) / far) * speed * dt, ((goal.y - monster.y) / far) * speed * dt);
   }
@@ -452,7 +452,7 @@ function updateWarbandMonster(game, band, monster, village, defenders, dt) {
 
 function fireProjectile(game, kind, from, target, damage, speed, color) {
   const runWar = ensureRunWar(game);
-  const far = Math.max(0.1, dist(from, target));
+  const far = Math.max(0.1, distance(from, target));
   runWar.projectiles.push({
     kind: kind,
     x: from.x,
@@ -478,11 +478,6 @@ function strikeMonster(game, monster, damage, color) {
   return false;
 }
 
-function faceToward(entity, target) {
-  const dx = target.x - entity.x;
-  const dy = target.y - entity.y;
-  entity.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-}
 
 const LAMBDA_TIME_SCALE = 9; // lambda villagers take 9x longer between attacks
 
@@ -510,15 +505,15 @@ function updateDefender(game, villager, monsters, foremanPos, dt) {
   // Foreman rallies nearby defenders and fights if a monster gets close.
   if (villager.job === 'foreman') {
     const targetPos = foremanPos || monster;
-    const far = dist(villager, targetPos);
+    const far = distance(villager, targetPos);
     if (far > 1.8) {
       moveSlide(game, villager, ((targetPos.x - villager.x) / far) * 1.9 * dt, ((targetPos.y - villager.y) / far) * 1.9 * dt);
       villager.walking = true;
       villager.step = (villager.step || 0) + dt * 6;
-      faceToward(villager, targetPos);
+      faceTo(villager, targetPos);
     } else {
       villager.walking = false;
-      faceToward(villager, monster);
+      faceTo(villager, monster);
     }
     if (nearest.far <= 1.5 && villager.attackCd <= 0) {
       villager.attackCd = 1.6;
@@ -531,7 +526,7 @@ function updateDefender(game, villager, monsters, foremanPos, dt) {
 
   // Knights keep their full strength, charging into melee with sword and shield.
   if (villager.knight) {
-    faceToward(villager, monster);
+    faceTo(villager, monster);
     if (nearest.far > 1.25) {
       const speed = 2.6;
       moveSlide(game, villager, ((monster.x - villager.x) / nearest.far) * speed * dt, ((monster.y - villager.y) / nearest.far) * speed * dt);
@@ -551,7 +546,7 @@ function updateDefender(game, villager, monsters, foremanPos, dt) {
   }
 
   // Lambda villagers/guards: take 9x longer between strikes and deal modest chip damage.
-  faceToward(villager, monster);
+  faceTo(villager, monster);
   if (nearest.far <= 1.55) {
     villager.walking = false;
     if (villager.attackCd <= 0) {
@@ -592,7 +587,7 @@ function updateVillageDefense(game, village, monsters, dt) {
   const nonFighters = villagers.filter((v) => !fighters.includes(v));
   nonFighters.forEach((v) => {
     v.fighting = false;
-    const farHome = dist(v, v.home);
+    const farHome = distance(v, v.home);
     if (farHome > 0.6) {
       moveSlide(game, v, ((v.home.x - v.x) / farHome) * 2.1 * dt, ((v.home.y - v.y) / farHome) * 2.1 * dt);
       v.walking = true;
@@ -614,7 +609,7 @@ function updateVillageDefense(game, village, monsters, dt) {
   }
   for (const foreman of foremen) {
     for (const mate of fighters) {
-      if (mate !== foreman && dist(foreman, mate) <= 8) mate._ralliedUntil = now + 1500;
+      if (mate !== foreman && distance(foreman, mate) <= 8) mate._ralliedUntil = now + 1500;
     }
   }
 
@@ -659,7 +654,7 @@ function updateProjectiles(game, dt) {
     proj.y += proj.vy * dt;
     if (proj.life <= 0) continue;
 
-    const hit = game.run.monsters.find((m) => m.health > 0 && dist(m, proj) < 0.8);
+    const hit = game.run.monsters.find((m) => m.health > 0 && distance(m, proj) < 0.8);
     if (hit) {
       strikeMonster(game, hit, proj.damage, proj.kind === 'bolt' ? '#ffd23f' : '#ffffff');
       continue;
@@ -684,7 +679,7 @@ export function updateWarbandsAndDefense(game, dt) {
       war.warbands = war.warbands.filter((b) => b !== band);
       continue;
     }
-    if (!isVillageNearPlayer(game, village, AWAKE_RANGE) && dist(game.player, band) >= 120) continue;
+    if (!isVillageNearPlayer(game, village, AWAKE_RANGE) && distance(game.player, band) >= 120) continue;
 
     const monsters = warbandMonstersOf(game, band.id);
     if (monsters.length > 0) {
@@ -731,7 +726,7 @@ export function updateWarbandsAndDefense(game, dt) {
     if (vState.owner !== 'people') continue;
     const center = centerOfPlace(village);
     const nearbyHostiles = game.run.monsters.filter(
-      (m) => m.health > 0 && (m.targetVillageId === village.id || (m.raid && village.id === 'lexia') || dist(m, center) < Math.max(village.w, village.h) * 0.75)
+      (m) => m.health > 0 && (m.targetVillageId === village.id || (m.raid && village.id === 'lexia') || distance(m, center) < Math.max(village.w, village.h) * 0.75)
     );
     if (isVillageUnderAttack(game, village.id) || nearbyHostiles.length > 0) {
       updateVillageDefense(game, village, nearbyHostiles, dt);

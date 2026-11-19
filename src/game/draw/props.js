@@ -993,7 +993,7 @@ export function gameStall() {
 }
 
 // Wooden notice / bounty board with pinned parchments.
-// Quest & town notice board enlarged 2x cleanly for readable prominence.
+// The quest board of the towns, twice as big (easy to see).
 export function board() {
   return once('boardV2', () => {
     const grid = makeGrid(18, 26);

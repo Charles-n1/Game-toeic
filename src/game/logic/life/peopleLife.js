@@ -8,10 +8,8 @@ import { emote } from '../emotes';
 import { addParticle } from '../particles';
 import { isVillain } from '../society/state';
 import { ensureLife, ensureRunLife } from './state';
+import { distance } from '../../world/geometry';
 
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 function stepSide(v, from, speed, dt) {
   const dx = v.x - from.x;
@@ -103,12 +101,32 @@ export function syncVillagePets(game) {
   }
 }
 
+// The moments of life at a door: the villager goes in, and stays inside this long (seconds), instead of
+// waiting in front of the door.
+const STAY_INSIDE = { school: [60, 120], lunch: [30, 60], temple: [40, 80], healerVisit: [20, 40], shelter: [40, 80], drunk: [60, 120] };
+// Busy with a moment of life, or resting from the last one (see logic/villagers.js): not given a new one now.
+function isBusy(v, now) {
+  return v.inside || v.lifeUntil > now || now < (v.lifeRestUntil || 0);
+}
+
+// At the door of the place: in. Hidden until the stay is over (logic/villagers.js brings the villager out).
+function goInside(v, now) {
+  const stay = STAY_INSIDE[v.lifeMode];
+  if (!stay || v.inside) return;
+  v.inside = true;
+  v.walking = false;
+  v.lifeUntil = now + (stay[0] + Math.random() * (stay[1] - stay[0])) * 1000;
+}
+
+// A moment of life: walk to the target, then stay there durationMs. The time of the walk is added: a moment
+// that ended on the way made the villager turn back, and go again, forever.
 function setMoveGoal(v, target, mode, speed, durationMs) {
   if (!target) return;
+  const walkMs = (distance(v, target) / speed) * 1000 * 1.4;
   v.lifeTarget = { x: target.x, y: target.y };
   v.lifeMode = mode;
   v.lifeSpeed = speed;
-  v.lifeUntil = Date.now() + durationMs;
+  v.lifeUntil = Date.now() + walkMs + durationMs;
 }
 
 export function slowPeopleLife(game) {
@@ -121,10 +139,12 @@ export function slowPeopleLife(game) {
   const raining = game.weather?.kind === 'rain' || game.weather?.kind === 'storm';
   const now = Date.now();
   const villain = isVillain(game);
-  const around = visibleVillagers(game).filter((v) => dist(v, game.player) < 28);
+  const around = visibleVillagers(game).filter((v) => distance(v, game.player) < 28);
   const sickEntries = Object.entries(life.sickVillagers || {}).filter(([, info]) => day <= info.untilDay);
 
   for (const v of around) {
+    const isUrgent = (raining && v.home && !v.knight) || rl.houseFires.some((f) => !f.doused && f.villageId === v.village);
+    if (isUrgent ? v.inside : isBusy(v, now)) continue; // rain and fire can not wait; the rest can
     v.carry = null;
     const hash = hashOf(v.id);
     if (!v.kid && !v.lifeRole) {
@@ -148,20 +168,20 @@ export function slowPeopleLife(game) {
 
     // 1. Storm & Rain Shelter (#2): actually run under inn/home doorways!
     if (raining && v.home && !v.knight) {
-      const shelter = innDoor && dist(v, innDoor) < dist(v, v.home) ? innDoor : v.home;
+      const shelter = innDoor && distance(v, innDoor) < distance(v, v.home) ? innDoor : v.home;
       setMoveGoal(v, shelter, 'shelter', 2.35, 3500);
       v.carry = null;
       if (Math.random() < 0.45) v.lifeBubble = '☔ Running for cover!';
     }
     // 2. Bucket Brigade (#2): villagers run from well to fire with buckets!
     else if (activeFire && !v.kid && !v.knight && hash % 2 === 0) {
-      const atFire = dist(v, activeFire) < 2.2;
+      const atFire = distance(v, activeFire) < 2.2;
       if (atFire) {
         activeFire.intensity = Math.max(0, (activeFire.intensity || 100) - 8);
         if (activeFire.intensity <= 0) activeFire.doused = true;
         addParticle(game, { x: activeFire.x + 0.5, y: activeFire.y, vx: 0, vy: -1.1, life: 0.6, color: '#6fd0ff', size: 3 });
         v.firePhase = 'well';
-      } else if (well && dist(v, well) < 2.2) {
+      } else if (well && distance(v, well) < 2.2) {
         v.firePhase = 'fire';
       }
       const goal = v.firePhase === 'well' && well ? { x: well.x + 0.5, y: well.y + 1.2 } : { x: activeFire.x + 0.5, y: activeFire.y + 1 };
@@ -180,11 +200,11 @@ export function slowPeopleLife(game) {
         setMoveGoal(v, { x: sq.x + (hash % 5) - 2, y: sq.y + ((hash >> 2) % 4) - 1 }, 'recess', 2.35, 3500);
         v.lifeBubble = '🎉 School’s out!';
       } else {
-        const otherKid = around.find((k) => k.kid && k.id !== v.id && k.village === v.village && dist(k, v) < 10);
-        const chicken = (game.run?.animals || []).find((a) => (a.kind === 'chicken' || a.kind === 'hen') && dist(a, v) < 9);
+        const otherKid = around.find((k) => k.kid && k.id !== v.id && k.village === v.village && distance(k, v) < 10);
+        const chicken = (game.run?.animals || []).find((a) => (a.kind === 'chicken' || a.kind === 'hen') && distance(a, v) < 9);
         if (otherKid && Math.random() < 0.6) {
           setMoveGoal(v, otherKid, 'tag', 2.25, 3000);
-          if (dist(v, otherKid) < 1.3) v.lifeBubble = 'Tag, you’re it!';
+          if (distance(v, otherKid) < 1.3) v.lifeBubble = 'Tag, you’re it!';
         } else if (chicken && Math.random() < 0.6) {
           setMoveGoal(v, chicken, 'chaseChicken', 2.1, 2500);
           if (Math.random() < 0.25) v.lifeBubble = 'Haha! Cluck-cluck!';
@@ -198,19 +218,19 @@ export function slowPeopleLife(game) {
     } else if (!v.knight && !v.drunk && hour >= 12.0 && hour < 13.3 && innDoor && hash % 3 === 0) {
       setMoveGoal(v, { x: innDoor.x + ((hash % 3) - 1) * 0.7, y: innDoor.y + 0.5 }, 'lunch', 1.65, 4000);
       v.carry = 'bread';
-      if (dist(v, innDoor) < 2.5 && Math.random() < 0.2) v.lifeBubble = '🍲 Lunch at the tavern';
+      if (distance(v, innDoor) < 2.5 && Math.random() < 0.2) v.lifeBubble = '🍲 Lunch at the tavern';
     } else if (!v.knight && day % 3 === 0 && hour >= 8.0 && hour < 9.8 && churchDoor && hash % 5 === 0) {
       setMoveGoal(v, churchDoor, 'temple', 1.45, 4000);
       if (Math.random() < 0.2) v.lifeBubble = '🔔 Morning prayers';
     }
     // 5. Elders sit on real Porch Benches outside their homes (#9)
     else if (v.isElder && v.home && !isNight(game) && hour >= 9.5 && hour < 17.5) {
-      const benchSpot = { x: v.home.x + 1.2, y: v.home.y - 0.1 };
+      const benchSpot = { x: v.home.x + 2.6, y: v.home.y - 0.1 }; // beside the house, not in front of the door
       if (!rl.porchBenches.some((b) => b.id === 'bench-' + v.id)) {
         rl.porchBenches.push({ id: 'bench-' + v.id, villageId: v.village, x: benchSpot.x, y: benchSpot.y, elderName: v.name });
       }
-      setMoveGoal(v, benchSpot, 'porchBench', 1.0, 5000);
-      if (dist(v, benchSpot) < 0.7 && dist(v, game.player) < 4.5 && Math.random() < 0.2) {
+      setMoveGoal(v, benchSpot, 'porchBench', 1.0, (60 + Math.random() * 60) * 1000); // a good while on the bench
+      if (distance(v, benchSpot) < 0.7 && distance(v, game.player) < 4.5 && Math.random() < 0.2) {
         v.lifeBubble = 'Quiet afternoon on the porch.';
       }
     }
@@ -240,7 +260,7 @@ export function slowPeopleLife(game) {
     // 8. Apprentice Trailing Master Craftsman (#17)
     else if (v.isApprentice && !isNight(game) && hour >= 7.5 && hour < 17.5) {
       const master = around.find((m) => m.village === v.village && (m.job === 'smith' || m.job === 'foreman' || m.job === 'builder') && !m.kid);
-      if (master && dist(v, master) > 1.7) {
+      if (master && distance(v, master) > 1.7) {
         setMoveGoal(v, { x: master.x - 1.1, y: master.y + 0.4 }, 'apprentice', 1.55, 3500);
         v.carry = 'firewood';
       }
@@ -257,7 +277,7 @@ export function slowPeopleLife(game) {
     // Neighbors who fought avoid/scowl (#4) & Door Spat ending with walking away down the street (#11)
     const rival = life.rivalryPairs[v.id];
     if (rival && day <= rival.untilDay) {
-      const other = around.find((o) => o.id === rival.rivalId && dist(v, o) < 3.8);
+      const other = around.find((o) => o.id === rival.rivalId && distance(v, o) < 3.8);
       if (other) {
         v.angry = 4;
         v.lifeBubble = 'Hmph!';
@@ -269,11 +289,11 @@ export function slowPeopleLife(game) {
     }
 
     // React to hero (#1) AND neighbor greetings
-    if (dist(v, game.player) < 3.4 && !v.ko) {
+    if (distance(v, game.player) < 3.4 && !v.ko) {
       const runningArmed = now < (game.run.slashUntil || 0) || (game.run.walking && game.run.running && !villain);
       if (villain && Math.random() < 0.35) {
         v.lifeBubble = '*whispers nervously...*';
-      } else if (runningArmed && dist(v, game.player) < 2.2) {
+      } else if (runningArmed && distance(v, game.player) < 2.2) {
         v.lifeBubble = 'Whoa—easy with that!';
         v.sidestepUntil = now + 1200;
       } else if (!v.namedGreetAt || now - v.namedGreetAt > 45000) {
@@ -332,9 +352,10 @@ export function updatePeopleLife(game, dt) {
       const tx = v.lifeMode === 'drunk' ? v.lifeTarget.x + Math.sin(now * 0.005 + hashOf(v.id)) * 1.4 : v.lifeTarget.x;
       const ty = v.lifeTarget.y;
       if (Math.hypot(tx - v.x, ty - v.y) > 0.65) {
-        stepSmart(v, tx, ty, v.lifeSpeed || 1.5, dt, { stopAtGate: false });
+        if (!stepSmart(v, tx, ty, v.lifeSpeed || 1.5, dt, { stopAtGate: false })) v.lifeUntil = 0; // no way there: back to the day
       } else {
         v.walking = false;
+        goInside(v, now);
       }
     }
     // Kids skipping pebbles on pond shores (#6)
@@ -355,11 +376,11 @@ export function updatePeopleLife(game, dt) {
   // Friendly town dogs (#7): trail villager & bark at threats or sneaking night foxes!
   for (const dog of rl.townDogs) {
     const owner = around.find((v) => v.village === dog.villageId && !v.knight) || null;
-    const fox = (rl.nightFoxes || []).find((f) => f.villageId === dog.villageId && dist(f, dog) < 9);
+    const fox = (rl.nightFoxes || []).find((f) => f.villageId === dog.villageId && distance(f, dog) < 9);
     const threat =
       fox ||
-      (game.run.monsters || []).find((m) => m.health > 0 && dist(m, dog) < 7) ||
-      rl.pickpockets.find((p) => p.villageId === dog.villageId && dist(p, dog) < 7);
+      (game.run.monsters || []).find((m) => m.health > 0 && distance(m, dog) < 7) ||
+      rl.pickpockets.find((p) => p.villageId === dog.villageId && distance(p, dog) < 7);
     if (threat) {
       if (fox) fox.fleeing = true;
       stepSmart(dog, threat.x, threat.y, 2.7, dt, { stopAtGate: false });
@@ -367,7 +388,7 @@ export function updatePeopleLife(game, dt) {
       dog.shout = fox ? 'Woof! Shoo fox!' : 'Woof! Woof!';
     } else {
       if (now > (dog.barkUntil || 0)) dog.shout = null;
-      if (owner && dist(dog, owner) > 2.0) {
+      if (owner && distance(dog, owner) > 2.0) {
         stepSmart(dog, owner.x + 0.8, owner.y + 0.6, 1.9, dt);
       } else {
         dog.walking = false;

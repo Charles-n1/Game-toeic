@@ -9,10 +9,8 @@ import { say, notify } from '../messages';
 import { cue } from '../cues';
 import { addParticle } from '../particles';
 import { ensureLife, ensureRunLife, recordGossip, recordAbsenceNote } from './state';
+import { distance } from '../../world/geometry';
 
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 const PERFORMER_LOOKS = {
   juggler: { skin: '#f1c9a5', hair: '#a0324c', style: 'short', eyes: '#2a2234', outfit: '#c83e6e', trim: '#ffd23f' },
@@ -445,7 +443,7 @@ export function updateVillageEvents(game, dt) {
     const lamps = (v?.plan?.props || []).filter((p) => p.kind === 'lamp');
     const target = lamps[ll.lampIdx];
     if (target) {
-      if (dist(ll, target) > 1.0) {
+      if (distance(ll, target) > 1.0) {
         stepSmart(ll, target.x + 0.5, target.y + 0.8, 1.9, dt);
       } else {
         ll.walking = false;
@@ -460,7 +458,7 @@ export function updateVillageEvents(game, dt) {
 
   for (const p of rl.pickpockets) {
     stepSmart(p, p.tx, p.ty, 2.55, dt, { stopAtGate: false });
-    if (dist(p, { x: p.tx, y: p.ty }) < 1.5) p.expiresAt = now;
+    if (distance(p, { x: p.tx, y: p.ty }) < 1.5) p.expiresAt = now;
   }
 
   for (const f of rl.houseFires) {
@@ -493,7 +491,7 @@ export function actionsOfVillageLife(game) {
   const life = ensureLife(game);
   const list = [];
 
-  const nearThief = rl.pickpockets.find((p) => !p.caught && dist(p, game.player) < 2.2);
+  const nearThief = rl.pickpockets.find((p) => !p.caught && distance(p, game.player) < 2.2);
   if (nearThief) {
     list.push({
       when: () => true,
@@ -512,7 +510,7 @@ export function actionsOfVillageLife(game) {
     });
   }
 
-  const nearFire = rl.houseFires.find((f) => !f.doused && dist(f, game.player) < 2.4);
+  const nearFire = rl.houseFires.find((f) => !f.doused && distance(f, game.player) < 2.4);
   if (nearFire) {
     list.push({
       when: () => true,
@@ -530,7 +528,7 @@ export function actionsOfVillageLife(game) {
     });
   }
 
-  const nearPerf = rl.performers.find((p) => dist(p, game.player) < 1.8) || (rl.lamplighter && dist(rl.lamplighter, game.player) < 1.8 ? rl.lamplighter : null);
+  const nearPerf = rl.performers.find((p) => distance(p, game.player) < 1.8) || (rl.lamplighter && distance(rl.lamplighter, game.player) < 1.8 ? rl.lamplighter : null);
   if (nearPerf) {
     list.push({
       when: () => true,

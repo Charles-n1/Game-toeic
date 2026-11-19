@@ -16,7 +16,6 @@ import { say, notify } from '../messages';
 import { burst, floatText, bloodSplatter, bloodHit } from '../particles';
 import { cue } from '../cues';
 import {
-  dist,
   centerOfPlace,
   townOf,
   campOf,
@@ -27,6 +26,7 @@ import {
   placeNearSpot,
   spawnWarEffect,
 } from './state';
+import { distance } from '../../world/geometry';
 
 const CAMP_WAKE_RANGE = 110;
 const CHASE_RANGE = 6.5;
@@ -173,12 +173,12 @@ export function slowBanditsAndCamps(game) {
   const runWar = ensureRunWar(game);
   for (const camp of CAMPS) {
     const center = centerOfPlace(camp);
-    if (dist(game.player, center) < CAMP_WAKE_RANGE) spawnCampBandits(game, camp);
+    if (distance(game.player, center) < CAMP_WAKE_RANGE) spawnCampBandits(game, camp);
     else runWar.campUnits = runWar.campUnits.filter((u) => u.campId !== camp.id);
   }
   for (const town of MONSTER_TOWNS) {
     const center = centerOfPlace(town);
-    if (dist(game.player, center) < CAMP_WAKE_RANGE) spawnTownCaptorGuards(game, town);
+    if (distance(game.player, center) < CAMP_WAKE_RANGE) spawnTownCaptorGuards(game, town);
     else runWar.campUnits = runWar.campUnits.filter((u) => u.campId !== town.id);
   }
 }
@@ -187,7 +187,7 @@ export function cageNear(game, range = 2.8) {
   const war = ensureWar(game);
   for (const camp of CAMPS) {
     const pos = cagePosOf(camp);
-    if (dist(pos, game.player) > range) continue;
+    if (distance(pos, game.player) > range) continue;
     const cState = campStateOf(game, camp.id);
     const kidnappedIds = kidnappedIdsAt(game, camp.id);
     if (!cState.freed || kidnappedIds.length > 0) {
@@ -198,7 +198,7 @@ export function cageNear(game, range = 2.8) {
     const kidnappedIds = kidnappedIdsAt(game, town.id);
     if (kidnappedIds.length === 0) continue;
     const pos = cagePosOf(town);
-    if (dist(pos, game.player) <= range) {
+    if (distance(pos, game.player) <= range) {
       return { place: town, isCamp: false, x: pos.x, y: pos.y, kidnappedIds: kidnappedIds };
     }
   }
@@ -259,7 +259,7 @@ function nearestCaptorPlace(x, y) {
   let best = all[0];
   let bestFar = Infinity;
   for (const place of all) {
-    const far = dist(centerOfPlace(place), { x, y });
+    const far = distance(centerOfPlace(place), { x, y });
     if (far < bestFar) {
       best = place;
       bestFar = far;
@@ -401,10 +401,10 @@ export function triggerAmbush(game, forcedKind = null) {
 // ---------- Frame update for bandits & ambushers ----------
 
 function updateBanditUnit(game, unit, dt) {
-  const farPlayer = dist(unit, game.player);
+  const farPlayer = distance(unit, game.player);
   const shouldChase = unit.warKind === 'ambush' || farPlayer < CHASE_RANGE;
   const goal = shouldChase ? game.player : { x: unit.homeX, y: unit.homeY };
-  const farGoal = dist(unit, goal);
+  const farGoal = distance(unit, goal);
 
   if (farGoal > 0.45) {
     const speed = unit.warKind === 'ambush' ? 2.4 : shouldChase ? 2.0 : 0.7;
@@ -441,7 +441,7 @@ export function updateBanditsAndAmbushes(game, dt) {
   }
 
   // Despawn ambushers if the player outran them far away.
-  runWar.ambushFoes = runWar.ambushFoes.filter((u) => u.health > 0 && dist(u, game.player) < 28);
+  runWar.ambushFoes = runWar.ambushFoes.filter((u) => u.health > 0 && distance(u, game.player) < 28);
 
   // Rare road ambush timer in wild land.
   const canAmbush =
@@ -452,7 +452,7 @@ export function updateBanditsAndAmbushes(game, dt) {
     !(game.raid && game.raid.active) &&
     Date.now() > game.run.safeUntil &&
     zoneAt(game.player.x, game.player.y).kind === 'land' &&
-    dist(game.player, SPAWN) > 35 &&
+    distance(game.player, SPAWN) > 35 &&
     runWar.ambushFoes.length === 0;
 
   if (canAmbush) {
@@ -537,7 +537,7 @@ export function applyPowersToBandits(game) {
 
   for (const ball of game.run.balls) {
     if (ball.life <= 0) continue;
-    const hit = targets.find((u) => u.health > 0 && dist(u, ball) < 0.75);
+    const hit = targets.find((u) => u.health > 0 && distance(u, ball) < 0.75);
     if (hit) {
       woundUnit(hit, ball.damage);
       ball.life = 0;
@@ -548,7 +548,7 @@ export function applyPowersToBandits(game) {
   if (lightningCd > (runWar.lastLightningCd || 0)) {
     runWar.lastLightningCd = lightningCd;
     for (const unit of targets) {
-      if (dist(unit, game.player) < 4) {
+      if (distance(unit, game.player) < 4) {
         const dmg = unit.tier === 'small' ? unit.health : Math.ceil(unit.health / 2);
         woundUnit(unit, dmg);
       }

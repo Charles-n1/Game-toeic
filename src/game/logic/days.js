@@ -26,12 +26,14 @@ import { hourlyRealism, dailyRealism } from './realism/index';
 import { hourlySoul, dailySoul } from './soul';
 import { newDayLife } from './life';
 import { burnForests } from './war/forestFire';
+import { rememberTodayLevels } from './toeicScore';
 
 // Time passing: the clock moves, and a new day changes the world.
 
 function newDay(game) {
   game.day += 1;
   returnDueFocus(game); // a mastered category may come back today
+  rememberTodayLevels(game); // the level of each category, for its trend (see logic/toeicScore.js)
   growFamilies(game); // babies and weddings
   placeDungeonMonsters(game); // the guards of the dungeons are back
   if (growVillages(game)) refreshWorld(game); // the villages gather, breed, build

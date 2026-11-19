@@ -15,6 +15,7 @@ import { monsterRankInfo } from './isekaiTodo/monstersPlus';
 import { ensureRealism } from './realism/state';
 import { maybePlayPreBossScene } from './soul';
 import { isDemonGround, demonGroundAround, withDemonRule, FRONT_SPECIES } from './war/demonLand';
+import { distance } from '../world/geometry';
 
 // The monsters walking on the map. Touching one starts a fight.
 // Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
@@ -76,9 +77,6 @@ export function makeMonster(game, speciesId, x, y, extra = {}) {
   };
 }
 
-function distance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 // ---------- Dungeons: guards and bosses ----------
 

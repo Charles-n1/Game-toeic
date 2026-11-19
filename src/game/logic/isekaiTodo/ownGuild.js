@@ -18,13 +18,13 @@ const MIN_FOUND_RANK_IDX = 2; // Rank D
 const MAX_GUILD_LEVEL = 5;
 const MISSION_LOOT = ['ore', 'pelt', 'herb', 'crystal', 'refineStone', 'gem'];
 
-/** Returns member capacity for the player's own guild (`3 + (level - 1) * 2`). */
+// Returns member capacity for the player's own guild (`3 + (level - 1) * 2`).
 export function ownGuildCap(game) {
   const og = ensureIsekaiTodo(game).ownGuild;
   return 3 + ((og.level || 1) - 1) * 2;
 }
 
-/** Checks whether the hero can found their own Adventurer Guild (`{ ok, reason }`). */
+// Checks whether the hero can found their own Adventurer Guild (`{ ok, reason }`).
 export function canFoundOwnGuild(game) {
   const st = ensureIsekaiTodo(game);
   const g = ensureGuild(game);
@@ -40,7 +40,7 @@ export function canFoundOwnGuild(game) {
   return { ok: true, reason: '' };
 }
 
-/** Founds the player's own Adventurer Guild, charges 150 Lexis, and awards `ownGuild`. */
+// Founds the player's own Adventurer Guild, charges 150 Lexis, and awards `ownGuild`.
 export function foundOwnGuild(game, name = 'Dawnblade Guild', banner = '#ffd23f') {
   const check = canFoundOwnGuild(game);
   if (!check.ok) return false;
@@ -60,7 +60,7 @@ export function foundOwnGuild(game, name = 'Dawnblade Guild', banner = '#ffd23f'
   return true;
 }
 
-/** Lists intelligent monsters, tamed monsters, and befriended NPCs eligible to join the guild. */
+// Lists intelligent monsters, tamed monsters, and befriended NPCs eligible to join the guild.
 export function recruitableGuildCandidates(game) {
   const st = ensureIsekaiTodo(game);
   const og = st.ownGuild;
@@ -99,7 +99,7 @@ export function recruitableGuildCandidates(game) {
   return candidates;
 }
 
-/** Recruits a candidate into the player's guild roster up to `ownGuildCap(game)`. */
+// Recruits a candidate into the player's guild roster up to `ownGuildCap(game)`.
 export function addOwnGuildMember(game, { id, name, kind = 'npc', power = 12 }) {
   const st = ensureIsekaiTodo(game);
   const og = st.ownGuild;
@@ -125,7 +125,7 @@ export function addOwnGuildMember(game, { id, name, kind = 'npc', power = 12 }) 
   return true;
 }
 
-/** Dispatches an idle, uninjured guild member on a 1-day expedition. */
+// Dispatches an idle, uninjured guild member on a 1-day expedition.
 export function sendOwnGuildMission(game, memberId) {
   const og = ensureIsekaiTodo(game).ownGuild;
   if (!og.founded) return false;
@@ -150,7 +150,7 @@ export function sendOwnGuildMission(game, memberId) {
   return true;
 }
 
-/** Adds XP to the player's own guild, leveling Lv 1..5 and expanding rooms. */
+// Adds XP to the player's own guild, leveling Lv 1..5 and expanding rooms.
 export function gainOwnGuildXp(game, amount) {
   const og = ensureIsekaiTodo(game).ownGuild;
   if (!og.founded) return og.level || 1;
@@ -165,7 +165,7 @@ export function gainOwnGuildXp(game, amount) {
   return og.level || 1;
 }
 
-/** Resolves all due guild expeditions, granting Lexis, items, guild XP, and occasional injuries. */
+// Resolves all due guild expeditions, granting Lexis, items, guild XP, and occasional injuries.
 export function resolveOwnGuildMissions(game) {
   const og = ensureIsekaiTodo(game).ownGuild;
   if (!og.founded || !Array.isArray(og.members)) return [];
@@ -204,7 +204,7 @@ export function resolveOwnGuildMissions(game) {
   return resolved;
 }
 
-/** Upgrades the player's own guild hall (Lv 1 -> 5) for `120 * level` Lexis, adding +2 rooms. */
+// Upgrades the player's own guild hall (Lv 1 -> 5) for `120 * level` Lexis, adding +2 rooms.
 export function upgradeOwnGuildHall(game) {
   const og = ensureIsekaiTodo(game).ownGuild;
   if (!og.founded) return false;

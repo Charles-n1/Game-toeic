@@ -129,11 +129,6 @@ export function setExpression(game, npcId, expr) {
   if (npcId && bubble && game.run.emotes) emote(game, npcId, bubble);
 }
 
-export function getExpression(game, npcId) {
-  const active = game?.run?.dialogExpression;
-  return active && active.npcId === npcId ? active.expr : 'neutral';
-}
-
 // Returns a voice sound key in BONDS_SOUNDS for any NPC.
 export function voiceSoundFor(npcId) {
   return VOICE_MAP[npcId] || 'voiceSoft';
@@ -817,8 +812,3 @@ export function actionsOfBonds(game) {
   ];
 }
 
-// Unused import guard: NPCS is exported or useful if callers list all bonded NPCs.
-export function bondedNpcs(game) {
-  const bonds = ensureBonds(game);
-  return NPCS.filter((npc) => bonds.couples[npc.id] || bonds.training[npc.id]?.rank > 0 || bonds.training[npc.id]?.stationedAt);
-}

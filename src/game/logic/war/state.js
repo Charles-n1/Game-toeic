@@ -7,9 +7,6 @@ import { isBarrier } from '../powers';
 const MAX_CORPSES = 24;
 const MAX_GRAVES = 50;
 
-export function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 export function centerOfPlace(place) {
   return { x: place.x + place.w / 2, y: place.y + place.h / 2 };

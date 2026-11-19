@@ -591,6 +591,31 @@ function personDrawing(look, place, view, time, salt, extra) {
   };
 }
 
+// Someone sitting on a bench (the elders on their porch, see logic/life/peopleLife.js): the person lower, facing
+// the street, and the seat of the bench over the legs.
+const SIT_DROP = 6; // pixels: how much lower a seated person is drawn
+
+function sittingDrawing(look, place, view) {
+  return {
+    y: place.y + 0.05, // just in front of the back of the bench
+    draw: (ctx) => {
+      put(ctx, personSprite(look, 'down', 'stand'), place.x * T, place.y * T + SIT_DROP, view);
+      const px = Math.round(place.x * T - view.x);
+      const py = Math.round(place.y * T - view.y);
+      ctx.fillStyle = '#8a5a30'; // the seat
+      ctx.fillRect(px - 8, py - 3, 16, 3);
+      ctx.fillStyle = '#5a3a22'; // its front and its legs
+      ctx.fillRect(px - 8, py, 16, 2);
+      ctx.fillRect(px - 7, py + 2, 2, 3);
+      ctx.fillRect(px + 5, py + 2, 2, 3);
+    },
+  };
+}
+
+function isSittingOnBench(villager) {
+  return villager.lifeMode === 'porchBench' && villager.lifeTarget && !villager.walking && Math.hypot(villager.lifeTarget.x - villager.x, villager.lifeTarget.y - villager.y) < 0.7;
+}
+
 function drawTinyHeart(ctx, px, py) {
   ctx.fillStyle = '#ff5c94';
   ctx.fillRect(px - 2, py, 2, 2);
@@ -697,6 +722,7 @@ function villagerDrawings(game, view, time) {
     .filter((villager) => isNear(view, villager.x - 1, villager.y - 2, 2, 2))
     .map((villager, i) => {
       if (villager.ko) return lyingDrawing(villager.look, villager, view, time);
+      if (isSittingOnBench(villager)) return sittingDrawing(villager.look, villager, view);
       const age = villager.attackAnimAt ? now - villager.attackAnimAt : 9999;
       if (age >= 0 && age < 320 && (villager.attackDx || villager.attackDy)) {
         const len = Math.max(0.1, Math.hypot(villager.attackDx || 0, villager.attackDy || 0));

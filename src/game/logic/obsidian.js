@@ -25,10 +25,6 @@ export function obsidianRankInfo(player) {
   return current;
 }
 
-export function obsidianLevel(player) {
-  return obsidianRankInfo(player).level;
-}
-
 export function soldierUnitMaxHp(player) {
   return obsidianRankInfo(player).soldierHp;
 }

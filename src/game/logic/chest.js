@@ -21,7 +21,7 @@ function sanitizeMap(map) {
   return clean;
 }
 
-/** Opens the Minecraft-style home chest UI backed directly by game.home.storage. */
+// Opens the Minecraft-style home chest UI backed directly by game.home.storage.
 export function openHomeChest(game) {
   if (!game.home.storage || typeof game.home.storage !== 'object') game.home.storage = {};
   game.home.storage = sanitizeMap(game.home.storage);
@@ -54,7 +54,7 @@ function buildChestLoot(chest) {
   return loot;
 }
 
-/** Opens an interactive dungeon/field chest UI where the player picks what to take. */
+// Opens an interactive dungeon/field chest UI where the player picks what to take.
 export function openWorldChest(game, chest) {
   if (!game.chestLoots || typeof game.chestLoots !== 'object') game.chestLoots = {};
   const isSmall = chest.key.endsWith(':small');
@@ -99,7 +99,7 @@ export function closeChest(game) {
   if (game.run.screen === 'chest') game.run.screen = 'play';
 }
 
-/** Returns padded fixed-length chest grid entries ([{ id, count } | null]). */
+// Returns padded fixed-length chest grid entries ([{ id, count } | null]).
 export function chestSlotsOf(chest) {
   const max = chest?.maxSlots || CHEST_SLOTS;
   const entries = Object.entries(chest?.items || {})
@@ -110,7 +110,7 @@ export function chestSlotsOf(chest) {
   return slots;
 }
 
-/** Moves qty (or entire stack if qty === Infinity) from chest to player bag. */
+// Moves qty (or entire stack if qty === Infinity) from chest to player bag.
 export function takeFromChest(game, itemId, qty = 1) {
   const chest = game.run.chest;
   if (!chest || !chest.items?.[itemId] || !ITEMS[itemId]) return 0;
@@ -124,7 +124,7 @@ export function takeFromChest(game, itemId, qty = 1) {
   return take;
 }
 
-/** Moves qty (or entire stack) from player bag into the chest. */
+// Moves qty (or entire stack) from player bag into the chest.
 export function storeInChest(game, itemId, qty = 1) {
   const chest = game.run.chest;
   if (!chest || !chest.allowDeposit || !ITEMS[itemId]) return 0;
@@ -142,7 +142,7 @@ export function storeInChest(game, itemId, qty = 1) {
   return move;
 }
 
-/** Transfers all chest items into the player's bag. */
+// Transfers all chest items into the player's bag.
 export function takeAllFromChest(game) {
   const chest = game.run.chest;
   if (!chest) return 0;
@@ -154,7 +154,7 @@ export function takeAllFromChest(game) {
   return moved;
 }
 
-/** Stores materials, trade goods, food and seeds from the player's bag into a depositable chest. */
+// Stores materials, trade goods, food and seeds from the player's bag into a depositable chest.
 export function storeResourcesInChest(game) {
   const chest = game.run.chest;
   if (!chest?.allowDeposit) return 0;

@@ -16,6 +16,7 @@ import { burst, floatText, dust, bloodSplatter, bloodHit } from './particles';
 import { cue } from './cues';
 import { addInfamy } from './society/state';
 import { spawnWarEffect } from './war/state';
+import { distance } from '../world/geometry';
 
 // Living roaming NPC adventurer parties in the open world:
 // travel along roads between towns, pitch group camps (tents, cauldron, bedrolls),
@@ -31,9 +32,6 @@ const ROLE_OUTFITS = {
 };
 const PARTY_CHAT = ['Watch the treeline!', 'Ready for stew soon.', 'Heard goblins prowling nearby.', 'Onward before dusk!', 'Stay sharp, squad.'];
 
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 function makeMember(partyId, idx, role, cx, cy) {
   const woman = idx % 2 === 1;
@@ -70,7 +68,7 @@ function makeMember(partyId, idx, role, cx, cy) {
 
 function pickPartyDest(fromPos, excludeId = null) {
   const list = VILLAGES.filter((v) => v.id !== excludeId)
-    .map((v) => ({ v, far: dist({ x: v.x + v.w / 2, y: v.y + v.h / 2 }, fromPos) }))
+    .map((v) => ({ v, far: distance({ x: v.x + v.w / 2, y: v.y + v.h / 2 }, fromPos) }))
     .filter((e) => e.far > 20 && e.far < 420)
     .sort((a, b) => a.far - b.far);
   const picked = list.length > 0 ? pickRandom(list.slice(0, Math.min(5, list.length))).v : VILLAGES[0];
@@ -158,7 +156,7 @@ function rebuildCampProps(game) {
 
 export function syncWorldParties(game) {
   if (!Array.isArray(game.run.parties)) game.run.parties = [];
-  game.run.parties = game.run.parties.filter((p) => dist(p, game.player) < 70 && p.members.some((m) => m.hp > 0));
+  game.run.parties = game.run.parties.filter((p) => distance(p, game.player) < 70 && p.members.some((m) => m.hp > 0));
   if (zoneAt(game.player.x, game.player.y).kind === 'inside') {
     game.run.campProps = [];
     return;
@@ -182,7 +180,7 @@ function closestHostile(game, pos, maxRange) {
   let bestFar = maxRange;
   for (const m of game.run.monsters || []) {
     if (m.health <= 0 || m.boss || m.warKind === 'caravanEscort') continue;
-    const far = dist(m, pos);
+    const far = distance(m, pos);
     if (far < bestFar) {
       best = m;
       bestFar = far;
@@ -199,7 +197,7 @@ function strikeMonsterByParty(game, party, member, target) {
   member.attackDy = target.y - member.y;
 
   if (member.role === 'archer' || member.role === 'mage') {
-    const far = Math.max(0.1, dist(member, target));
+    const far = Math.max(0.1, distance(member, target));
     party.projectiles.push({
       kind: member.role === 'mage' ? 'spell' : 'arrow',
       x: member.x,
@@ -227,7 +225,7 @@ function finishMonsterKill(game, party, monster) {
   burst(game, monster.x, monster.y, '#ffd23f', 16);
   bloodSplatter(game, monster.x, monster.y, 13);
   spawnWarEffect(game, 'hit', monster.x, monster.y, '#ff5a6e');
-  if (dist(party, game.player) < 12) {
+  if (distance(party, game.player) < 12) {
     party.chat = { memberIndex: 0, text: 'Monster down!', until: Date.now() + 2600 };
     if (Math.random() < 0.35) {
       earnLexis(game, 5);
@@ -243,7 +241,7 @@ function updateProjectiles(game, party, dt) {
     proj.x += proj.vx * dt;
     proj.y += proj.vy * dt;
     if (proj.life <= 0) continue;
-    const hit = (game.run.monsters || []).find((m) => m.health > 0 && !m.boss && dist(m, proj) < 0.75);
+    const hit = (game.run.monsters || []).find((m) => m.health > 0 && !m.boss && distance(m, proj) < 0.75);
     if (hit) {
       hit.health -= proj.damage;
       hit.hitAt = Date.now();
@@ -282,7 +280,7 @@ function updatePartyBehavior(game, party, dt) {
       if (m.hp <= 0) continue;
       m.attackCd = Math.max(0, (m.attackCd || 0) - dt);
       const spec = ROLE_OUTFITS[m.role] || ROLE_OUTFITS.knight;
-      const far = dist(m, hostile);
+      const far = distance(m, hostile);
       if (far > spec.range) {
         stepToward(m, hostile.x, hostile.y, 2.35, dt);
       } else {
@@ -295,7 +293,7 @@ function updatePartyBehavior(game, party, dt) {
     }
     // Slight reciprocal monster retaliation so group battles feel tactile
     hostile._partyHitCd = Math.max(0, (hostile._partyHitCd || 0) - dt);
-    const closestMember = party.members.find((m) => m.hp > 0 && dist(m, hostile) < 1.35);
+    const closestMember = party.members.find((m) => m.hp > 0 && distance(m, hostile) < 1.35);
     if (closestMember && hostile._partyHitCd <= 0) {
       hostile._partyHitCd = 1.4;
       const dmg = Math.max(4, Math.round((hostile.attack || 12) * 0.28));
@@ -356,10 +354,10 @@ function updatePartyBehavior(game, party, dt) {
     return;
   }
 
-  // Marching cleanly along outside town gates from town to town
+  // From town to town, stopping at the gates
   const destZone = zoneAt(party.destX, party.destY);
   const destGate = destZone.kind === 'village' ? bestGateOf(destZone, party)?.outside : null;
-  if (dist(party, { x: party.destX, y: party.destY }) < 10 || (destGate && dist(party, destGate) < 4.5)) {
+  if (distance(party, { x: party.destX, y: party.destY }) < 10 || (destGate && distance(party, destGate) < 4.5)) {
     const next = pickPartyDest(party, party.destVillageId);
     party.destVillageId = next.id;
     party.destName = next.name;
@@ -411,7 +409,7 @@ export function updateWorldParties(game, dt) {
 
     // Outdoor roaming groups can attack on contact (hostile/territorial) or defend when provoked!
     if (game.run.screen === 'play' && !game.run.fight && now > (game.run.safeUntil || 0) && !party.plundered) {
-      const bumper = party.members.find((m) => m.hp > 0 && dist(m, game.player) < 1.05);
+      const bumper = party.members.find((m) => m.hp > 0 && distance(m, game.player) < 1.05);
       if (bumper) {
         if (party.disposition === 'hostile' || party.provoked) {
           const foe = makeSparChampion(game, party, true);
@@ -443,7 +441,7 @@ export function partyNear(game, range = 2.6) {
   for (const party of parties) {
     for (const m of party.members) {
       if (m.hp <= 0) continue;
-      const far = dist(m, game.player);
+      const far = distance(m, game.player);
       if (far < bestFar) {
         best = party;
         bestFar = far;

@@ -12,7 +12,6 @@ import { addHappiness } from '../village';
 import { say, notify } from '../messages';
 import { cue } from '../cues';
 import {
-  dist,
   centerOfPlace,
   villageById,
   ensureRunWar,
@@ -20,6 +19,7 @@ import {
   placeNearSpot,
   spawnWarEffect,
 } from './state';
+import { distance } from '../../world/geometry';
 
 const MAX_SKIRMISHES = 1;
 const SKIRMISH_INTERVAL = 38;
@@ -87,7 +87,7 @@ export function spawnRivalSkirmish(game, villageA = null, villageB = null) {
         game.villages[v.id].owner === 'people' &&
         v.rivals &&
         v.rivals.length > 0 &&
-        dist(centerOfPlace(v), game.player) < 180
+        distance(centerOfPlace(v), game.player) < 180
     );
     if (candidates.length === 0) return null;
     vA = pickRandom(candidates);
@@ -129,7 +129,7 @@ export function spawnRivalSkirmish(game, villageA = null, villageB = null) {
     ],
   };
   game.run.skirmishes.push(skirmish);
-  if (dist(skirmish, game.player) < 50) {
+  if (distance(skirmish, game.player) < 50) {
     notify(game, '⚔️ Road skirmish between ' + vA.name + ' and ' + vB.name + '!', '#ffd23f');
   }
   return skirmish;
@@ -137,7 +137,7 @@ export function spawnRivalSkirmish(game, villageA = null, villageB = null) {
 
 export function slowSkirmishes(game) {
   const now = Date.now();
-  game.run.skirmishes = game.run.skirmishes.filter((s) => now < s.until && dist(s, game.player) < 220);
+  game.run.skirmishes = game.run.skirmishes.filter((s) => now < s.until && distance(s, game.player) < 220);
 }
 
 export function updateSkirmishes(game, dt) {
@@ -159,7 +159,7 @@ export function updateSkirmishes(game, dt) {
 }
 
 export function skirmishNear(game, range = 3.2) {
-  return (game.run?.skirmishes || []).find((s) => s.state === 'active' && dist(s, game.player) <= range) || null;
+  return (game.run?.skirmishes || []).find((s) => s.state === 'active' && distance(s, game.player) <= range) || null;
 }
 
 export function interactSkirmish(game, skirmish) {

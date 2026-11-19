@@ -7,7 +7,7 @@ import { updateCompanionWalkingBanter } from './soul';
 
 const GAP = 0.9; // tiles between regular walkers of the line
 const SOLDIER_GAP = 1.95; // wide obsidian soldiers keep extra spacing
-const LOST = 16; // tiles: enough slack to walk out town gates cleanly behind the hero before teleporting
+const LOST = 16; // tiles: this far behind the hero, a friend jumps back to the hero
 
 function wantedFollowers(player) {
   const people = player.party.map((id) => ({ kind: 'person', id: id }));
@@ -20,7 +20,7 @@ function isSameLine(followers, wanted) {
   return followers.length === wanted.length && followers.every((follower, i) => follower.kind === wanted[i].kind && follower.id === wanted[i].id);
 }
 
-// Walks cleanly around walls, roofs, fences, and through town gates behind the hero.
+// A friend walks behind the hero, around the walls and through the gates (a real way: world/paths.js).
 function follow(follower, leader, dt) {
   const gap = follower.kind === 'soldier' || leader.kind === 'soldier' ? SOLDIER_GAP : GAP;
   const far = Math.hypot(leader.x - follower.x, leader.y - follower.y);

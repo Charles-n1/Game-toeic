@@ -128,7 +128,7 @@ export function addTrack(game, x, y, dx = 0, dy = 1, kind = 'foot') {
   });
 }
 
-// Expanding concentric shockwave ring VFX drawn cleanly in scene.js.
+// A ring that grows (a shockwave), drawn by draw/scene.js.
 export function spawnRing(game, x, y, maxRadius = 3, color = '#b48cff', width = 2, life = 0.5) {
   if (!game || !game.run) return;
   if (!Array.isArray(game.run.vfxRings)) game.run.vfxRings = [];

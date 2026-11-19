@@ -5,6 +5,7 @@ import { visibleVillagers } from './villagers';
 import { isNight } from './clock';
 import { demonLandSize } from './war/demonLand';
 import { burningTrees } from './war/forestFire';
+import { distance, faceTo } from '../world/geometry';
 
 // The people talk together. Two people who meet (villagers, or the people of the story) stop, turn to each other,
 // and say a few lines in turns, written over their heads. Then they go on with their day.
@@ -47,9 +48,6 @@ function isFree(ref, now) {
   return !(ref.talkUntil > now) && now >= (ref.talkRestUntil || 0);
 }
 
-function distance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 // The two stop and face each other; the conversation starts at once.
 function startTalk(game, first, second, now) {
@@ -87,11 +85,6 @@ function sayNextLine(talk, now) {
   return true;
 }
 
-function faceTo(ref, other) {
-  const dx = other.x - ref.x;
-  const dy = other.y - ref.y;
-  ref.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-}
 
 // The lines said right now (for the drawing): [{ x, y, name, text }].
 export function spokenLines(game) {

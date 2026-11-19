@@ -7,6 +7,7 @@ import { typeOf } from '../data/types';
 import { TAGS, tagOf, countTagAnswer, spellLevel } from './skills';
 import { notify } from './messages';
 import { recordLinkTestAnswer } from './statLinks';
+import { rememberAnswer } from './toeicScore';
 
 // The game trains the player's weakest grammar classes first.
 // Most monsters target the weakest TOEIC category; custom weights can override this.
@@ -18,11 +19,6 @@ const WEAKEST_CHANCE = 0.75; // chance to draw the weakest class (remaining 25% 
 // The level of the player in a category, from 0 to 100 (their % of good answers).
 export function skillPercent(game, categoryId) {
   return successPercent(game.mastery, categoryId);
-}
-
-// The rank of a spell, from 0 (can not cast it) to 5: one rank every 20%.
-export function spellRank(game, categoryId) {
-  return Math.floor(skillPercent(game, categoryId) / 20);
 }
 
 function isWaiting(game, categoryId) {
@@ -91,7 +87,7 @@ export function clearToeicWeights(game) {
   }
 }
 
-/** Returns TOEIC categories ordered from lowest proficiency % to highest. */
+// Returns TOEIC categories ordered from lowest proficiency % to highest.
 export function weakestCategories(game) {
   return CATEGORIES.map((c) => c.id).sort((a, b) => skillPercent(game, a) - skillPercent(game, b));
 }
@@ -128,6 +124,7 @@ export function recordAnswer(game, question, isCorrect) {
   recordLinkTestAnswer(game, question, isCorrect);
   game.counts.answers += 1;
   if (isCorrect) game.counts.correct += 1;
+  rememberAnswer(game, isCorrect); // the estimated TOEIC score (see logic/toeicScore.js)
   if (question.category === game.focus.current) {
     if (isCorrect) game.focus.tally.good += 1;
     else game.focus.tally.bad += 1;
@@ -154,8 +151,8 @@ function mixDifficulty(baseTag) {
   return 'normal';
 }
 
-/** Rolls question difficulty: Hard = 70% Hard / 30% Normal; Extreme = 70% Extreme / 30% Hard;
- *  Demons = ~78% Hard / ~22% Extreme; Demon King & Demon Queen = 100% Extreme. */
+// The tag of the next question: a Hard monster asks 70% Hard and 30% Normal questions, an Extreme one 70% Extreme
+// and 30% Hard; a demon about 78% Hard and 22% Extreme; the Demon King and the Demon Queen only Extreme ones.
 export function rollQuestionDifficulty(game, opponent) {
   if (
     opponent.species === 'king' ||

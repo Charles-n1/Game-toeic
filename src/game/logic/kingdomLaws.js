@@ -70,12 +70,6 @@ export function isEnemyKingdom(game, kingdomId) {
   return Boolean(ks.allegiance && kingdomId && areEnemies(ks.allegiance, kingdomId));
 }
 
-export function currentKingdomId(game) {
-  const z = zoneAt(game.player.x, game.player.y);
-  if (z.kind === 'village' && z.kingdom) return z.kingdom;
-  return null;
-}
-
 export function rulerStandingLabel(rep) {
   if (rep >= 60) return 'Honored Champion';
   if (rep >= 25) return 'Trusted Friend';

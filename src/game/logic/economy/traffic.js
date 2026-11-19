@@ -3,7 +3,7 @@ import { KINGDOMS, areEnemies } from '../../data/kingdoms';
 import { ITEMS } from '../../data/items';
 import { SKINS, HAIRS, MEN_NAMES } from '../../data/villagers';
 import { TILE, tileAt, PORTS, isSolid } from '../../world/map';
-import { bestGateOf, stepSmart } from '../../world/paths';
+import { bestGateOf, stepSmart, landNear } from '../../world/paths';
 import { pickRandom } from '../../../logic/random';
 import { removeItem, countItem, earnLexis, gainXp } from '../player';
 import { notify } from '../messages';
@@ -11,6 +11,7 @@ import { floatText } from '../particles';
 import { cue } from '../cues';
 import { ensureEconomy, econVillage, nextEconId, transferTreasury } from './state';
 import { craftWorkshops, missingInputsFor } from './crafting';
+import { distance } from '../../world/geometry';
 
 // Real multi-layer world traffic & supply logistics:
 // 1. Inter-town shipments hauling paid raw inputs & crafted stock between supplier and buyer towns
@@ -31,9 +32,6 @@ function centerOf(v) {
   return { x: v.x + v.w / 2, y: v.y + v.h / 2 };
 }
 
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 function nearestVillageTo(x, y) {
   let best = null;
@@ -84,7 +82,7 @@ export function dispatchShipment(game) {
           town: s,
           center: centerOf(s),
           have: econVillage(game, s.id)?.inputs[gap.itemId] || 0,
-          far: dist(centerOf(s), buyerCenter),
+          far: distance(centerOf(s), buyerCenter),
         }))
         .filter((c) => c.have >= 5 && c.far > 30 && c.far < 720 && isLandRoute(c.center, buyerCenter))
         .sort((a, b) => a.far - b.far);
@@ -105,7 +103,7 @@ export function dispatchShipment(game) {
       buyerEcon.treasury = Math.max(0, buyerEcon.treasury - feeLexis);
 
       const gates = seller.plan?.gates || [];
-      const gate = gates.reduce((b, g) => (!b || dist(g, buyerCenter) < dist(b, buyerCenter) ? g : b), null);
+      const gate = gates.reduce((b, g) => (!b || distance(g, buyerCenter) < distance(b, buyerCenter) ? g : b), null);
       const sx = gate ? gate.x + gate.dx * 3 : picked.center.x;
       const sy = gate ? gate.y + gate.dy * 3 : picked.center.y;
 
@@ -214,11 +212,11 @@ export function refreshContracts(game) {
     const buyerCenter = centerOf(buyer);
     const seller = people
       .filter((s) => s.id !== buyer.id && !areEnemies(buyer.kingdom, s.kingdom) && (econVillage(game, s.id)?.inputs[gap.itemId] || 0) >= 4)
-      .sort((a, b) => dist(centerOf(a), buyerCenter) - dist(centerOf(b), buyerCenter))[0];
+      .sort((a, b) => distance(centerOf(a), buyerCenter) - distance(centerOf(b), buyerCenter))[0];
 
     const qty = Math.min(4, Math.max(2, gap.deficit));
     const unitPay = Math.max(4, Math.round((ITEMS[gap.itemId]?.sell || 6) * 1.45));
-    const travel = seller ? Math.round(dist(centerOf(seller), buyerCenter) / 14) : 25;
+    const travel = seller ? Math.round(distance(centerOf(seller), buyerCenter) / 14) : 25;
     const feeLexis = 18 + travel;
     econ.contracts.push({
       id: nextEconId(game, 'ctr'),
@@ -348,7 +346,7 @@ function updateShip(game, ship, dt) {
   const now = Date.now();
   if (ship.dockUntil && now < ship.dockUntil) return;
   if (ship.dockUntil && now >= ship.dockUntil) {
-    // Set sail cleanly to a fresh port
+    // Off to another port
     ship.dockUntil = 0;
     const nextPort = pickRandom(PORTS.filter((p) => p.name !== ship.toName));
     if (nextPort) {
@@ -451,10 +449,12 @@ function updatePatrols(game, dt) {
       }
       continue;
     }
-    const moved = stepSmart(p, p.targetX, p.targetY, PATROL_SPEED, dt, {
-      stopAtGate: true,
-      canWalk: (x, y) => !isSolid(x, y) && tileAt(x, y) !== TILE.WATER,
-    });
+    if (Math.hypot(p.x - game.player.x, p.y - game.player.y) > SEEN_RANGE) {
+      moveUnseenPatrol(p, dt);
+      continue;
+    }
+    if (!patrolCanWalk(p.x, p.y)) Object.assign(p, landNear(p.x, p.y, patrolCanWalk) || {}); // back on the road
+    const moved = stepSmart(p, p.targetX, p.targetY, PATROL_SPEED, dt, { stopAtGate: true, canWalk: patrolCanWalk });
     if (moved) {
       p._stuck = 0;
     } else {
@@ -465,6 +465,23 @@ function updatePatrols(game, dt) {
       }
     }
   }
+}
+
+const SEEN_RANGE = 140; // tiles: a patrol farther than this from the hero lives "in numbers" (nobody sees it)
+
+function patrolCanWalk(x, y) {
+  return !isSolid(x, y) && tileAt(x, y) !== TILE.WATER;
+}
+
+// Far from the hero: the patrol goes straight on toward its town, without looking for a way (it costs nothing).
+// When the hero comes close, it is put back on the land and walks for real.
+function moveUnseenPatrol(p, dt) {
+  const far = Math.hypot(p.targetX - p.x, p.targetY - p.y);
+  const step = Math.min(far, PATROL_SPEED * dt);
+  p.x += ((p.targetX - p.x) / far) * step;
+  p.y += ((p.targetY - p.y) / far) * step;
+  p.walking = false;
+  p._navPath = null;
 }
 
 // The towns a patrol of the kingdom can go to (not the ones it found no road to).
@@ -520,7 +537,7 @@ export function syncGatherers(game) {
   for (const id of game.run.awake || []) {
     const v = villageOf(id);
     if (!v || game.villages[id]?.owner !== 'people') continue;
-    if (dist(centerOf(v), game.player) > 85) continue;
+    if (distance(centerOf(v), game.player) > 85) continue;
     const existing = game.run.gatherers.filter((g) => g.villageId === id);
     if (existing.length >= 2) continue;
     const spec = GATHERER_ROLES[(existing.length + v.w) % GATHERER_ROLES.length];
@@ -594,7 +611,7 @@ function updateGatherers(game, dt) {
 export function updateTraffic(game, dt) {
   const econ = ensureEconomy(game);
   for (const s of [...econ.shipments]) {
-    const near = dist(s, game.player) < 180;
+    const near = distance(s, game.player) < 180;
     stepShipment(game, s, dt, near);
   }
   for (const ship of econ.ships) updateShip(game, ship, dt);
@@ -614,7 +631,7 @@ export function slowTraffic(game) {
 
   // Off-screen bandit/war risk for unpatrolled shipments
   for (const s of [...econ.shipments]) {
-    if (dist(s, game.player) < 160 || !s.alive || s.plundered) continue;
+    if (distance(s, game.player) < 160 || !s.alive || s.plundered) continue;
     const guarded = patrolNearPoint(econ, s.x, s.y, 75);
     if (!guarded && Math.random() < 0.008) {
       s.hp = Math.max(0, s.hp - 18);

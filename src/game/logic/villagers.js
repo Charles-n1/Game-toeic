@@ -206,6 +206,7 @@ function workSpotOf(villager) {
 // village, it goes by the best open gate. false: no way there (the villager must choose another place).
 function goTo(villager, spot) {
   villager.hidden = false; // (hidden at home during a siege: see war/conquest.js) out again
+  villager.dest = { x: spot.x, y: spot.y }; // kept, to find the way again if someone moves the villager
   villager.path = findPath(villager.x, villager.y, spot.x, spot.y, 14000);
   if (villager.path) return true;
   const village = villageOf(villager.village);
@@ -269,8 +270,9 @@ function updateVillager(game, villager, dt) {
   if (villager.lifeUntil > Date.now()) {
     if (villager.drunk > 0) villager.drunk = Math.max(0, villager.drunk - dt / 60);
     if (villager.angry > 0) villager.angry = Math.max(0, villager.angry - dt);
-    return;
+    return; // a moment of life (school, lunch, the well...: see life/peopleLife.js) moves the villager now
   }
+  if (villager.lifeTarget) endLifeMoment(villager);
   const isOnDuty = villager.knight || isWorkTime(game);
   villager.wait -= dt;
   if (villager.task === 'home' && isOnDuty && villager.wait <= 0) {
@@ -283,6 +285,7 @@ function updateVillager(game, villager, dt) {
     goToWork(villager); // a new tree, a new rock, another gate...
   }
   if (['toWork', 'toSquare', 'toHome'].includes(villager.task)) {
+    if (wasMovedAway(villager)) findTheWayAgain(villager);
     const baseSpeed = villager.kid ? 1.8 : villager.drunk > 0 ? 0.9 : villager.crier ? 2.15 : 1.4;
     if (followPath(villager, baseSpeed, dt)) arrive(villager);
   }
@@ -306,6 +309,26 @@ function updateVillager(game, villager, dt) {
   if (villager.angry > 0) villager.angry = Math.max(0, villager.angry - dt);
 }
 
+// A moment of life is over: out of the building, back to the day. The villager goes on with the day for a while
+// before the next moment of life (else the two would pull the villager one way, then the other, forever).
+function endLifeMoment(villager) {
+  villager.lifeTarget = null;
+  villager.inside = false;
+  villager.lifeRestUntil = Date.now() + (20 + Math.random() * 25) * 1000;
+  if (villager.task === 'home' || villager.task === 'work' || villager.task === 'evening') villager.wait = Math.min(villager.wait, 2);
+}
+
+// Someone else moved the villager (a moment of life, a guard, the hero pushing by): the way is far.
+function wasMovedAway(villager) {
+  return Boolean(villager.path && villager.path.length > 0 && Math.hypot(villager.path[0].x - villager.x, villager.path[0].y - villager.y) > 1.5);
+}
+
+// The way again, from here (never a straight line through the walls). No way: back home.
+function findTheWayAgain(villager) {
+  if (villager.dest && goTo(villager, villager.dest)) return;
+  goHome(villager);
+}
+
 // The end of the way: at work, on the square, or home (inside).
 function arrive(villager) {
   villager.task = { toWork: 'work', toSquare: 'evening', toHome: 'home' }[villager.task];
@@ -319,18 +342,14 @@ export function updateVillagers(game, dt) {
   game.run.villagers.forEach((villager) => updateVillager(game, villager, dt));
 }
 
-// The villagers that can be seen: not the ones at home (they are inside their house, day or night).
+// The villagers that can be seen: not the ones at home (they are inside their house, day or night), nor the ones
+// inside a building for a moment of life (the school, the inn, the church: see life/peopleLife.js).
 export function visibleVillagers(game) {
-  return game.run.villagers.filter((villager) => !villager.dead && !villager.ko && !(villager.task === 'home' && !villager.walking) && !(villager.hidden && !villager.walking));
+  return game.run.villagers.filter((villager) => !villager.dead && !villager.ko && !villager.inside && !(villager.task === 'home' && !villager.walking) && !(villager.hidden && !villager.walking));
 }
 
 // The villager close to the hero (to talk with), or null.
 export function villagerNear(game, range = 1.4) {
   return visibleVillagers(game).find((villager) => Math.hypot(villager.x - game.player.x, villager.y - game.player.y) < range) || null;
 }
-
-export function villageOfVillager(villager) {
-  return villageOf(villager.village);
-}
-
 

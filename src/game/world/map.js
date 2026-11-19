@@ -255,11 +255,6 @@ export function setDynamic(props, blockers) {
   mapRevision += 1;
 }
 
-// Every prop of the world right now (a long list: prefer propsInArea).
-export function allProps() {
-  return dynamicProps.length > 0 ? [...FIXED_PROPS, ...dynamicProps] : FIXED_PROPS;
-}
-
 // The props that touch an area of tiles (left, top included; right, bottom excluded).
 export function propsInArea(left, top, right, bottom) {
   const found = new Set();
@@ -295,10 +290,6 @@ export function isSolid(x, y) {
   if (SOLID_TILES.includes(tileAt(x, y))) return true;
   const index = Math.floor(y) * MAP_WIDTH + Math.floor(x);
   return BLOCKED.has(index) || dynamicBlocked.has(index);
-}
-
-export function isWater(x, y) {
-  return tileAt(x, y) === TILE.WATER;
 }
 
 // The other side of a stairs tile: where the walker arrives ({ x, y }), or null.

@@ -111,7 +111,7 @@ function anchorOfFamily(game, family) {
 
 const KID_SHIRTS = ['#4ea8de', '#e76f51', '#70c1b3', '#e9c46a', '#c77dff'];
 
-/** Returns visible child sprites (toddlers or grown youths after 20 days) playing near their family home. */
+// Returns visible child sprites (toddlers or grown youths after 20 days) playing near their family home.
 export function familyKidsList(game) {
   const out = [];
   if (!game || !Array.isArray(game.families)) return out;
@@ -154,7 +154,7 @@ export function familyKidsList(game) {
   return out;
 }
 
-/** Finds the closest visible family child within talk range of the player. */
+// Finds the closest visible family child within talk range of the player.
 export function kidNear(game) {
   return (
     familyKidsList(game).find(
@@ -163,7 +163,7 @@ export function kidNear(game) {
   );
 }
 
-/** Talks with a visible toddler or youth child of a town/player family. */
+// Talks with a visible toddler or youth child of a town/player family.
 export function talkToKid(game, kid) {
   if (!kid) return;
   if (kid.isPlayers) {

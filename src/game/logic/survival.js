@@ -270,8 +270,3 @@ export function offerCooking(game) {
   say(game, null, ['The fire is warm. What do you prepare?'], [...choices, { label: 'Nothing', run: () => {} }]);
 }
 
-// The stove of the home (it is a prop of the home, see world/insides.js).
-export function isNearStove(game) {
-  const home = insideOf('home');
-  return Math.hypot(home.x + home.w - 2 - game.player.x, home.y + 2 - game.player.y) < 2.4;
-}

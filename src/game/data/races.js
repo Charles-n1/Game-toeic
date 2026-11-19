@@ -8,10 +8,6 @@ export const RACES = {
   demon: { id: 'demon', name: 'Highborn Demon', dialect: 'archaic', desc: 'Horned heirs of ancient Silence magic, feared yet formidable.' },
 };
 
-export function raceOf(id) {
-  return RACES[id] || RACES.human;
-}
-
 export function raceMixForVillage(village, biome = null) {
   const k = village?.kingdom;
   if (k === 'verdania') return ['elf', 'elf', 'human'];

@@ -66,15 +66,6 @@ export function ensureStatLinks(game) {
   return game.statLinks;
 }
 
-// Which combat stat ('speed' | 'health' | 'spell' | 'attack' | 'defense') a category is currently bound to.
-export function linkedStatOf(game, categoryId) {
-  const links = ensureStatLinks(game);
-  for (const slot of STAT_SLOTS) {
-    if (links.slots[slot.id].includes(categoryId)) return slot.id;
-  }
-  return 'defense';
-}
-
 // Called on each Normal answer in a fight/test to accumulate per-test Normal accuracy.
 export function recordLinkTestAnswer(game, question, isCorrect) {
   if (question.difficulty !== 'normal') return;

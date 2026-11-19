@@ -12,10 +12,8 @@ import { startFight } from '../fight';
 import { addParticle } from '../particles';
 import { monsterCategory } from '../learning';
 import { ensureLife, ensureRunLife, recordGossip, recordAbsenceNote } from './state';
+import { distance } from '../../world/geometry';
 
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 const LOOKS = {
   refugee: { skin: '#d8a47f', hair: '#5a3a22', style: 'long', eyes: '#3a2416', outfit: '#6e6052', trim: '#c9b393' },
@@ -148,7 +146,7 @@ export function slowNatureAndRoads(game) {
   const wolves = wilds.filter((w) => w.kind === 'wolf');
   const deerList = wilds.filter((d) => d.kind === 'deer' || d.kind === 'doe');
   for (const w of wolves) {
-    const prey = deerList.find((d) => dist(w, d) < 12);
+    const prey = deerList.find((d) => distance(w, d) < 12);
     if (prey) {
       w.fleeUntil = 0;
       const dx = prey.x - w.x;
@@ -162,7 +160,7 @@ export function slowNatureAndRoads(game) {
     }
   }
 
-  rl.nightFoxes = (rl.nightFoxes || []).filter((f) => dist(f, game.player) < 35 && isNight(game));
+  rl.nightFoxes = (rl.nightFoxes || []).filter((f) => distance(f, game.player) < 35 && isNight(game));
   if (isNight(game) && pZone.kind === 'village' && rl.nightFoxes.length === 0 && Math.random() < 0.08) {
     const pen = pZone.plan?.pen || pZone.plan?.center;
     if (pen) {
@@ -180,7 +178,7 @@ export function slowNatureAndRoads(game) {
     }
   }
 
-  rl.fieldRabbits = (rl.fieldRabbits || []).filter((r) => dist(r, game.player) < 35);
+  rl.fieldRabbits = (rl.fieldRabbits || []).filter((r) => distance(r, game.player) < 35);
   if (!isNight(game) && pZone.kind === 'village' && pZone.plan?.field && rl.fieldRabbits.length < 2 && Math.random() < 0.14) {
     const fld = pZone.plan.field;
     rl.fieldRabbits.push({
@@ -196,7 +194,7 @@ export function slowNatureAndRoads(game) {
   }
 
   // Ground birds pecking open grass that burst into flight on hero approach (#41)
-  rl.groundBirds = (rl.groundBirds || []).filter((b) => dist(b, game.player) < 30 && b.age < 2.2);
+  rl.groundBirds = (rl.groundBirds || []).filter((b) => distance(b, game.player) < 30 && b.age < 2.2);
   if (!isNight(game) && pZone.kind !== 'inside' && biomeAt(px, py) !== 'desert' && rl.groundBirds.length < 4 && Math.random() < 0.28) {
     const bSpot = findOpenWildNear(px, py, 5, 13);
     if (bSpot) {
@@ -214,8 +212,8 @@ export function slowNatureAndRoads(game) {
   }
 
   // Forest bird nests (#43) & fresh hunter camp carcass (#59)
-  rl.birdNests = (rl.birdNests || []).filter((n) => dist(n, game.player) < 35);
-  rl.hunterCarcasses = (rl.hunterCarcasses || []).filter((c) => now < c.expiresAt && dist(c, game.player) < 40);
+  rl.birdNests = (rl.birdNests || []).filter((n) => distance(n, game.player) < 35);
+  rl.hunterCarcasses = (rl.hunterCarcasses || []).filter((c) => now < c.expiresAt && distance(c, game.player) < 40);
   if (pZone.kind === 'land' && biomeAt(px, py) === 'forest') {
     if (rl.birdNests.length < 2 && Math.random() < 0.16) {
       const ns = findOpenWildNear(px, py, 4, 14);
@@ -239,7 +237,7 @@ export function slowNatureAndRoads(game) {
       }
     }
   }
-  rl.pondFrogs = rl.pondFrogs.filter((f) => dist(f, game.player) < 22);
+  rl.pondFrogs = rl.pondFrogs.filter((f) => distance(f, game.player) < 22);
   if ((isRain || now < (life.puddlesUntil || 0)) && rl.pondFrogs.length < 3 && pZone.kind !== 'inside') {
     for (let i = 0; i < 8; i++) {
       const fx = px + (Math.random() - 0.5) * 16;
@@ -259,19 +257,19 @@ export function slowNatureAndRoads(game) {
       notify(game, '🦌 A shimmering White Stag steps out between the ancient oaks...', '#e8f6ff');
     }
   }
-  if (rl.whiteStagEntity && (now > rl.whiteStagEntity.expiresAt || dist(rl.whiteStagEntity, game.player) > 36)) {
+  if (rl.whiteStagEntity && (now > rl.whiteStagEntity.expiresAt || distance(rl.whiteStagEntity, game.player) > 36)) {
     rl.whiteStagEntity = null;
   }
 
   // Forest Hunter Trap (#59)
-  rl.forestTraps = rl.forestTraps.filter((t) => dist(t, game.player) < 40);
+  rl.forestTraps = rl.forestTraps.filter((t) => distance(t, game.player) < 40);
   if (pZone.kind === 'land' && biomeAt(px, py) === 'forest' && rl.forestTraps.length === 0 && Math.random() < 0.12) {
     const spot = findOpenWildNear(px, py, 6, 14);
     if (spot) rl.forestTraps.push({ id: 'trp-' + now, x: spot.x, y: spot.y, sprung: Math.random() < 0.5 });
   }
 
   // War Entities: Refugees (#61), Messengers (#63), Marchers (#66), Clinic Wounded (#67), Orphans (#68), Deserters (#70), Hilltop Frontier Scouts (#73)
-  rl.warEntities = rl.warEntities.filter((w) => now < w.expiresAt && dist(w, game.player) < 55);
+  rl.warEntities = rl.warEntities.filter((w) => now < w.expiresAt && distance(w, game.player) < 55);
   const conqueredExists = VILLAGES.some((v) => game.villages?.[v.id]?.owner === 'monsters');
   if (pZone.kind === 'village') {
     const v = pZone;
@@ -390,7 +388,7 @@ export function slowNatureAndRoads(game) {
   }
 
   // Rich Road Encounters (#76-#88): Cart, Pilgrim, Duel, Circus, Lost Child, Royal Carriage, Drover, Bandit, Rival, Bridge Fix, Night Campfire (#78), Kingdom Toll Gate (#88)
-  rl.roadEvents = rl.roadEvents.filter((e) => !e.solved && now < e.expiresAt && dist(e, game.player) < 55);
+  rl.roadEvents = rl.roadEvents.filter((e) => !e.solved && now < e.expiresAt && distance(e, game.player) < 55);
   if (pZone.kind === 'land' && rl.roadEvents.length === 0 && Math.random() < 0.35) {
     const spot = findOpenWildNear(px, py, 7, 16);
     if (spot) {
@@ -452,7 +450,7 @@ export function updateNatureAndRoads(game, dt) {
 
   // Flushing birds burst up into flight when player nears (#41)
   for (const b of rl.groundBirds || []) {
-    if (!b.flying && dist(b, game.player) < 4.5) {
+    if (!b.flying && distance(b, game.player) < 4.5) {
       b.flying = true;
     }
     if (b.flying) {
@@ -473,7 +471,7 @@ export function updateNatureAndRoads(game, dt) {
 
   // Farm rabbits hop away when player approaches (#42)
   for (const r of rl.fieldRabbits || []) {
-    if (dist(r, game.player) < 3.5) {
+    if (distance(r, game.player) < 3.5) {
       stepSmart(r, r.x + (r.x - game.player.x) * 2, r.y + (r.y - game.player.y) * 2, 2.4, dt, { stopAtGate: false });
     }
   }
@@ -494,7 +492,7 @@ export function updateNatureAndRoads(game, dt) {
   }
   if (rl.whiteStagEntity && !rl.whiteStagEntity.blessed) {
     const ws = rl.whiteStagEntity;
-    if (dist(ws, game.player) < 6 && game.run.running) {
+    if (distance(ws, game.player) < 6 && game.run.running) {
       const dx = ws.x - game.player.x;
       const dy = ws.y - game.player.y;
       const len = Math.max(0.1, Math.hypot(dx, dy));
@@ -509,7 +507,7 @@ export function actionsOfNatureAndRoads(game) {
   const list = [];
 
   // Harvest Post-Rain Mushrooms (#54)
-  const nearMush = (life.rainMushrooms || []).find((m) => dist(m, game.player) < 1.8);
+  const nearMush = (life.rainMushrooms || []).find((m) => distance(m, game.player) < 1.8);
   if (nearMush) {
     list.push({
       when: () => true,
@@ -525,7 +523,7 @@ export function actionsOfNatureAndRoads(game) {
   }
 
   // Mend Storm-Broken Timber Fence (#51)
-  const nearFence = (life.brokenFences || []).find((f) => !f.repaired && dist(f, game.player) < 2.0);
+  const nearFence = (life.brokenFences || []).find((f) => !f.repaired && distance(f, game.player) < 2.0);
   if (nearFence) {
     list.push({
       when: () => true,
@@ -543,7 +541,7 @@ export function actionsOfNatureAndRoads(game) {
   }
 
   // Inspect Forest Carcass (#59)
-  const nearCarcass = (rl.hunterCarcasses || []).find((c) => !c.gathered && dist(c, game.player) < 1.9);
+  const nearCarcass = (rl.hunterCarcasses || []).find((c) => !c.gathered && distance(c, game.player) < 1.9);
   if (nearCarcass) {
     list.push({
       when: () => true,
@@ -559,7 +557,7 @@ export function actionsOfNatureAndRoads(game) {
   }
 
   // Clear Storm Fallen Branch (#51)
-  const nearBranch = life.fallenBranches.find((b) => dist(b, game.player) < 1.8);
+  const nearBranch = life.fallenBranches.find((b) => distance(b, game.player) < 1.8);
   if (nearBranch) {
     list.push({
       when: () => true,
@@ -575,7 +573,7 @@ export function actionsOfNatureAndRoads(game) {
   }
 
   // Interact with White Stag (#60)
-  if (rl.whiteStagEntity && dist(rl.whiteStagEntity, game.player) < 2.3 && !rl.whiteStagEntity.blessed) {
+  if (rl.whiteStagEntity && distance(rl.whiteStagEntity, game.player) < 2.3 && !rl.whiteStagEntity.blessed) {
     list.push({
       when: () => true,
       icon: 'star',
@@ -595,7 +593,7 @@ export function actionsOfNatureAndRoads(game) {
   }
 
   // Interact with Road Events (#76-#88)
-  const nearRoad = rl.roadEvents.find((e) => !e.solved && dist(e, game.player) < 2.2);
+  const nearRoad = rl.roadEvents.find((e) => !e.solved && distance(e, game.player) < 2.2);
   if (nearRoad) {
     list.push({
       when: () => true,
@@ -725,7 +723,7 @@ export function actionsOfNatureAndRoads(game) {
   }
 
   // Interact with War Entities (#61-#73)
-  const nearWar = rl.warEntities.find((w) => dist(w, game.player) < 2.2);
+  const nearWar = rl.warEntities.find((w) => distance(w, game.player) < 2.2);
   if (nearWar) {
     list.push({
       when: () => true,

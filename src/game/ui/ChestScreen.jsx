@@ -16,7 +16,7 @@ import { pickSealedLockWithLockpick } from '../logic/realism/magicPhysics';
 
 const GRID_SLOTS = 27;
 
-/** Minecraft-style interactive Chest + Backpack split grid screen. */
+// Minecraft-style interactive Chest + Backpack split grid screen.
 export default function ChestScreen({ game, refresh }) {
   const chest = game.run.chest;
   const [selected, setSelected] = useState(null); // { source: 'chest'|'bag', itemId }

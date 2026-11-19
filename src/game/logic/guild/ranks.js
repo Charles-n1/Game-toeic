@@ -101,13 +101,13 @@ export function contractRewardBonus(game) {
   return rankInfo(g.rank).payBonus;
 }
 
-/** Returns the shop discount fraction (0..0.18) granted by the player's Adventurer Card rank. */
+// Returns the shop discount fraction (0..0.18) granted by the player's Adventurer Card rank.
 export function adventurerShopDiscount(game) {
   const g = ensureGuild(game);
   return g.registered ? Math.min(0.18, rankIndex(g.rank) * 0.03) : 0;
 }
 
-/** Returns display data for the player's Adventurer Card item/UI. */
+// Returns display data for the player's Adventurer Card item/UI.
 export function adventurerCardView(game) {
   const g = ensureGuild(game);
   const info = rankInfo(g.rank);

@@ -79,10 +79,6 @@ export function priceFactor(game) {
   return mood * deal;
 }
 
-export function isAlive(game, npcId) {
-  return game.npcs[npcId].alive;
-}
-
 // Someone dies. It can not be undone: the village is sadder, their family is broken.
 export function killNpc(game, npcId, lines) {
   const state = game.npcs[npcId];

@@ -44,11 +44,8 @@ export function frontTile(player) {
   return { x: Math.floor(player.x + dx), y: Math.floor(player.y + dy) };
 }
 
-// The direction to look at, to go by (dx, dy): 'up' | 'down' | 'left' | 'right'.
-export function facingOf(dx, dy) {
-  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';
-  return dy > 0 ? 'down' : 'up';
-}
+// The side to look at (it lives in world/geometry.js, with the other helpers of places).
+export { facingOf } from '../world/geometry';
 
 // Stops everything (when a menu opens: the hero must not keep walking).
 export function releaseAll(input) {

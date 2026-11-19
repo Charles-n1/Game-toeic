@@ -55,13 +55,6 @@ export function expressionSprite(characterId, expr) {
   return once('exprSprite:' + characterId + ':' + expr, () => cutBox(expressionsAtlas, box));
 }
 
-// Returns a data URL for a character's expression portrait (ready for DialogBox / Portrait UI), or null.
-export function expressionPortraitUrl(characterId, expr) {
-  const box = EXPRESSION_FRAMES[characterId]?.[expr];
-  if (!box || !isExpressionsReady()) return null;
-  return once('exprUrl:' + characterId + ':' + expr, () => expressionSprite(characterId, expr).canvas.toDataURL());
-}
-
 // Returns { canvas, w, h } for a character's tier 1..4 combat/training effect sprite, or null.
 export function characterEffectSprite(characterId, tier) {
   const clamped = Math.max(1, Math.min(4, tier));

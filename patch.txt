@@ -115,3 +115,59 @@ What to clean, from what was measured:
   7. The same name for the same thing everywhere (people / npcs / villagers / patrons / residents: say in a
      comment which is which, and do not add new words for the same idea).
   8. After each cleaning step: the build passes, and the tests of part 1 pass.
+
+
+=====================================================================
+STATUS OF THE PATCH (what was done, what is left)
+=====================================================================
+
+1. RELIABILITY: done. `npm test` runs 19 tests (tests/*.test.mjs, Node's own test runner, no package to install):
+   the texts of the questions, a save and its loading, 10 days of play, the people (no wall-walking, no loop, no
+   one planted at a door), the demons and their generals, the bosses, the shops, every kind of building (in,
+   upstairs, a word with everyone), the registrar of the guild, the TOEIC score.
+   The tests found and fixed real bugs:
+   - the moments of life (life/peopleLife.js) and the day of the villagers pulled the same villager two ways:
+     they shook on the spot, or froze in front of a door (school, inn, church). Now one at a time, the walk to
+     the place is counted in the moment, and at a door they go in.
+   - the elders "sat" on a bench in front of their door, standing up: the bench is beside the house now, and
+     they are drawn sitting.
+   - talking to the archivist of any library crashed the game.
+   - the patrols of a kingdom of islands walked on the spot forever (no road to another town).
+
+2. PROGRESS: done. logic/toeicScore.js: the estimated TOEIC reading score (the last 100 answers), shown in the
+   HUD with the goal, what is left, and +5 / -5 when it moves; in the stats menu, each category with its level
+   and its trend over 3 days.
+
+3. BALANCE: done (simulated: a hero answering 80% right).
+   - small monsters (twice their health, as asked): 3 to 10 short questions a fight;
+   - the big ones and the demons were doubled too, so 11 to 14 LONG texts a fight: their health is back to
+     before (about 6 to 8 texts a fight);
+   - the bosses stay doubled (General Barbarism: about 23 questions; beatable around level 15-20, 250-300 HP);
+   - levels: 300 XP each (slime 9 XP, wolf 19, orc 30, golem 65, demon 120 a fight);
+   - the demon land: 23 cells at day 10, 142 at day 40, 378 at day 80; it does not reach Eldermoor before day 80.
+
+4. THE GOAL OF THE MOMENT: it was already there (the HUD shows the chapter of the story, "◆ ...").
+
+5 and 6. PERFORMANCE: done, measured first.
+   - the rules of the game: 3.2 ms a frame -> 0.45 ms (7 times faster):
+     ensureRealism() filled the whole realism state again for every monster at every frame (half of the time
+     of the game): now once per game; the patrols far from the hero move "in numbers" (no search of a way);
+     never more than 4 searches of a way in the same moment, for the whole world.
+   - the drawing: 1.4 ms a frame (measured in Chrome, in Eldermoor). Not a problem: not changed.
+
+7. CLEAN THE CODE: mostly done.
+   - CLAUDE.md written, with "Be simple as fuck..." first.
+   - one helper for the places (world/geometry.js: distance, facingOf, faceTo) instead of 13 copies.
+   - the 111 comments in the "/** ... */" style: now plain "//" comments; the wordy ones rewritten simply.
+   - 20 functions nobody used: removed.
+   - logic/houses.js (1369 lines) cut by subject: houses.js (entering, floors, actions), houses/residents.js,
+     houses/homes.js, houses/halls.js, houses/hallTalk.js (one small function per kind of person).
+   LEFT TO DO (decide or later):
+   - Features written but never connected (nothing calls them): unlockFlyingMount (the flying mount can not
+     be unlocked), storeAll / takeAll (the chest of the home), sendCourierLetter (letters by courier),
+     scribeScrollWithMaterials (writing scrolls), fullMedicalRest. Connect them, or remove them.
+   - Date.now(): not changed. Some of these times are written in the saves, and the clock of the questions
+     must stay real time: it needs care, one system at a time, not a change everywhere at once.
+   - Still long functions (over 120 lines), mostly screens: QuestsPanel (493), ShopScreen (337),
+     slowNatureAndRoads (338), lifeDrawings (318), PowersPanel, InventoryPanel, CodexPanel, ChestScreen...
+   - draw/scene.js (about 1900 lines) and draw/props.js: still big; to cut by subject like houses.js.

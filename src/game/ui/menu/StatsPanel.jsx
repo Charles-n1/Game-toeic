@@ -17,6 +17,7 @@ import { KINGDOMS } from '../../data/kingdoms';
 import { kingdomRep } from '../../logic/kingdomLaws';
 import { WORLD_LANGUAGES, languageLevel } from '../../logic/languages';
 import { obsidianRankInfo } from '../../logic/obsidian';
+import { estimatedScore, goalScore, categoryLevels } from '../../logic/toeicScore';
 import { SPECIES, speciesForSkill } from '../../data/monsters';
 import { ensureIsekaiTodo } from '../../logic/isekaiTodo/state';
 import { refinedItemName, weaponMasteryInfo } from '../../logic/isekaiTodo/progression';
@@ -73,6 +74,29 @@ function SkillLine({ game, type, refresh }) {
 }
 
 // The hero's numbers, stat links, custom TOEIC weights, the class, and the skills: your grammar is your magic.
+// The estimated TOEIC score and goal, then each category: its level and how it moved in the last 3 days.
+function ToeicLevels({ game }) {
+  const score = estimatedScore(game);
+  const goal = goalScore(game);
+  return (
+    <>
+      <span>
+        📈 Estimated score ~{score} / 495 · goal {goal} {score < goal ? '(' + (goal - score) + ' to go)' : '✔ reached'}
+      </span>
+      {categoryLevels(game).map((level) => (
+        <div key={level.id} className="row" style={{ gap: 6, alignItems: 'center' }}>
+          <PixelIcon name={level.id} size={12} />
+          <span className="small" style={{ flex: 1 }}>{level.name}</span>
+          <span className="small">{level.percent}%</span>
+          <span className="small" style={{ width: 44, textAlign: 'right', color: level.trend > 0 ? '#7cfc9a' : level.trend < 0 ? '#ff6b7a' : '#9aa6c8' }}>
+            {level.trend > 0 ? '▲' + level.trend : level.trend < 0 ? '▼' + -level.trend : '='}
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function StatsPanel({ game, refresh }) {
   const player = game.player;
   const current = heroClass(game);
@@ -180,6 +204,9 @@ export default function StatsPanel({ game, refresh }) {
           </div>
         );
       })}
+
+      <span className="section">Your TOEIC reading</span>
+      <ToeicLevels game={game} />
 
       <span className="section">Your language skills</span>
       {TYPES.map((type) => (

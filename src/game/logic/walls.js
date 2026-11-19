@@ -192,7 +192,7 @@ export function describeWalls(state) {
   return parts.join(', ');
 }
 
-/** Finds a nearby damaged, missing, or unfortified wooden village wall section within range of player. */
+// Finds a nearby damaged, missing, or unfortified wooden village wall section within range of player.
 export function wallRepairSpotNear(game) {
   const { x, y } = game.player;
   for (const village of VILLAGES) {
@@ -212,7 +212,7 @@ export function wallRepairSpotNear(game) {
   return null;
 }
 
-/** Repairs or upgrades a village wall section to palisade ('w') or stone ('s'). Returns 'repaired'|'built'|'upgraded'|'reinforced'. */
+// Repairs or upgrades a village wall section to palisade ('w') or stone ('s'). Returns 'repaired'|'built'|'upgraded'|'reinforced'.
 export function applyWallRenovation(game, spot) {
   const { state, section } = spot;
   const letters = [...state.walls];

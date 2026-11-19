@@ -11,6 +11,7 @@ import { xpForLevel } from '../logic/player';
 import { clockText, isNight } from '../logic/clock';
 import { daysBeforeRaid } from '../logic/raid';
 import { currentChapter } from '../logic/chapters';
+import { estimatedScore, goalScore, lastScoreMove } from '../logic/toeicScore';
 import { actionIcon } from '../logic/update';
 import { hasLight, torchTimeLeft, toggleTorch } from '../logic/torch';
 import { eventTitle } from '../logic/isekai/events';
@@ -85,10 +86,25 @@ function Objective({ game, compact }) {
           {focus.short} · {tally.good}/{tally.good + tally.bad}
         </span>
       </div>
+      <ToeicLine game={game} compact={compact} />
       <div style={styles.xp}>
         <Bar value={game.player.xp / xpForLevel(game.player.level)} color="#7cfc9a" height={compact ? 4 : 6} />
       </div>
     </div>
+  );
+}
+
+// The estimated TOEIC reading score, the goal, what is left, and the last move of the score (+5 green, -5 red).
+function ToeicLine({ game, compact }) {
+  const score = estimatedScore(game);
+  const goal = goalScore(game);
+  const move = lastScoreMove(game);
+  return (
+    <span className="small" style={compact ? styles.smallCompact : null}>
+      📈 TOEIC ~{score} / goal {goal}
+      {score < goal ? ' (' + (goal - score) + ' to go)' : ' ✔'}
+      {move !== 0 && <span style={{ color: move > 0 ? '#7cfc9a' : '#ff6b7a' }}> {move > 0 ? '+' + move : move}</span>}
+    </span>
   );
 }
 

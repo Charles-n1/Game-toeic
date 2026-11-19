@@ -312,8 +312,4 @@ export function onFightEndSociety(game, fight) {
   else if (meta.kind === 'roadPlunder') handleCaravanPlunderEnd(game, fight, meta);
 }
 
-export function activeVillageNamesSummary(game) {
-  return VILLAGES.filter((v) => isFestivalActive(game, v.id)).map((v) => v.name);
-}
-
 export { villageOf };

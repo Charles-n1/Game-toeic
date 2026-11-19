@@ -116,7 +116,7 @@ export function churchSprite(house) {
   });
 }
 
-// Windmill tower body: 8 x 8 tiles (128 x 128 footprint + roof = 128 x 160), drawn separately so sails rotate cleanly.
+// Windmill tower body: 8 x 8 tiles (128 x 128 footprint + roof = 128 x 160), drawn apart from its sails, which turn.
 export function millBodySprite(house) {
   const roofKey = house.roof || 'red';
   return once('millBody|' + roofKey, () => {
@@ -158,7 +158,7 @@ export function millSailsSprite(frame = 0) {
   return once('millSails|' + f, () => {
     const grid = makeGrid(112, 112);
     const hub = 56;
-    const baseAngle = (f * Math.PI) / 8 + Math.PI / 4; // 45° + 22.5° steps (4 frames cover full 90° cycle cleanly)
+    const baseAngle = (f * Math.PI) / 8 + Math.PI / 4; // 45° + 22.5° steps (4 frames make a quarter turn)
     for (let arm = 0; arm < 4; arm++) {
       const a = baseAngle + (arm * Math.PI) / 2;
       const dx = Math.cos(a);

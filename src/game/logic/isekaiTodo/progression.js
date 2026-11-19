@@ -33,19 +33,19 @@ const BONUS_KEYS = [
 
 // ---------- Skill Tree ----------
 
-/** Awards `count` skill points on level up and returns the new total. */
+// Awards `count` skill points on level up and returns the new total.
 export function awardSkillPointOnLevelUp(game, count = 1) {
   const st = ensureIsekaiTodo(game);
   st.skillPoints += Math.max(0, Math.round(count));
   return st.skillPoints;
 }
 
-/** Returns whether a skill tree node has been unlocked. */
+// Returns whether a skill tree node has been unlocked.
 export function isSkillUnlocked(game, nodeId) {
   return Boolean(ensureIsekaiTodo(game).skillNodes[nodeId]);
 }
 
-/** Validates whether `nodeId` can currently be unlocked, returning `{ ok, reason }`. */
+// Validates whether `nodeId` can currently be unlocked, returning `{ ok, reason }`.
 export function canUnlockSkillNode(game, nodeId) {
   const node = SKILL_TREE.find((n) => n.id === nodeId);
   if (!node) return { ok: false, reason: 'Unknown skill node.' };
@@ -68,7 +68,7 @@ export function canUnlockSkillNode(game, nodeId) {
   return { ok: true, reason: '' };
 }
 
-/** Unlocks a skill tree node, deducts cost, applies spell unlocks, and notifies the player. */
+// Unlocks a skill tree node, deducts cost, applies spell unlocks, and notifies the player.
 export function unlockSkillNode(game, nodeId) {
   const check = canUnlockSkillNode(game, nodeId);
   if (!check.ok) return false;
@@ -84,7 +84,7 @@ export function unlockSkillNode(game, nodeId) {
   return true;
 }
 
-/** Sums passive bonuses across all unlocked skill tree nodes. */
+// Sums passive bonuses across all unlocked skill tree nodes.
 export function skillTreeBonuses(game) {
   const st = ensureIsekaiTodo(game);
   const totals = {};
@@ -101,7 +101,7 @@ export function skillTreeBonuses(game) {
 
 // ---------- Achievements ----------
 
-/** Returns true if achievement `id` has already been unlocked. */
+// Returns true if achievement `id` has already been unlocked.
 export function hasAchievement(game, id) {
   return Boolean(ensureIsekaiTodo(game).achievements[id]);
 }
@@ -115,7 +115,7 @@ function formatAchievementReward(reward) {
   return parts.length > 0 ? ' (' + parts.join(', ') + ')' : '';
 }
 
-/** Unlocks an achievement once and grants its rewards safely without recursive XP loops. */
+// Unlocks an achievement once and grants its rewards safely without recursive XP loops.
 export function unlockAchievement(game, id) {
   const st = ensureIsekaiTodo(game);
   if (st.achievements[id]?.claimed) return false;
@@ -140,7 +140,7 @@ export function unlockAchievement(game, id) {
   return true;
 }
 
-/** Evaluates achievement conditions and unlocks any newly earned milestones. */
+// Evaluates achievement conditions and unlocks any newly earned milestones.
 export function checkAchievements(game, event = {}) {
   const st = ensureIsekaiTodo(game);
   const highestCat = CATEGORIES.some((c) => skillPercent(game, c.id) >= 85);
@@ -173,7 +173,7 @@ export function checkAchievements(game, event = {}) {
 
 // ---------- Weapon Mastery ----------
 
-/** Infers weapon class (`sword` | `bow` | `staff` | `dagger` | `axe`) for an item id. */
+// Infers weapon class (`sword` | `bow` | `staff` | `dagger` | `axe`) for an item id.
 export function weaponClassOf(itemId) {
   if (itemId && ITEMS[itemId]?.weaponClass) return ITEMS[itemId].weaponClass;
   const id = String(itemId || '');
@@ -199,7 +199,7 @@ function specialMoveFor(wClass, lv) {
 // Mastery XP needed for each level of a weapon: the same for every level (a steady progression).
 const MASTERY_XP_PER_LEVEL = 40;
 
-/** Returns weapon mastery stats and special move info for `wClass`. */
+// Returns weapon mastery stats and special move info for `wClass`.
 export function weaponMasteryInfo(game, wClass = null) {
   const st = ensureIsekaiTodo(game);
   const resolved = wClass
@@ -217,7 +217,7 @@ export function weaponMasteryInfo(game, wClass = null) {
   return { wClass: resolved, lv, xp, nextXp, dmgMult, critBonus, specialMove };
 }
 
-/** Grants weapon mastery XP to the currently equipped weapon class, leveling up to Lv 10. */
+// Grants weapon mastery XP to the currently equipped weapon class, leveling up to Lv 10.
 export function trainWeaponMastery(game, xpGain = 4) {
   const st = ensureIsekaiTodo(game);
   const wClass = weaponClassOf(game?.player?.weapon);
@@ -243,13 +243,13 @@ export function trainWeaponMastery(game, xpGain = 4) {
 
 // ---------- Mana Exhaustion ----------
 
-/** Returns true when player mana is at or below 20% of `maxMp` (minimum threshold 1). */
+// Returns true when player mana is at or below 20% of `maxMp` (minimum threshold 1).
 export function isLowMana(player, maxMp) {
   if (!player || maxMp <= 0) return false;
   return player.mana <= Math.max(1, Math.floor(maxMp * 0.2));
 }
 
-/** Triggers mana exhaustion outside bosses/duels, advancing 3h and granting up to +20 Max MP. */
+// Triggers mana exhaustion outside bosses/duels, advancing 3h and granting up to +20 Max MP.
 export function triggerManaExhaustion(game) {
   if (game.run?.fight?.opponent?.boss || game.run?.fight?.opponent?.duel) return false;
   const st = ensureIsekaiTodo(game);
@@ -278,20 +278,20 @@ export function triggerManaExhaustion(game) {
 
 // ---------- Blacksmith Refining (+0 to +10) ----------
 
-/** Returns the current refine level (+0..+10) for `itemId`. */
+// Returns the current refine level (+0..+10) for `itemId`.
 export function refineLevelOf(game, itemId) {
   if (!itemId) return 0;
   return ensureIsekaiTodo(game).refineByItem[itemId] || 0;
 }
 
-/** Formats an item name with its refine suffix (`"Iron Sword +5"`). */
+// Formats an item name with its refine suffix (`"Iron Sword +5"`).
 export function refinedItemName(game, itemId) {
   const base = ITEMS[itemId]?.name || itemId || '';
   const lv = refineLevelOf(game, itemId);
   return lv > 0 ? base + ' +' + lv : base;
 }
 
-/** Returns bonus attack (weapon) or defense (armor) provided by refining `itemId`. */
+// Returns bonus attack (weapon) or defense (armor) provided by refining `itemId`.
 export function refineBonusForItem(game, itemId) {
   const item = itemId ? ITEMS[itemId] : null;
   if (!item) return 0;
@@ -302,7 +302,7 @@ export function refineBonusForItem(game, itemId) {
   return 0;
 }
 
-/** Returns Lexis, material requirements, and base success percentage for refining from `lv`. */
+// Returns Lexis, material requirements, and base success percentage for refining from `lv`.
 export function refineRequirements(lv) {
   const level = Math.max(0, Math.floor(lv || 0));
   return {
@@ -313,7 +313,7 @@ export function refineRequirements(lv) {
   };
 }
 
-/** Attempts to refine equipped `weapon` or `armor` (+0 to +10), never destroying the item. */
+// Attempts to refine equipped `weapon` or `armor` (+0 to +10), never destroying the item.
 export function refineGear(game, slot, { useProtection = false, useStone = false } = {}) {
   if (slot !== 'weapon' && slot !== 'armor') {
     return { ok: false, newLevel: 0, protectedFail: false, reason: 'Only weapons and armor can be refined.' };

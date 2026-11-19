@@ -403,7 +403,7 @@ export function sendCourierLetter(game, npcId, giftItemId = null) {
   return true;
 }
 
-// Ferry timetable check (Part 14 B): departures run cleanly between 06:00 and 20:00 (or any time with Royal Pass).
+// Ferry timetable check (Part 14 B): boats leave between 06:00 and 20:00 (or any time with Royal Pass).
 export function isFerryOnSchedule(game) {
   const h = game.hour ?? 12;
   if (countItem(game.player, 'royalPass') > 0) return { ok: true, msg: 'Royal Diplomatic Pass boards on priority skiff.' };

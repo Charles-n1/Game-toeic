@@ -3,7 +3,7 @@ import { OUTLINE, GOLD_RAMP, STEEL_RAMP, darker, lighter, mix } from './palette'
 
 // Full-scale 64x64 HD-2D JRPG Bust Portraits matching Hero & Luna:
 // High rounded/spiky hair crown (y=2..9) cascading ALL the way down to y=24..27 across brow/eyes!
-// Large gleaming irises, tapered jawline seamlessly nested into broad shoulders/pauldrons/scarves.
+// Large gleaming irises, a thin jaw, wide shoulders (armor, scarves).
 
 const SIZE = 64;
 

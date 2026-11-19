@@ -1,4 +1,6 @@
 // The monsters. Health and attacks are in HP (the player starts with 100 HP).
+// Balance: the small monsters (short sentences) have twice their first health; the big ones and the demons ask
+// long texts, so they keep a health of about 6 to 8 good answers; the bosses have twice theirs (a long fight).
 // tier: which questions the monster asks (see TIERS).
 // tag: the lowest tag of the monster (see logic/skills.js). The numbers below are for this tag at "Normal" power:
 //   the tag multiplies them (Hard: health x5, blows x2, XP and Lexis x5). A monster without a tag is Normal,
@@ -26,33 +28,33 @@ export const SPECIES = {
   mimic: { name: 'Mimic', art: 'mimic', shape: 'golem', tier: 'small', category: 'pronouns', health: 110, attack: 24, magicAttack: 0, resistance: 0.3, magicResistance: 0.1, speed: 6, xp: 40, lexis: 30, drops: ['oldCoin'] },
   orc: { name: 'Orc Brute', art: 'orc', shape: 'golem', tier: 'small', category: 'comparatives', health: 130, attack: 28, magicAttack: 0, resistance: 0.2, magicResistance: 0, speed: 8, xp: 36, lexis: 8, drops: ['rawMeat', 'bone'] },
   // the big ones: they ask long texts to read
-  stoneGolem: { name: 'Stone Golem', art: 'stoneGolem', shape: 'golem', tier: 'big', tag: 'hard', category: 'comparatives', health: 220, attack: 20, magicAttack: 0, resistance: 0.5, magicResistance: 0, speed: 4, xp: 16, lexis: 4, drops: ['flint', 'flint'] },
-  iceGolem: { name: 'Ice Golem', art: 'iceGolem', shape: 'golem', tier: 'big', tag: 'hard', category: 'comparatives', health: 220, attack: 18, magicAttack: 10, resistance: 0.4, magicResistance: 0.3, speed: 5, xp: 16, lexis: 4, drops: ['gem'] },
-  boneGolem: { name: 'Bone Golem', art: 'boneGolem', shape: 'golem', tier: 'big', tag: 'hard', category: 'wordForms', health: 240, attack: 20, magicAttack: 0, resistance: 0.3, magicResistance: 0.2, speed: 6, xp: 18, lexis: 5, drops: ['bone', 'bone'] },
-  drake: { name: 'Fire Drake', art: 'drake', shape: 'imp', tier: 'big', tag: 'hard', category: 'wordForms', health: 195, attack: 14, magicAttack: 16, resistance: 0.3, magicResistance: 0.3, speed: 12, xp: 18, lexis: 6, drops: ['rawMeat', 'rawMeat'] },
-  shadowMage: { name: 'Shadow Mage', art: 'shadowMage', shape: 'imp', tier: 'big', tag: 'hard', category: 'vocabulary', health: 155, attack: 6, magicAttack: 22, resistance: 0.1, magicResistance: 0.5, speed: 11, xp: 18, lexis: 6, drops: ['cloth'] },
-  darkKnight: { name: 'Dark Knight', art: 'darkKnight', shape: 'knight', tier: 'demon', tag: 'hard', health: 220, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
+  stoneGolem: { name: 'Stone Golem', art: 'stoneGolem', shape: 'golem', tier: 'big', tag: 'hard', category: 'comparatives', health: 100, attack: 20, magicAttack: 0, resistance: 0.5, magicResistance: 0, speed: 4, xp: 16, lexis: 4, drops: ['flint', 'flint'] },
+  iceGolem: { name: 'Ice Golem', art: 'iceGolem', shape: 'golem', tier: 'big', tag: 'hard', category: 'comparatives', health: 100, attack: 18, magicAttack: 10, resistance: 0.4, magicResistance: 0.3, speed: 5, xp: 16, lexis: 4, drops: ['gem'] },
+  boneGolem: { name: 'Bone Golem', art: 'boneGolem', shape: 'golem', tier: 'big', tag: 'hard', category: 'wordForms', health: 110, attack: 20, magicAttack: 0, resistance: 0.3, magicResistance: 0.2, speed: 6, xp: 18, lexis: 5, drops: ['bone', 'bone'] },
+  drake: { name: 'Fire Drake', art: 'drake', shape: 'imp', tier: 'big', tag: 'hard', category: 'wordForms', health: 90, attack: 14, magicAttack: 16, resistance: 0.3, magicResistance: 0.3, speed: 12, xp: 18, lexis: 6, drops: ['rawMeat', 'rawMeat'] },
+  shadowMage: { name: 'Shadow Mage', art: 'shadowMage', shape: 'imp', tier: 'big', tag: 'hard', category: 'vocabulary', health: 70, attack: 6, magicAttack: 22, resistance: 0.1, magicResistance: 0.5, speed: 11, xp: 18, lexis: 6, drops: ['cloth'] },
+  darkKnight: { name: 'Dark Knight', art: 'darkKnight', shape: 'knight', tier: 'demon', tag: 'hard', health: 100, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
 
   // ---------- The army of the Demon King (art/Monsters/Demon king): they live on the Silent Isle and in his castle ----------
-  demonSoldier: { name: 'Demon Soldier', art: 'demonSoldier', shape: 'knight', tier: 'demon', tag: 'hard', health: 195, attack: 24, magicAttack: 6, resistance: 0.3, magicResistance: 0.2, speed: 10, xp: 30, lexis: 9, drops: [] },
-  demonArcher: { name: 'Demon Archer', art: 'demonArcher', shape: 'imp', tier: 'demon', tag: 'hard', health: 155, attack: 26, magicAttack: 0, resistance: 0.1, magicResistance: 0.2, speed: 14, xp: 30, lexis: 9, drops: [] },
-  demonPriest: { name: 'Demon Priest', art: 'demonPriest', shape: 'imp', tier: 'demon', tag: 'hard', health: 165, attack: 6, magicAttack: 24, resistance: 0.1, magicResistance: 0.5, speed: 10, xp: 32, lexis: 10, drops: ['cloth'] },
-  abyssHound: { name: 'Abyss Hound', art: 'abyssHound', shape: 'wolf', tier: 'big', tag: 'hard', category: 'connectors', health: 175, attack: 22, magicAttack: 6, resistance: 0.2, magicResistance: 0.2, speed: 16, xp: 20, lexis: 6, drops: ['rawMeat', 'bone'] },
-  succubus: { name: 'Succubus', art: 'succubus', shape: 'imp', tier: 'demon', tag: 'hard', health: 175, attack: 8, magicAttack: 24, resistance: 0.1, magicResistance: 0.4, speed: 13, xp: 34, lexis: 12, drops: [] },
-  royalGuard: { name: 'Royal Guard', art: 'royalGuard', shape: 'knight', tier: 'demon', tag: 'hard', health: 260, attack: 26, magicAttack: 0, resistance: 0.5, magicResistance: 0.2, speed: 9, xp: 38, lexis: 12, drops: [] },
-  darkPaladin: { name: 'Dark Paladin', art: 'darkPaladin', shape: 'knight', tier: 'demon', tag: 'hard', health: 280, attack: 28, magicAttack: 12, resistance: 0.4, magicResistance: 0.3, speed: 10, xp: 42, lexis: 14, drops: [] },
-  demonBehemoth: { name: 'Demon Behemoth', art: 'demonBehemoth', shape: 'golem', tier: 'demon', tag: 'hard', health: 390, attack: 32, magicAttack: 0, resistance: 0.4, magicResistance: 0.1, speed: 5, xp: 50, lexis: 16, drops: ['rawMeat', 'rawMeat'] },
-  demonLich: { name: 'Demon Lich', art: 'demonLich', shape: 'lich', tier: 'demon', tag: 'hard', health: 240, attack: 0, magicAttack: 28, resistance: 0.2, magicResistance: 0.5, speed: 11, xp: 44, lexis: 14, drops: ['bone'] },
-  hellknight: { name: 'Hellknight', art: 'hellknight', shape: 'knight', tier: 'demon', tag: 'hard', health: 320, attack: 30, magicAttack: 8, resistance: 0.4, magicResistance: 0.2, speed: 10, xp: 46, lexis: 15, drops: [] },
-  warGeneral: { name: 'War General', art: 'warGeneral', shape: 'general', tier: 'demon', tag: 'hard', health: 340, attack: 30, magicAttack: 10, resistance: 0.4, magicResistance: 0.3, speed: 11, xp: 50, lexis: 18, drops: [] },
-  sorcererGeneral: { name: 'Sorcerer General', art: 'sorcererGeneral', shape: 'lich', tier: 'demon', tag: 'hard', health: 280, attack: 6, magicAttack: 30, resistance: 0.2, magicResistance: 0.5, speed: 12, xp: 50, lexis: 18, drops: [] },
+  demonSoldier: { name: 'Demon Soldier', art: 'demonSoldier', shape: 'knight', tier: 'demon', tag: 'hard', health: 90, attack: 24, magicAttack: 6, resistance: 0.3, magicResistance: 0.2, speed: 10, xp: 30, lexis: 9, drops: [] },
+  demonArcher: { name: 'Demon Archer', art: 'demonArcher', shape: 'imp', tier: 'demon', tag: 'hard', health: 70, attack: 26, magicAttack: 0, resistance: 0.1, magicResistance: 0.2, speed: 14, xp: 30, lexis: 9, drops: [] },
+  demonPriest: { name: 'Demon Priest', art: 'demonPriest', shape: 'imp', tier: 'demon', tag: 'hard', health: 75, attack: 6, magicAttack: 24, resistance: 0.1, magicResistance: 0.5, speed: 10, xp: 32, lexis: 10, drops: ['cloth'] },
+  abyssHound: { name: 'Abyss Hound', art: 'abyssHound', shape: 'wolf', tier: 'big', tag: 'hard', category: 'connectors', health: 80, attack: 22, magicAttack: 6, resistance: 0.2, magicResistance: 0.2, speed: 16, xp: 20, lexis: 6, drops: ['rawMeat', 'bone'] },
+  succubus: { name: 'Succubus', art: 'succubus', shape: 'imp', tier: 'demon', tag: 'hard', health: 80, attack: 8, magicAttack: 24, resistance: 0.1, magicResistance: 0.4, speed: 13, xp: 34, lexis: 12, drops: [] },
+  royalGuard: { name: 'Royal Guard', art: 'royalGuard', shape: 'knight', tier: 'demon', tag: 'hard', health: 120, attack: 26, magicAttack: 0, resistance: 0.5, magicResistance: 0.2, speed: 9, xp: 38, lexis: 12, drops: [] },
+  darkPaladin: { name: 'Dark Paladin', art: 'darkPaladin', shape: 'knight', tier: 'demon', tag: 'hard', health: 130, attack: 28, magicAttack: 12, resistance: 0.4, magicResistance: 0.3, speed: 10, xp: 42, lexis: 14, drops: [] },
+  demonBehemoth: { name: 'Demon Behemoth', art: 'demonBehemoth', shape: 'golem', tier: 'demon', tag: 'hard', health: 180, attack: 32, magicAttack: 0, resistance: 0.4, magicResistance: 0.1, speed: 5, xp: 50, lexis: 16, drops: ['rawMeat', 'rawMeat'] },
+  demonLich: { name: 'Demon Lich', art: 'demonLich', shape: 'lich', tier: 'demon', tag: 'hard', health: 110, attack: 0, magicAttack: 28, resistance: 0.2, magicResistance: 0.5, speed: 11, xp: 44, lexis: 14, drops: ['bone'] },
+  hellknight: { name: 'Hellknight', art: 'hellknight', shape: 'knight', tier: 'demon', tag: 'hard', health: 150, attack: 30, magicAttack: 8, resistance: 0.4, magicResistance: 0.2, speed: 10, xp: 46, lexis: 15, drops: [] },
+  warGeneral: { name: 'War General', art: 'warGeneral', shape: 'general', tier: 'demon', tag: 'hard', health: 160, attack: 30, magicAttack: 10, resistance: 0.4, magicResistance: 0.3, speed: 11, xp: 50, lexis: 18, drops: [] },
+  sorcererGeneral: { name: 'Sorcerer General', art: 'sorcererGeneral', shape: 'lich', tier: 'demon', tag: 'hard', health: 130, attack: 6, magicAttack: 30, resistance: 0.2, magicResistance: 0.5, speed: 12, xp: 50, lexis: 18, drops: [] },
 
   // ---------- The old monsters, drawn with code ----------
   bat: { name: 'Night Bat', shape: 'bat', tier: 'small', category: 'prepositions', health: 45, attack: 10, magicAttack: 0, resistance: 0, magicResistance: 0.2, speed: 14, xp: 14, lexis: 3, night: true, drops: [] },
   wisp: { name: 'Frost Wisp', shape: 'wisp', tier: 'small', category: 'connectors', health: 65, attack: 0, magicAttack: 20, resistance: 0.3, magicResistance: 0.5, speed: 13, xp: 24, lexis: 6, drops: [] },
-  treant: { name: 'Old Treant', shape: 'treant', tier: 'big', tag: 'hard', category: 'verbTenses', health: 175, attack: 15, magicAttack: 0, resistance: 0.3, magicResistance: 0, speed: 5, xp: 12, lexis: 3, drops: ['branch', 'branch'] },
-  imp: { name: 'Silence Imp', shape: 'imp', tier: 'big', tag: 'hard', category: 'connectors', health: 135, attack: 10, magicAttack: 15, resistance: 0, magicResistance: 0.3, speed: 15, xp: 14, lexis: 4, drops: [] },
-  demonKnight: { name: 'Demon Knight', shape: 'knight', tier: 'demon', tag: 'hard', health: 220, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
+  treant: { name: 'Old Treant', shape: 'treant', tier: 'big', tag: 'hard', category: 'verbTenses', health: 80, attack: 15, magicAttack: 0, resistance: 0.3, magicResistance: 0, speed: 5, xp: 12, lexis: 3, drops: ['branch', 'branch'] },
+  imp: { name: 'Silence Imp', shape: 'imp', tier: 'big', tag: 'hard', category: 'connectors', health: 60, attack: 10, magicAttack: 15, resistance: 0, magicResistance: 0.3, speed: 15, xp: 14, lexis: 4, drops: [] },
+  demonKnight: { name: 'Demon Knight', shape: 'knight', tier: 'demon', tag: 'hard', health: 100, attack: 25, magicAttack: 10, resistance: 0.4, magicResistance: 0.2, speed: 11, xp: 32, lexis: 9, drops: [] },
 
   // ---------- Bosses: one of each, they never come back ----------
   lich: { name: 'The Gerund Lich', shape: 'lich', tier: 'boss', tag: 'normal', boss: true, category: 'gerunds', health: 220, attack: 12, magicAttack: 14, resistance: 0.15, magicResistance: 0.25, speed: 9, xp: 60, lexis: 45, drops: ['gem'] },

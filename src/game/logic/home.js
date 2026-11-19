@@ -23,10 +23,6 @@ export function isAtHome(game) {
   return x >= home.x && x < home.x + home.w && y >= home.y && y < home.y + home.h;
 }
 
-export function isLightFurniture(itemId) {
-  return LIGHT_FURNITURE_IDS.includes(itemId) || ITEMS[itemId]?.furniture === 'lamp';
-}
-
 export function isNearLetterbox(game) {
   if (!game?.player || zoneAt(game.player.x, game.player.y).kind === 'inside') return false;
   return Math.hypot(game.player.x - (HOME_DOOR.x + 2), game.player.y - (HOME_DOOR.y + 0.5)) < 1.8;

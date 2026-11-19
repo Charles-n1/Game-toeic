@@ -2,7 +2,7 @@ import { addOutline, drawPicture, makeGrid, mirrored, once, padded, toCanvas } f
 import { OUTLINE, darker, lighter, mix } from './palette';
 
 // Hand-pixelled HD-2D dark-fantasy animal sprites (no geometric blobs).
-// All templates face right; dir === 'left' mirrors cleanly before 1px OUTLINE.
+// All templates face right; dir === 'left' is the mirror, before the 1 px outline.
 
 function furColors(base, extra = {}) {
   return {

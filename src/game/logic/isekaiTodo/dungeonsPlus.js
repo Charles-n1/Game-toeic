@@ -129,13 +129,13 @@ const RAID_DAMAGE = new Set(['lea', 'yuki', 'luna', 'nyx', 'kai', 'sszarak', 'ae
 
 // ---------- 10-Floor Dungeon Tower (Spire of Babel) ----------
 
-/** Returns metadata for a given floor (1..10) of the Spire of Babel. */
+// Returns metadata for a given floor (1..10) of the Spire of Babel.
 export function towerFloorSpec(floor) {
   const clamped = Math.max(1, Math.min(TOWER_FLOORS.length, Math.floor(floor || 1)));
   return TOWER_FLOORS[clamped - 1];
 }
 
-/** Returns current Spire of Babel progress and checkpoint status. */
+// Returns current Spire of Babel progress and checkpoint status.
 export function towerState(game) {
   const st = ensureIsekaiTodo(game);
   const currentFloor = st.tower.currentFloor || 0;
@@ -172,7 +172,7 @@ function buildScaledOpponent(game, speciesId, spec, extra = {}) {
   };
 }
 
-/** Launches a Spire of Babel encounter starting at floor 1, checkpoint, or any unlocked floor. */
+// Launches a Spire of Babel encounter starting at floor 1, checkpoint, or any unlocked floor.
 export function enterTowerFloor(game, startFloor = 1) {
   const st = ensureIsekaiTodo(game);
   const floor = Math.max(1, Math.min(10, Math.floor(startFloor || 1)));
@@ -192,7 +192,7 @@ export function enterTowerFloor(game, startFloor = 1) {
   return true;
 }
 
-/** Awards rewards, unlocks checkpoints/floors, and grants achievements upon winning a Spire floor. */
+// Awards rewards, unlocks checkpoints/floors, and grants achievements upon winning a Spire floor.
 export function onTowerFloorWon(game, floor = null) {
   const st = ensureIsekaiTodo(game);
   const cleared = Math.max(1, Math.min(10, Math.floor(floor || st.tower.currentFloor || 1)));
@@ -242,7 +242,7 @@ export function onTowerFloorWon(game, floor = null) {
 
 // ---------- Secret Dungeon Floors ----------
 
-/** Returns true when the dungeon has a secret floor riddle/chamber not yet cleared. */
+// Returns true when the dungeon has a secret floor riddle/chamber not yet cleared.
 export function canOpenSecretFloor(game, dungeonId = null) {
   const targetId = dungeonId || zoneAt(game.player.x, game.player.y)?.dungeon;
   if (!targetId || !SECRET_CLUES[targetId]) return false;
@@ -250,7 +250,7 @@ export function canOpenSecretFloor(game, dungeonId = null) {
   return !st.tower.secretCleared[targetId];
 }
 
-/** Launches the hidden secret chamber guardian battle after solving the English wall clue. */
+// Launches the hidden secret chamber guardian battle after solving the English wall clue.
 export function startSecretFloorFight(game, dungeonId) {
   const clue = SECRET_CLUES[dungeonId];
   if (!clue) return false;
@@ -270,7 +270,7 @@ export function startSecretFloorFight(game, dungeonId) {
   return true;
 }
 
-/** Awards the rare secret chamber treasure and unlocks the secretSeeker achievement. */
+// Awards the rare secret chamber treasure and unlocks the secretSeeker achievement.
 export function onSecretFloorWon(game, dungeonId) {
   const clue = SECRET_CLUES[dungeonId];
   if (!clue) return false;
@@ -295,7 +295,7 @@ export function onSecretFloorWon(game, dungeonId) {
   return true;
 }
 
-/** Reads an English wall riddle in a dungeon; answering right opens the secret chamber fight. */
+// Reads an English wall riddle in a dungeon; answering right opens the secret chamber fight.
 export function trySecretFloorRiddle(game, dungeonId = null) {
   const targetId = dungeonId || zoneAt(game.player.x, game.player.y)?.dungeon;
   const clue = SECRET_CLUES[targetId];
@@ -360,7 +360,7 @@ const VOLUNTEER_BY_ROLE = {
   damage: { id: 'merc_dps', name: 'Guild Ranger (Merc)', role: 'damage', kind: 'volunteer', power: 20 },
 };
 
-/** Returns raid squad allies assigned to tank/healer/damage, filling missing roles with volunteers. */
+// Returns raid squad allies assigned to tank/healer/damage, filling missing roles with volunteers.
 export function raidSquadRoles(game, fillMissing = true) {
   const st = ensureIsekaiTodo(game);
   const squad = [];
@@ -425,7 +425,7 @@ export function raidSquadRoles(game, fillMissing = true) {
   return squad;
 }
 
-/** Launches a Group Raid battle with tank/healer/DPS roles assigned against a boss. */
+// Launches a Group Raid battle with tank/healer/DPS roles assigned against a boss.
 export function startGroupRaid(game, bossSpec = null) {
   const roles = raidSquadRoles(game, true);
   const speciesId = bossSpec?.species && SPECIES[bossSpec.species] ? bossSpec.species : 'hellknight'; // (the generals stay on the isle)
@@ -462,7 +462,7 @@ export function startGroupRaid(game, bossSpec = null) {
   return game.run.fight;
 }
 
-/** Applies fast volley or steady phalanx/mend orders during a Group Raid on a correct answer. */
+// Applies fast volley or steady phalanx/mend orders during a Group Raid on a correct answer.
 export function applyRaidOrderOnAnswer(game, fight, isCorrect, usedRatio = 1) {
   if (!fight?.opponent?.isGroupRaid || !isCorrect) {
     return { orderName: null, extraDmg: 0, healedHp: 0 };

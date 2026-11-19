@@ -437,7 +437,7 @@ export function hurtAnimal(game, animal, damage, isMelee = false) {
 
 const SLASH_VECTORS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
-// Melee hunting strike in front of the hero: wounds/slays wild & livestock animals cleanly.
+// Melee hunting strike in front of the hero: it wounds or kills the animal there.
 export function strikeWorld(game) {
   const player = game.player;
   const [fx, fy] = SLASH_VECTORS[player.dir] || SLASH_VECTORS.down;

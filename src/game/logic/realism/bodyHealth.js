@@ -376,10 +376,6 @@ export function moraleStatBonuses(game) {
   return { xpMult: xpMult * hardcoreBonus * moraleXp, critAdd, wellRestedSec };
 }
 
-export function cureEnvironmentalCold(game) {
-  cureCold(game);
-}
-
 // Suppress unused warning on maxMana if unused externally — wait let's export a small rest-mana helper using it!
 export function fullMedicalRest(game) {
   const p = game.player;

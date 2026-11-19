@@ -9,6 +9,7 @@ import { monsterSprite } from './monsters';
 import * as props from './props';
 import { isVillageUnderAttack } from '../logic/war/state';
 import { cagePosOf, kidnappedIdsAt } from '../logic/war/bandits';
+import { distance } from '../world/geometry';
 
 const T = TILE_PX;
 
@@ -20,9 +21,6 @@ function put(ctx, sprite, x, y, view) {
   ctx.drawImage(sprite.canvas, Math.round(x - sprite.ax - view.x), Math.round(y - sprite.ay - view.y));
 }
 
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 // ---------- Pixel sprites cached with once() ----------
 
@@ -499,7 +497,7 @@ function conqueredVillageDrawings(game, view) {
     const state = game.villages && game.villages[v.id];
     if (!state || state.owner !== 'monsters') continue;
     const center = { x: v.x + v.w / 2, y: v.y + v.h / 2 };
-    if (dist(center, game.player) > 180) continue;
+    if (distance(center, game.player) > 180) continue;
     const spots = [
       { x: center.x - 3, y: center.y - 2 },
       { x: center.x + 3, y: center.y - 2 },
@@ -597,7 +595,7 @@ export function drawWarEffects(ctx, game, view, time) {
   }
 
   // Subtle amber edge glow when a nearby village is under siege (and story raid isn't active).
-  const siegeNear = VILLAGES.some((v) => isVillageUnderAttack(game, v.id) && dist({ x: v.x + v.w / 2, y: v.y + v.h / 2 }, game.player) < 180);
+  const siegeNear = VILLAGES.some((v) => isVillageUnderAttack(game, v.id) && distance({ x: v.x + v.w / 2, y: v.y + v.h / 2 }, game.player) < 180);
   if (siegeNear && !(game.raid && game.raid.active)) {
     ctx.strokeStyle = 'rgba(255, 140, 45, ' + (0.28 + Math.sin(time * 5) * 0.14) + ')';
     ctx.lineWidth = 4;

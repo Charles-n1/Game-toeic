@@ -10,6 +10,7 @@ import { makeDuel } from './duels';
 import { saveGame } from './save';
 import { hurtAnimal } from './animals';
 import { soldierUnitMaxHp, emitObsidianShockwave, eruptObsidianSpikes } from './obsidian';
+import { distance } from '../world/geometry';
 
 // The powers used on the map: obsidian, lightning, and the elements.
 // A power never kills a big monster: only a good answer can. (And a kill without answer gives no XP.)
@@ -89,9 +90,6 @@ export function canUsePower(game, power) {
   return isPowerUnlocked(game.player, power.id) && game.player.mana >= power.mana && cooldownLeft(game, power.id) === 0;
 }
 
-function distance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
 
 // ---------- Obsidian ----------
 

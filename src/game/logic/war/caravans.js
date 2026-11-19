@@ -17,7 +17,6 @@ import { addInfamy, changeVillageMood } from '../society/state';
 import { ensureEconomy, econVillage, transferTreasury } from '../economy/state';
 import { completeShipment } from '../economy/traffic';
 import {
-  dist,
   centerOfPlace,
   villageById,
   ensureWar,
@@ -30,6 +29,7 @@ import {
   addGrave,
 } from './state';
 import { withDemonRule } from './demonLand';
+import { distance } from '../../world/geometry';
 
 const MAX_CARAVANS = 4;
 const CARAVAN_SPEED = 2.05;
@@ -72,7 +72,7 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
 
   let from = typeof originVillage === 'string' ? villageById(originVillage) : originVillage;
   if (!from) {
-    const near = friendly.filter((v) => dist(centerOfPlace(v), game.player) < 200);
+    const near = friendly.filter((v) => distance(centerOfPlace(v), game.player) < 200);
     from = near.length > 0 ? pickRandom(near) : pickRandom(friendly);
   }
   let to = typeof destVillage === 'string' ? villageById(destVillage) : destVillage;
@@ -80,7 +80,7 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
     const fromCenter = centerOfPlace(from);
     const others = friendly
       .filter((v) => v.id !== from.id)
-      .map((v) => ({ v, far: dist(centerOfPlace(v), fromCenter) }))
+      .map((v) => ({ v, far: distance(centerOfPlace(v), fromCenter) }))
       .filter((entry) => entry.far < 520)
       .sort((a, b) => a.far - b.far);
     if (others.length === 0) return null;
@@ -89,7 +89,7 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
 
   const toCenter = centerOfPlace(to);
   const gates = from.plan?.gates || [];
-  const bestGate = gates.reduce((best, g) => (!best || dist(g, toCenter) < dist(best, toCenter) ? g : best), null);
+  const bestGate = gates.reduce((best, g) => (!best || distance(g, toCenter) < distance(best, toCenter) ? g : best), null);
   const rawX = bestGate ? bestGate.x + bestGate.dx * 4 : from.x + from.w / 2;
   const rawY = bestGate ? bestGate.y + bestGate.dy * 4 : from.y + from.h + 3;
   const start = placeNearSpot(game, rawX, rawY, 0, 5);
@@ -149,7 +149,7 @@ export function triggerCaravanAttack(game, caravan) {
     });
     game.run.monsters.push(raider);
   }
-  if (dist(caravan, game.player) < 28) {
+  if (distance(caravan, game.player) < 28) {
     cue(game, 'warHorn');
     notify(game, '🛒 Caravan under attack! Help ' + caravan.name + '!', '#ffd23f');
   }
@@ -192,7 +192,7 @@ function stepCaravanAlongRoad(game, caravan, dt) {
   const wantInn = Boolean(destVillage && caravan.inTownState === 'sleeping');
   const halt = destVillage ? townHaltSpot(destVillage, wantInn) : { x: caravan.targetX, y: caravan.targetY };
   const dest = caravan.inTownState ? halt : { x: caravan.targetX, y: caravan.targetY };
-  const far = dist(caravan, dest);
+  const far = distance(caravan, dest);
 
   // Caravans actually ride THROUGH open village gates into town square / Inn instead of stopping outside fences!
   if (far < (caravan.inTownState ? 1.8 : 4.2)) return true;
@@ -215,7 +215,7 @@ function rewardCaravanRescue(game, caravan) {
   caravan.underAttack = false;
   caravan.rewarded = true;
   // Money and loot are only awarded when the hero is actually nearby the merchant
-  if (dist(caravan, game.player) > RESCUE_REWARD_RANGE) return;
+  if (distance(caravan, game.player) > RESCUE_REWARD_RANGE) return;
 
   const lexis = 40 + Math.floor(Math.random() * 25);
   earnLexis(game, lexis);
@@ -254,9 +254,9 @@ function updateCaravanAttackers(game, caravan, dt) {
   for (const m of attackers) {
     if (m.health <= 0) continue;
     m.attackCd = Math.max(0, (m.attackCd || 0) - dt);
-    const goal = dist(m, game.player) < 4.5 ? game.player : caravan;
+    const goal = distance(m, game.player) < 4.5 ? game.player : caravan;
     m.target = goal;
-    const far = dist(m, goal);
+    const far = distance(m, goal);
     const speed = (1 + (m.speed || 8) * 0.12) * 0.95;
     if (far > 1.1) {
       stepSmart(m, goal.x, goal.y, speed, dt);
@@ -288,11 +288,11 @@ function updateCaravanAttackers(game, caravan, dt) {
 export function slowCaravans(game) {
   ensureRunWar(game);
   const now = Date.now();
-  game.run.caravans = game.run.caravans.filter((c) => c.alive && now < c.despawnAt && dist(c, game.player) < 240);
+  game.run.caravans = game.run.caravans.filter((c) => c.alive && now < c.despawnAt && distance(c, game.player) < 240);
 
   for (const caravan of game.run.caravans) {
-    if (!caravan.attackedOnce && !caravan.underAttack && zoneAt(caravan.x, caravan.y).kind === 'land' && dist(caravan, game.player) < 28) {
-      const guarded = (ensureEconomy(game).patrols || []).some((p) => dist(p, caravan) < 75);
+    if (!caravan.attackedOnce && !caravan.underAttack && zoneAt(caravan.x, caravan.y).kind === 'land' && distance(caravan, game.player) < 28) {
+      const guarded = (ensureEconomy(game).patrols || []).some((p) => distance(p, caravan) < 75);
       if (Math.random() < (guarded ? 0.02 : 0.08)) triggerCaravanAttack(game, caravan);
     }
   }
@@ -321,7 +321,7 @@ function continueCaravanRoute(game, caravan) {
     const shipment = (ensureEconomy(game).shipments || []).find((s) => s.id === caravan.shipmentId);
     if (shipment) {
       completeShipment(game, shipment, !caravan.plundered);
-      if (dist(caravan, game.player) < 35 && !caravan.plundered) {
+      if (distance(caravan, game.player) < 35 && !caravan.plundered) {
         const toName = caravanDestinationName(caravan);
         const itemLabel = ITEMS[shipment.itemId]?.name || shipment.itemId;
         notify(game, `🛒 ${caravan.name} delivered ${shipment.qty}× ${itemLabel} to ${toName} (+${shipment.feeLexis} Lexis fee).`, '#e8d8a8');
@@ -337,7 +337,7 @@ function continueCaravanRoute(game, caravan) {
   const here = villageById(caravan.toId);
   const hereCenter = here ? centerOfPlace(here) : { x: caravan.x, y: caravan.y };
   const sorted = friendly
-    .map((v) => ({ v, far: dist(centerOfPlace(v), hereCenter) }))
+    .map((v) => ({ v, far: distance(centerOfPlace(v), hereCenter) }))
     .filter((entry) => entry.far < 520)
     .sort((a, b) => a.far - b.far);
   if (sorted.length === 0) return false;
@@ -351,7 +351,7 @@ function continueCaravanRoute(game, caravan) {
   caravan.pauseUntil = Date.now() + 3500;
   caravan.attackedOnce = false;
   caravan.rewarded = false;
-  if (dist(caravan, game.player) < 28) {
+  if (distance(caravan, game.player) < 28) {
     notify(game, '🛒 ' + caravan.name + ' reached town and prepares to ride to ' + nextDest.name + '.', '#e8d8a8');
   }
   return true;
@@ -360,7 +360,7 @@ function continueCaravanRoute(game, caravan) {
 function syncEconomyShipmentsOnScreen(game) {
   const econ = ensureEconomy(game);
   for (const s of econ.shipments || []) {
-    if (!s.alive || s.plundered || dist(s, game.player) > 180) continue;
+    if (!s.alive || s.plundered || distance(s, game.player) > 180) continue;
     if (game.run.caravans.some((c) => c.shipmentId === s.id)) continue;
     game.run.caravans.push({
       id: nextWarId(game, 'caravan'),
@@ -447,7 +447,7 @@ export function caravanNear(game, range = 2.6) {
   let bestFar = range;
   for (const c of list) {
     if (!c.alive) continue;
-    const far = dist(c, game.player);
+    const far = distance(c, game.player);
     if (far < bestFar) {
       best = c;
       bestFar = far;
@@ -623,7 +623,7 @@ export function corpseNear(game, range = 1.8) {
   let best = null;
   let bestFar = range;
   for (const corpse of war.corpses) {
-    const far = dist(corpse, game.player);
+    const far = distance(corpse, game.player);
     if (far < bestFar) {
       best = corpse;
       bestFar = far;

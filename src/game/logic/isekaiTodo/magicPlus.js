@@ -105,13 +105,13 @@ function findOpenOutdoorSpot(startX, startY, maxRadius = 35) {
 
 // ---------- Written Incantations ----------
 
-/** Returns true if the hero can cast Written Incantations without completing the English prompt. */
+// Returns true if the hero can cast Written Incantations without completing the English prompt.
 export function hasSilentCasting(game) {
   const st = ensureIsekaiTodo(game);
   return Boolean(st.spellsUnlocked?.silentCast || (st.incantationsCast || 0) >= 8);
 }
 
-/** Opens an out-of-fight multiple-choice English incantation chant dialog. */
+// Opens an out-of-fight multiple-choice English incantation chant dialog.
 export function offerIncantationDialog(game, incId) {
   ensureRun(game);
   const inc = WRITTEN_INCANTATIONS.find((x) => x.id === incId);
@@ -130,7 +130,7 @@ export function offerIncantationDialog(game, incId) {
   return true;
 }
 
-/** Casts a Written Incantation, validating its English completion unless Silent Casting is unlocked. */
+// Casts a Written Incantation, validating its English completion unless Silent Casting is unlocked.
 export function castWrittenIncantation(game, incId, answerIndex = null, fight = null) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -243,13 +243,13 @@ export function castWrittenIncantation(game, incId, answerIndex = null, fight = 
 
 // ---------- Time Magic ----------
 
-/** Returns true if Time Magic has been unlocked via skill tree, Chrono Warden, or level >= 6. */
+// Returns true if Time Magic has been unlocked via skill tree, Chrono Warden, or level >= 6.
 export function hasTimeMagic(game) {
   const st = ensureIsekaiTodo(game);
   return Boolean(st.spellsUnlocked?.timeMagic || game.bosses?.warden === true || (game.player?.level || 1) >= 6);
 }
 
-/** Slows the battle question clock (or grants Haste out of fight) for 2 MP. */
+// Slows the battle question clock (or grants Haste out of fight) for 2 MP.
 export function castTimeDilate(game, fight = null) {
   ensureRun(game);
   if (!hasTimeMagic(game)) {
@@ -274,7 +274,7 @@ export function castTimeDilate(game, fight = null) {
   return { ok: true, haste: true };
 }
 
-/** Freezes all wild and dungeon monster movement in the world for 6.5 seconds (costs 3 MP). */
+// Freezes all wild and dungeon monster movement in the world for 6.5 seconds (costs 3 MP).
 export function castTimeFreezeWorld(game) {
   ensureRun(game);
   if (!hasTimeMagic(game)) {
@@ -300,20 +300,20 @@ export function castTimeFreezeWorld(game) {
   return { ok: true, until: game.run.timeStopUntil };
 }
 
-/** Returns true while world Time Freeze is active. */
+// Returns true while world Time Freeze is active.
 export function isWorldTimeFrozen(game) {
   return Boolean(game?.run?.timeStopUntil && game.run.timeStopUntil > Date.now());
 }
 
 // ---------- Gravity Magic ----------
 
-/** Returns true if Gravity Magic is unlocked via skill tree or hero level >= 7. */
+// Returns true if Gravity Magic is unlocked via skill tree or hero level >= 7.
 export function hasGravityMagic(game) {
   const st = ensureIsekaiTodo(game);
   return Boolean(st.spellsUnlocked?.gravityMagic || (game.player?.level || 1) >= 7);
 }
 
-/** Crushes an enemy in combat (halves speed + 18 dmg) or knocks back & damages nearby wild monsters (< 5 tiles). */
+// Crushes an enemy in combat (halves speed + 18 dmg) or knocks back & damages nearby wild monsters (< 5 tiles).
 export function castGravityCrush(game, fight = null) {
   ensureRun(game);
   if (!hasGravityMagic(game)) {
@@ -369,7 +369,7 @@ export function castGravityCrush(game, fight = null) {
   return { ok: true, hitCount };
 }
 
-/** Grants 30s Levitation to glide across water and lava (costs 2 MP). */
+// Grants 30s Levitation to glide across water and lava (costs 2 MP).
 export function castLevitate(game) {
   ensureRun(game);
   if (!hasGravityMagic(game)) {
@@ -390,7 +390,7 @@ export function castLevitate(game) {
   return { ok: true, until: game.run.levitateUntil };
 }
 
-/** Returns true while Gravity Levitation is active. */
+// Returns true while Gravity Levitation is active.
 export function isLevitating(game) {
   return Boolean(game?.run?.levitateUntil && game.run.levitateUntil > Date.now());
 }
@@ -431,7 +431,7 @@ function computeSpiritAnchor(spiritId) {
   );
 }
 
-/** Returns deterministic, walkable outdoor shrine coordinates { x, y } for an Elemental Spirit. */
+// Returns deterministic, walkable outdoor shrine coordinates { x, y } for an Elemental Spirit.
 export function spiritAnchorOf(spiritId) {
   if (!SPIRIT_CACHE[spiritId]) {
     SPIRIT_CACHE[spiritId] = computeSpiritAnchor(spiritId);
@@ -439,12 +439,12 @@ export function spiritAnchorOf(spiritId) {
   return { ...SPIRIT_CACHE[spiritId] };
 }
 
-/** Returns all 4 Elemental Spirits paired with their world shrine coordinates. */
+// Returns all 4 Elemental Spirits paired with their world shrine coordinates.
 export function spiritLocations() {
   return ELEMENTAL_SPIRITS.map((spirit) => ({ ...spirit, ...spiritAnchorOf(spirit.id) }));
 }
 
-/** Launches the TOEIC reading-comprehension pact trial to contract an Elemental Spirit. */
+// Launches the TOEIC reading-comprehension pact trial to contract an Elemental Spirit.
 export function startSpiritTrial(game, spiritId) {
   ensureRun(game);
   const spirit = ELEMENTAL_SPIRITS.find((s) => s.id === spiritId);
@@ -492,7 +492,7 @@ export function startSpiritTrial(game, spiritId) {
   return true;
 }
 
-/** Equips one of the player's contracted Elemental Spirits (or null to unequip). */
+// Equips one of the player's contracted Elemental Spirits (or null to unequip).
 export function setActiveSpirit(game, spiritId) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -510,7 +510,7 @@ export function setActiveSpirit(game, spiritId) {
   return true;
 }
 
-/** Returns passive bonuses { spell, speed, armor, thirstSlow } granted by the equipped spirit. */
+// Returns passive bonuses { spell, speed, armor, thirstSlow } granted by the equipped spirit.
 export function activeSpiritPassives(game) {
   const st = ensureIsekaiTodo(game);
   const id = st.spirits?.active;
@@ -526,7 +526,7 @@ export function activeSpiritPassives(game) {
   return { spell: 0, speed: 0, armor: 0, thirstSlow: 0 };
 }
 
-/** Summons the active Elemental Spirit once per fight for a signature elemental effect. */
+// Summons the active Elemental Spirit once per fight for a signature elemental effect.
 export function summonSpiritInFight(game, fight) {
   ensureRun(game);
   if (!fight || !fight.opponent) return { ok: false };
@@ -592,7 +592,7 @@ export function summonSpiritInFight(game, fight) {
 // XP a spirit needs for each level: the same for every level (a steady progression).
 const SPIRIT_XP_PER_LEVEL = 50;
 
-/** Grants XP to the currently equipped Elemental Spirit and levels it up (SPIRIT_XP_PER_LEVEL per level, max 10). */
+// Grants XP to the currently equipped Elemental Spirit and levels it up (SPIRIT_XP_PER_LEVEL per level, max 10).
 export function addSpiritXp(game, amount = 5) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -610,7 +610,7 @@ export function addSpiritXp(game, amount = 5) {
   return entry;
 }
 
-/** Opens an atmospheric conversation with an Elemental Spirit (offering contract trial or equipping). */
+// Opens an atmospheric conversation with an Elemental Spirit (offering contract trial or equipping).
 export function talkToSpirit(game, spiritId) {
   ensureRun(game);
   const spirit = ELEMENTAL_SPIRITS.find((s) => s.id === spiritId);

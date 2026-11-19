@@ -167,12 +167,16 @@ function mergeMissing(target, defaults) {
   }
 }
 
+// The realism states already completed (a new game, or a save of an older version): the missing fields are
+// added ONCE, not at every call. (It was called for every monster at every frame: half the time of the game.)
+const COMPLETED = new WeakSet();
+
 export function ensureRealism(game) {
-  if (!game.realism || typeof game.realism !== 'object') {
-    game.realism = firstRealism();
-    return game.realism;
+  if (!game.realism || typeof game.realism !== 'object') game.realism = firstRealism();
+  if (!COMPLETED.has(game.realism)) {
+    mergeMissing(game.realism, firstRealism());
+    COMPLETED.add(game.realism);
   }
-  mergeMissing(game.realism, firstRealism());
   return game.realism;
 }
 

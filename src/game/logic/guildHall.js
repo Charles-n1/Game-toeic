@@ -346,7 +346,7 @@ function drinkChoices(game) {
   return DRINKS.map((drink) => ({ label: drink.name + (drink.price > 0 ? ' (' + drink.price + ' Lexis)' : ' (free)'), icon: 'water', run: () => buyDrink(game, drink) }));
 }
 
-/** Dynamic greeting from Elena reacting to hero injuries, surprise drake/boss kills, and guild rank. */
+// Dynamic greeting from Elena reacting to hero injuries, surprise drake/boss kills, and guild rank.
 export function elenaGreeting(game) {
   const g = ensureGuild(game);
   const player = game.player;
@@ -375,7 +375,7 @@ export function elenaGreeting(game) {
   return "Elena greets you: 'Welcome to the Adventurer Guild! First, get your Adventurer Card: Odile makes them, at the desk by the door.'";
 }
 
-/** Rests safely in the upstairs Guild Bedroom until morning (15 Lexis, free at Rank C+). */
+// Rests safely in the upstairs Guild Bedroom until morning (15 Lexis, free at Rank C+).
 export function restInGuildRoom(game) {
   if (game.raid?.active) {
     say(game, null, ['The raid alarm is ringing! We cannot rest while the village is under attack.']);

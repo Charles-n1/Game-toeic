@@ -65,7 +65,7 @@ function findOpenLandSpot(startX, startY, maxRadius = 28) {
 
 // ---------- Monster Ranks (F to S) ----------
 
-/** Classifies a monster into F..S rank returning { rank, color, label } from MONSTER_RANKS. */
+// Classifies a monster into F..S rank returning { rank, color, label } from MONSTER_RANKS.
 export function monsterRankInfo(monster) {
   if (!monster) return rankEntry('F');
   const sp = monster.species || '';
@@ -105,7 +105,7 @@ export function monsterRankInfo(monster) {
 
 // ---------- Monster Taming ----------
 
-/** Computes taming probability (0.45 base, +0.25 sv_tamer, x2 with spiritCharm capped at 0.95). */
+// Computes taming probability (0.45 base, +0.25 sv_tamer, x2 with spiritCharm capped at 0.95).
 export function tameChanceFor(game, speciesId) {
   if (SPECIES[speciesId]?.boss) return 0;
   const st = ensureIsekaiTodo(game);
@@ -115,7 +115,7 @@ export function tameChanceFor(game, speciesId) {
   return Math.min(0.95, chance);
 }
 
-/** Moves a tamed monster between 'party', 'home', and 'guild' (at most 1 active in 'party'). */
+// Moves a tamed monster between 'party', 'home', and 'guild' (at most 1 active in 'party').
 export function setTamedLocation(game, uid, place) {
   if (!['party', 'home', 'guild'].includes(place)) return false;
   const st = ensureIsekaiTodo(game);
@@ -133,7 +133,7 @@ export function setTamedLocation(game, uid, place) {
   return true;
 }
 
-/** Adds a tamed creature to the player's roster (max 8) and sets it active in party. */
+// Adds a tamed creature to the player's roster (max 8) and sets it active in party.
 export function tameMonster(game, speciesId, customName = null) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -163,7 +163,7 @@ export function tameMonster(game, speciesId, customName = null) {
   return entry;
 }
 
-/** Offers an interactive taming prompt after a flawless non-boss monster victory. */
+// Offers an interactive taming prompt after a flawless non-boss monster victory.
 export function offerTameIfEligible(game, fight) {
   ensureRun(game);
   if (!fight || fight.phase !== 'won' || !fight.opponent) return false;
@@ -197,7 +197,7 @@ export function offerTameIfEligible(game, fight) {
   return true;
 }
 
-/** Returns combat bonuses { attack, defense, companionName } from the active 'party' tamed monster. */
+// Returns combat bonuses { attack, defense, companionName } from the active 'party' tamed monster.
 export function activeTamedBonus(game) {
   const st = ensureIsekaiTodo(game);
   const active = st.tamed.find((t) => t.place === 'party');
@@ -213,7 +213,7 @@ export function activeTamedBonus(game) {
 // XP a tamed monster needs for each level: the same for every level (a steady progression).
 const TAMED_XP_PER_LEVEL = 40;
 
-/** Grants XP to the active 'party' tamed monster and levels it up. */
+// Grants XP to the active 'party' tamed monster and levels it up.
 export function gainTamedXp(game, xp = 5) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -231,7 +231,7 @@ export function gainTamedXp(game, xp = 5) {
 
 // ---------- Flying Mount (Griffin / Wyvern) ----------
 
-/** Unlocks the Flying Mount and ensures the player holds the Sky Griffin Whistle. */
+// Unlocks the Flying Mount and ensures the player holds the Sky Griffin Whistle.
 export function unlockFlyingMount(game, kind = 'griffin') {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -248,7 +248,7 @@ export function unlockFlyingMount(game, kind = 'griffin') {
   return st.flyingMount;
 }
 
-/** Returns true if the player has unlocked the flying mount or carries a griffinWhistle. */
+// Returns true if the player has unlocked the flying mount or carries a griffinWhistle.
 export function isFlyingMountUnlocked(game) {
   const st = ensureIsekaiTodo(game);
   return Boolean(st.flyingMount?.unlocked || countItem(game.player, 'griffinWhistle') > 0);
@@ -264,7 +264,7 @@ function hasAdjacentTree(tx, ty) {
   return false;
 }
 
-/** Checks whether the Flying Mount can land safely at (x, y): open ground only, never in forests or towns. */
+// Checks whether the Flying Mount can land safely at (x, y): open ground only, never in forests or towns.
 export function canLandAt(x, y) {
   const zone = zoneAt(x, y);
   if (zone.kind === 'inside') {
@@ -292,7 +292,7 @@ export function canLandAt(x, y) {
   return { ok: true, reason: '' };
 }
 
-/** Mounts or dismounts the Flying Mount, enforcing open-terrain landing rules. */
+// Mounts or dismounts the Flying Mount, enforcing open-terrain landing rules.
 export function toggleFlyingMount(game) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -358,7 +358,7 @@ function computeIntelligentSpot(m) {
   );
 }
 
-/** Returns safe outdoor coordinates for each Intelligent Monster NPC. */
+// Returns safe outdoor coordinates for each Intelligent Monster NPC.
 export function intelligentLocations(game = null) {
   const st = game ? ensureIsekaiTodo(game) : null;
   return INTELLIGENT_MONSTERS.map((m) => {
@@ -376,7 +376,7 @@ export function intelligentLocations(game = null) {
   });
 }
 
-/** Returns an Intelligent Monster within 1.8 tiles of the hero, or null. */
+// Returns an Intelligent Monster within 1.8 tiles of the hero, or null.
 export function nearIntelligentMonster(game) {
   return (
     intelligentLocations(game).find(
@@ -385,7 +385,7 @@ export function nearIntelligentMonster(game) {
   );
 }
 
-/** Opens the 4-option diplomacy dialog (Chat, Trade, Quest, Recruit) for an Intelligent Monster. */
+// Opens the 4-option diplomacy dialog (Chat, Trade, Quest, Recruit) for an Intelligent Monster.
 export function interactIntelligentMonster(game, m) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -568,7 +568,7 @@ function placeEmissary(spec, camp) {
   };
 }
 
-/** Starts a clan battle against a Demon King Emissary and 2 demon guards. */
+// Starts a clan battle against a Demon King Emissary and 2 demon guards.
 export function startEmissaryFight(game, em) {
   ensureRun(game);
   const chief = buildEmissaryUnit(game, em.species, em.x, em.y, {
@@ -587,7 +587,7 @@ export function startEmissaryFight(game, em) {
   return game.run.fight;
 }
 
-/** Handles rewards, Silence threat reduction, and achievement when an Emissary Clan is beaten. */
+// Handles rewards, Silence threat reduction, and achievement when an Emissary Clan is beaten.
 export function onEmissaryDefeated(game, emissaryId) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -618,7 +618,7 @@ export function onEmissaryDefeated(game, emissaryId) {
   return true;
 }
 
-/** Places the Demon King Emissary Clans in their camps on the Silent Isle (from Day 2), walks them around, and starts their fight when the hero comes. */
+// Places the Demon King Emissary Clans in their camps on the Silent Isle (from Day 2), walks them around, and starts their fight when the hero comes.
 export function tickEmissaries(game, dt = 0.016) {
   ensureRun(game);
   if (game.run.emissaryFight && !game.run.fight) {

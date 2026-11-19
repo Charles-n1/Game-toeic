@@ -1,5 +1,6 @@
 import { zoneAt } from '../data/zones';
 import { isSolid } from './map';
+import { facingOf } from './geometry';
 
 // Finding a way from a tile to another, around the walls, the houses and the water, for everyone who walks:
 // the people of the villages, the travelers, the caravans, the patrols, the friends of the hero.
@@ -112,7 +113,7 @@ function walkAlong(walker, points, move) {
   while (points.length > 0 && left > 0) {
     const target = points[0];
     const far = Math.hypot(target.x - walker.x, target.y - walker.y);
-    if (far > 0.0001) faceTo(walker, target.x - walker.x, target.y - walker.y);
+    if (far > 0.0001) walker.dir = facingOf(target.x - walker.x, target.y - walker.y);
     if (far <= left) {
       walker.x = target.x;
       walker.y = target.y;
@@ -126,9 +127,6 @@ function walkAlong(walker, points, move) {
   }
 }
 
-function faceTo(walker, dx, dy) {
-  walker.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-}
 
 // ---------- The gates of the villages ----------
 
@@ -201,9 +199,32 @@ function walkableNear(x, y, radius, canWalk) {
   return null;
 }
 
+// The searches of a way are the most expensive thing a walker does: never more than a few in the same moment,
+// for the whole world. The others wait their turn (a few hundredths of a second, nobody sees it).
+const PLANS_AT_ONCE = 4; // searches at most...
+const PLAN_MOMENT = 50; // ...in the same moment of this many milliseconds
+let planMoment = -1;
+let plansInMoment = 0;
+
+function mayPlanNow(now) {
+  const moment = Math.floor(now / PLAN_MOMENT);
+  if (moment !== planMoment) {
+    planMoment = moment;
+    plansInMoment = 0;
+  }
+  if (plansInMoment >= PLANS_AT_ONCE) return false;
+  plansInMoment += 1;
+  return true;
+}
+
 // Must the walker plan its way (again)? No way yet, the goal moved, or the way got blocked.
 function needsPlan(walker, stop, canWalk, now) {
   if (now < (walker._planAgainAt || 0)) return false;
+  if (!needsNewWay(walker, stop, canWalk)) return false;
+  return mayPlanNow(now);
+}
+
+function needsNewWay(walker, stop, canWalk) {
   const route = walker._navPath;
   if (!route || route.length === 0) return true;
   if (!walker._navGoal || Math.hypot(walker._navGoal.x - stop.x, walker._navGoal.y - stop.y) > MOVED_GOAL) return true;
@@ -220,6 +241,7 @@ function plan(walker, stop, canWalk, now) {
     if (path) {
       walker._navPath = path.slice(1);
       if (target === stop && canWalk(stop.x, stop.y)) walker._navPath.push({ x: stop.x, y: stop.y }); // the exact spot
+      if (walker._navPath.length === 0) walker._planAgainAt = now + RETRY_AFTER; // already as close as it can be
       return;
     }
     if (target === stop) break; // the stop itself is closer than a leg: no shorter leg to try
@@ -239,7 +261,7 @@ export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
   const stop = nextStop(walker, goalX, goalY, options);
   if (needsPlan(walker, stop, canWalk, now)) plan(walker, stop, canWalk, now);
   const route = walker._navPath;
-  if (!route || route.length === 0) return stopWalking(walker);
+  if (!route || route.length === 0) return walker._planAgainAt > now ? stopWalking(walker) : waitTurn(walker);
   walkAlong(walker, route, speed * dt);
   walker.walking = true;
   walker.step = (walker.step || 0) + dt * 6;
@@ -249,4 +271,16 @@ export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
 function stopWalking(walker) {
   walker.walking = false;
   return false;
+}
+
+// Waiting for its turn to plan its way: it does not move yet, but it still goes there (true).
+function waitTurn(walker) {
+  walker.walking = false;
+  return true;
+}
+
+// The walkable tile closest to (x, y), at most 8 tiles away (or null): to put back on land someone who moved
+// "in numbers", far from the hero (see the patrols of economy/traffic.js).
+export function landNear(x, y, canWalk = isWalkable) {
+  return walkableNear(x, y, 8, canWalk);
 }

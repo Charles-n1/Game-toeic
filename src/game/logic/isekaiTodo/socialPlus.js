@@ -25,7 +25,7 @@ const COURIER_SPAWN_MAX = 7.5;
 const COURIER_SPEED = 2.6;
 const MAX_ALBUM_PHOTOS = 24;
 
-/** Unlocks an achievement once, pays its reward, and notifies the player. */
+// Unlocks an achievement once, pays its reward, and notifies the player.
 export function grantAchievement(game, achId) {
   const ach = ACHIEVEMENTS.find((entry) => entry.id === achId);
   if (!ach) return false;
@@ -85,7 +85,7 @@ function checkStageRequirement(game, npcId, stageIdx, stage) {
   return { canAdvance: true, itemToConsume: null, reason: 'Ready to advance!' };
 }
 
-/** Returns progress and readiness for a companion's personal story quest arc. */
+// Returns progress and readiness for a companion's personal story quest arc.
 export function companionArcStatus(game, npcId) {
   const arc = COMPANION_ARCS[npcId];
   if (!arc) return null;
@@ -115,7 +115,7 @@ export function companionArcStatus(game, npcId) {
   };
 }
 
-/** Consumes requirements, advances a companion's story arc, and unlocks their Ultimate on finale. */
+// Consumes requirements, advances a companion's story arc, and unlocks their Ultimate on finale.
 export function advanceCompanionArc(game, npcId) {
   const status = companionArcStatus(game, npcId);
   if (!status || status.completed || !status.canAdvance) return false;
@@ -152,7 +152,7 @@ export function advanceCompanionArc(game, npcId) {
   };
 }
 
-/** Sums passive battle bonuses from all completed companion personal story arcs. */
+// Sums passive battle bonuses from all completed companion personal story arcs.
 export function companionUltimateBonus(game) {
   const st = ensureIsekaiTodo(game);
   const arcs = st.companionArcs || {};
@@ -202,7 +202,7 @@ function firstUrgentLetterEntry(st) {
   }) || null;
 }
 
-/** Delivers up to one new Part 6 letter per day and flags urgent pending mail. */
+// Delivers up to one new Part 6 letter per day and flags urgent pending mail.
 export function refreshDailyLetters(game) {
   const st = ensureIsekaiTodo(game);
   const day = game.day || 1;
@@ -222,7 +222,7 @@ export function refreshDailyLetters(game) {
   return added;
 }
 
-/** Returns delivered letters enriched with catalog metadata for letterbox UI. */
+// Returns delivered letters enriched with catalog metadata for letterbox UI.
 export function deliveredLettersList(game) {
   const st = ensureIsekaiTodo(game);
   return (st.letters.delivered || [])
@@ -230,7 +230,7 @@ export function deliveredLettersList(game) {
     .filter((item) => Boolean(item.letter));
 }
 
-/** Opens a TOEIC Part 6 email reading & reply duel for a delivered letter. */
+// Opens a TOEIC Part 6 email reading & reply duel for a delivered letter.
 export function readPart6Letter(game, letterId) {
   const letter = letterDef(letterId);
   if (!letter) return false;
@@ -305,14 +305,14 @@ function findCourierSpawn(player) {
   return { x: player.x + 3.5, y: player.y + 1.5 };
 }
 
-/** Returns the active courier messenger if outdoors and close enough to talk to. */
+// Returns the active courier messenger if outdoors and close enough to talk to.
 export function courierNear(game, range = 2.0) {
   const c = game?.run?.courier;
   if (!c || zoneAt(game.player.x, game.player.y).kind === 'inside') return null;
   return Math.hypot(c.x - game.player.x, c.y - game.player.y) <= range ? c : null;
 }
 
-/** Delivers urgent mail held by the courier and opens the letter reading duel immediately. */
+// Delivers urgent mail held by the courier and opens the letter reading duel immediately.
 export function deliverCourierMail(game) {
   const st = ensureIsekaiTodo(game);
   const courier = game.run.courier;
@@ -323,7 +323,7 @@ export function deliverCourierMail(game) {
   return readPart6Letter(game, urgentEntry.id);
 }
 
-/** Spawns and moves a courier messenger holding an envelope outdoors when urgent mail awaits. */
+// Spawns and moves a courier messenger holding an envelope outdoors when urgent mail awaits.
 export function tickCourierMessenger(game, dt = 0.016) {
   if (!game?.player || !game?.run) return null;
   const st = ensureIsekaiTodo(game);
@@ -398,7 +398,7 @@ export function tickCourierMessenger(game, dt = 0.016) {
 
 // ---------- Anime Episode Cards, CG Gallery, Photo Album & Weekly Challenges ----------
 
-/** Opens the anime episode title card when the hero enters a new chapter episode. */
+// Opens the anime episode title card when the hero enters a new chapter episode.
 export function checkEpisodeProgression(game) {
   const st = ensureIsekaiTodo(game);
   const ep = Math.max(1, Math.min(ANIME_EPISODES.length, (game.chapter || 0) + 1));
@@ -410,7 +410,7 @@ export function checkEpisodeProgression(game) {
   return modal;
 }
 
-/** Shows the closing "To Be Continued..." / "Next Time..." episode card. */
+// Shows the closing "To Be Continued..." / "Next Time..." episode card.
 export function triggerEpisodeToBeContinued(game, nextEp = null) {
   const st = ensureIsekaiTodo(game);
   const endedNum = nextEp ? Math.max(1, Math.min(ANIME_EPISODES.length, nextEp - 1 || 1)) : Math.max(1, Math.min(ANIME_EPISODES.length, st.episodes.currentEp || 1));
@@ -426,7 +426,7 @@ export function triggerEpisodeToBeContinued(game, nextEp = null) {
   return modal;
 }
 
-/** Unlocks an illustrated CG gallery scene by ID if not already unlocked. */
+// Unlocks an illustrated CG gallery scene by ID if not already unlocked.
 export function unlockGallery(game, sceneId) {
   const scene = GALLERY_SCENES.find((entry) => entry.id === sceneId);
   if (!scene) return false;
@@ -438,7 +438,7 @@ export function unlockGallery(game, sceneId) {
   return true;
 }
 
-/** Captures an adventure photo snapshot (capped at 24) and checks the photographer achievement. */
+// Captures an adventure photo snapshot (capped at 24) and checks the photographer achievement.
 export function snapAdventurePhoto(game, caption = null, withNpc = null) {
   const st = ensureIsekaiTodo(game);
   const zone = zoneAt(game.player.x, game.player.y);
@@ -460,7 +460,7 @@ export function snapAdventurePhoto(game, caption = null, withNpc = null) {
   return photo;
 }
 
-/** Rotates to the next solo weekly challenge whenever the 7-day game week changes. */
+// Rotates to the next solo weekly challenge whenever the 7-day game week changes.
 export function syncWeeklyChallenge(game) {
   const st = ensureIsekaiTodo(game);
   const week = Math.floor(((game.day || 1) - 1) / 7) + 1;
@@ -478,7 +478,7 @@ export function syncWeeklyChallenge(game) {
   return WEEKLY_CHALLENGES.find((c) => c.id === st.weekly.challengeId) || WEEKLY_CHALLENGES[0];
 }
 
-/** Updates weekly challenge progress and solo personal records from answer/kill/win events. */
+// Updates weekly challenge progress and solo personal records from answer/kill/win events.
 export function recordWeeklyStat(game, event = {}) {
   const challenge = syncWeeklyChallenge(game);
   const st = ensureIsekaiTodo(game);
@@ -521,7 +521,7 @@ export function recordWeeklyStat(game, event = {}) {
   return w;
 }
 
-/** Claims the completed weekly challenge reward once per week and updates bestWeekCount. */
+// Claims the completed weekly challenge reward once per week and updates bestWeekCount.
 export function claimWeeklyReward(game) {
   const challenge = syncWeeklyChallenge(game);
   const st = ensureIsekaiTodo(game);

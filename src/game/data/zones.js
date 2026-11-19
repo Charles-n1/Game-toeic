@@ -161,12 +161,6 @@ export function insideOf(id) {
   return INSIDES.find((inside) => inside.id === id);
 }
 
-// The kingdom a tile belongs to (null: the demon island, the sea).
-export function kingdomAt(x, y) {
-  const id = kingdomOfCell(x / SCALE, y / SCALE);
-  return KINGDOMS.find((kingdom) => kingdom.id === id) || null;
-}
-
 // Is this tile in the insides (a floor of a dungeon, a cave, the home)?
 export function isInsideWorld(y) {
   return y >= INSIDE_TOP;
