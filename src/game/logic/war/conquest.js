@@ -230,10 +230,12 @@ function spawnPointOutsideVillage(game, village, fromPos, index, total) {
   return placeNearSpot(game, tx, ty, 0, 5);
 }
 
+// The monsters of a warband: its own people, with orcs and shadow mages in the big ones.
+// (No demon: the demons only come out of the demon land, see war/demonLand.js.)
 function speciesForWarband(band) {
   const base = SPECIES[band.species] ? band.species : 'goblin';
   if (band.strength >= 90 && Math.random() < 0.35) return 'orc';
-  if (band.strength >= 140 && Math.random() < 0.25) return 'darkKnight';
+  if (band.strength >= 140 && Math.random() < 0.25) return 'shadowMage';
   return base;
 }
 

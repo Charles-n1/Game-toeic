@@ -28,6 +28,18 @@ import {
 import { tryEscapeGuard, arrestPlayer } from '../kingdomLaws';
 import { openGuildContractsMenu } from '../guild';
 import { boardContractsFor } from '../guild/ranks';
+import {
+  activeQuests,
+  availableSideQuests,
+  isQuestReady,
+  startQuest,
+  finishQuest,
+  ensureUrgentQuests,
+  acceptUrgentQuest,
+  turnInUrgentQuest,
+  isUrgentQuestReady,
+} from '../quests';
+import { npcOf } from '../../data/npcs';
 import { readNoticeBoardQuestion } from '../realism/englishWorld';
 import { ensureRealism } from '../realism/state';
 import { payOffFinesOrDefend } from '../realism/financeAndLaw';
@@ -417,8 +429,32 @@ export function interactBoard(game, zone) {
   const offered = [clanBountyFor(village), monsterBountyFor(village), rivalBountyFor(village)].filter(Boolean);
   const activeHere = Object.values(s.bounties).filter((b) => b.active && !b.done);
   const readyHere = activeHere.filter((b) => bountyProgress(game, b) >= b.need);
+  const urgentList = ensureUrgentQuests(game);
+  const readySide = activeQuests(game).filter((q) => isQuestReady(game, q));
+  const availSide = availableSideQuests(game);
 
   const choices = [];
+  for (const uq of urgentList) {
+    if (!uq.accepted) {
+      choices.push({ label: '🚨 URGENT: ' + uq.title.replace(/^🚨\s*/, '') + ' (+' + uq.lexis + 'L)', icon: 'quests', run: () => acceptUrgentQuest(game, uq.id) });
+    } else if (isUrgentQuestReady(game, uq)) {
+      choices.push({ label: '✅ Turn In Urgent: ' + uq.title.replace(/^🚨\s*/, '') + ' (+' + uq.lexis + 'L)', icon: 'quests', run: () => turnInUrgentQuest(game, uq.id) });
+    }
+  }
+  for (const q of readySide) {
+    choices.push({
+      label: '✅ Complete Side Quest: ' + q.title + ' (' + npcOf(q.giver).name + ' · +' + q.lexis + 'L)',
+      icon: 'quests',
+      run: () => finishQuest(game, q),
+    });
+  }
+  for (const q of availSide.slice(0, 6)) {
+    choices.push({
+      label: '📜 Side Quest: ' + q.title + ' (' + npcOf(q.giver).name + ' · +' + q.lexis + 'L)',
+      icon: 'quests',
+      run: () => startQuest(game, q),
+    });
+  }
   for (const b of readyHere) {
     choices.push({
       label: 'Turn in: ' + b.title + ' (+' + b.reward + ' Lexis)',

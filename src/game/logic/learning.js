@@ -185,11 +185,20 @@ export function pickQuestion(game, opponent, usedIds, lastText) {
     : [ofDiff(ofType, rolledDiff), ofDiff(ofTier, rolledDiff), ofDiff(ofType, baseTag), ofDiff(ofTier, baseTag), ofType, ofTier, fresh, bank];
   const pool = opponent.questions ? firstNotEmpty([fresh, bank]) : firstNotEmpty(order);
 
-  const ofSameText = pool.filter((q) => q.text !== null && q.text === lastText);
+  // The other questions of the text just read come first, whatever their type or tag (the pool above is cut
+  // by type and tag: a text would change at every question, and a demon fight would be a pile of texts).
+  const ofItsSections = opponent.questions ? fresh : ofTier;
+  const ofSameText = ofItsSections.filter((q) => q.text !== null && q.text === lastText);
   if (ofSameText.length > 0) return ofSameText[0];
   const due = pool.filter((q) => isDue(q, today()));
   if (due.length > 0) return pickRandom(due);
-  return pickRandom(pool);
+  return firstOfItsText(pickRandom(pool), ofItsSections);
+}
+
+// A new text starts with its first question (Blank (1) before Blank (2), like on the exam paper).
+function firstOfItsText(question, list) {
+  if (!question || !question.text) return question;
+  return list.find((q) => q.text === question.text) || question;
 }
 
 // The question of a spell: of the school of the spell, at the level the hero learned it (1 Normal, 2 Hard...).

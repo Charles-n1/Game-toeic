@@ -4,6 +4,7 @@ import { addHappiness } from '../village';
 import { notify } from '../messages';
 import { ensureWar } from './state';
 import { awardGuildPoints } from '../guild/ranks';
+import { pushBackDemonLand } from './demonLand';
 
 // The Demon King's advancing Silence threat: progresses every day unless halted by boss victories
 // and Solecis's eventual defeat, applying strategic pressure even when the hero travels far away.
@@ -24,6 +25,7 @@ export function pushBackDoom(game, amount, reason = null) {
 }
 
 export function onBossDefeated(game, bossKey) {
+  pushBackDemonLand(game, bossKey); // the demon land goes back toward the isle
   if (bossKey === 'lich') {
     pushBackDoom(game, 20, 'Gerund Lich slain');
     awardGuildPoints(game, 60, 'Gerund Lich');

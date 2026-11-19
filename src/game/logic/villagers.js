@@ -4,10 +4,11 @@ import { KINGDOMS } from '../data/kingdoms';
 import { raceMixForVillage, applyRaceToLook } from '../data/races';
 import { zoneAt } from '../data/zones';
 
-import { bestGateOf, findPath, followPath } from '../world/paths';
+import { bestGateOf, findPath, followPath, stepSmart } from '../world/paths';
 import { randomOf, pickWith } from '../world/seeded';
 import { pickRandom } from '../../logic/random';
 import { isNight } from './clock';
+import { ensureUrgentQuests } from './quests';
 import { treesOf, rocksOf } from './villages';
 import { wallTilesOf } from './walls';
 
@@ -238,12 +239,47 @@ function updateVillager(game, villager, dt) {
     goTo(villager, workSpotOf(villager));
   }
   if (['toWork', 'toSquare', 'toHome'].includes(villager.task)) {
-    const speed = villager.kid ? 1.8 : villager.drunk > 0 ? 0.9 : 1.4;
-    if (followPath(villager, speed, dt)) {
+    const prevX = villager.x;
+    const prevY = villager.y;
+    const baseSpeed = villager.kid ? 1.8 : villager.drunk > 0 ? 0.9 : villager.crier ? 2.15 : 1.4;
+    let done = false;
+    if (villager.path && villager.path.length > 0) {
+      done = followPath(villager, baseSpeed, dt);
+    } else if (villager._destSpot) {
+      done = !stepSmart(villager, villager._destSpot.x, villager._destSpot.y, baseSpeed, dt);
+    } else {
+      done = true;
+    }
+    const moved = Math.hypot(villager.x - prevX, villager.y - prevY);
+    villager._stuckAcc = moved < 0.002 ? (villager._stuckAcc || 0) + dt : 0;
+    if (villager._stuckAcc > 1.2) {
+      villager._stuckAcc = 0;
+      villager.path = null;
+      villager.task = villager.task === 'toHome' ? 'home' : 'work';
+      villager.wait = 6 + Math.random() * 10;
+      villager.walking = false;
+    } else if (done) {
       villager.task = { toWork: 'work', toSquare: 'evening', toHome: 'home' }[villager.task];
       villager.wait = villager.task === 'evening' ? 60 + Math.random() * 60 : 12 + Math.random() * 25;
       villager.working = villager.task === 'work';
+      villager.walking = false;
     }
+  }
+  // Town Criers proclaim urgent quests & dangers through streets and squares
+  if (!villager.kid && (villager.id.endsWith('-1') || villager.id.endsWith('-3'))) {
+    const raidSoon = !game.bosses?.king && game.raid && game.raid.nextDay <= game.day;
+    const underSiege = Boolean(game.war?.warbands?.some((b) => b.targetId === villager.village && (b.state === 'sieging' || b.state === 'marching')));
+    const uqList = ensureUrgentQuests(game);
+    const uq = uqList.length > 0 ? uqList[villager.id.endsWith('-3') ? uqList.length - 1 : 0] : null;
+    villager.crier = Boolean(raidSoon || underSiege || (!isNight(game) && uq));
+    villager.urgentQuestId = uq ? uq.id : null;
+    villager.urgentShout = underSiege
+      ? 'URGENT! Attackers approaching the gates!'
+      : raidSoon
+        ? 'URGENT! Monster raid expected tonight—rally at the square!'
+        : !isNight(game) && uq
+          ? uq.shout
+          : null;
   }
   if (villager.drunk > 0) villager.drunk = Math.max(0, villager.drunk - dt / 60);
   if (villager.angry > 0) villager.angry = Math.max(0, villager.angry - dt);

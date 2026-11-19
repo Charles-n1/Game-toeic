@@ -1,7 +1,8 @@
 import { NPCS } from '../data/npcs';
-import { PLAZAS, FIELDS, zoneAt, insideOf } from '../data/zones';
+import { PLAZAS, FIELDS, zoneAt, insideOf, villageOf } from '../data/zones';
 import { propsAround } from '../world/map';
-import { findPath, followPath } from '../world/paths';
+import { bestGateOf, findPath, followPath, stepSmart } from '../world/paths';
+import { econVillage } from './economy';
 import { isEncountered } from './encounters';
 import { guildChoice } from './guild';
 import { maxPartySize, dailyWageOf } from './guild/ranks';
@@ -83,12 +84,12 @@ function isSleepTime(game) {
   return game.hour >= SLEEP_FROM || game.hour < SLEEP_UNTIL;
 }
 
-// On the map right now? Alive, not following the hero, not carried, and:
-// a night person only at night, a wanderer only when met on the road, a guild member never (they are in the guild),
-// the others not at night (they sleep). A KO person lies where they fell.
+// On the map right now? Alive, not inside a building, not following the hero, not carried.
 export function isOutside(game, npc) {
   const state = game.npcs[npc.id];
+  const place = game.run?.people?.[npc.id];
   if (!state.alive || game.player.party.includes(npc.id) || game.player.carrying?.id === npc.id) return false;
+  if (place?.indoors) return false;
   if (isNpcKidnapped(game, npc.id) || isStationedInTraining(game, npc.id)) return false;
   if (state.ko) return true;
   if (game.player.spouse === npc.id) return true;
@@ -98,84 +99,162 @@ export function isOutside(game, npc) {
   return !isSleepTime(game);
 }
 
-function pickWalk(place) {
-  const angle = Math.random() * Math.PI * 2;
-  const isResting = Math.random() < 0.5;
-  place.walkX = isResting ? 0 : Math.cos(angle);
-  place.walkY = isResting ? 0 : Math.sin(angle);
-  place.walkTime = 1 + Math.random() * 3;
-}
-
-// A slow walk around home. Too far, they come back.
-function strollPerson(game, npc, dt) {
-  const place = game.run.people[npc.id];
-  const home = homeOf(game, npc);
-  const fromHome = Math.hypot(place.x - home.x, place.y - home.y);
-  place.walkTime -= dt;
-  if (place.walkTime <= 0) pickWalk(place);
-  if (fromHome > 2) {
-    place.walkX = (home.x - place.x) / fromHome;
-    place.walkY = (home.y - place.y) / fromHome;
-  }
-  const nx = place.x + place.walkX * 0.7 * dt;
-  const ny = place.y + place.walkY * 0.7 * dt;
-  if (!isSolid(nx, place.y)) place.x = nx;
-  if (!isSolid(place.x, ny)) place.y = ny;
-  place.walking = place.walkX !== 0 || place.walkY !== 0;
-  if (place.walking) {
-    place.step += dt * 6;
-    place.dir = facingOf(place.walkX, place.walkY);
-  }
-}
-
-// The places a person of a village walks to: the squares, the wells, the fields of their village.
+// NPCs walk real schedules around shops, houses (entering & exiting!), economy stalls, and outside gates to explore.
 function errandSpots(npc) {
   const zone = zoneAt(npc.x, npc.y);
   if (zone.kind !== 'village') return [];
+  const vHouses = (villageOf(zone.id)?.plan?.houses || []).filter((h) => h.role !== 'palace');
+  const doors = vHouses.map((h) => ({ x: h.x + Math.floor(h.w / 2) + 0.5, y: h.y + h.h + 0.5, house: h, isDoor: true }));
   const spots = [...PLAZAS, ...FIELDS].filter((item) => zoneAt(item.x, item.y).id === zone.id).map((item) => ({ x: item.x + Math.floor(item.w / 2), y: item.y + item.h }));
   const wells = propsAround(npc.x, npc.y, 60).filter((prop) => prop.kind === 'well' && zoneAt(prop.x, prop.y).id === zone.id).map((prop) => ({ x: prop.x, y: prop.y + 1 }));
-  return [...spots, ...wells];
+  return [...spots, ...wells, ...doors];
 }
 
-// From time to time, a person walks somewhere in their village (by the streets), stays a moment, comes back.
+function npcEconomicExchange(game, npc, house) {
+  const vid = house?.village || npc.at?.[0];
+  if (!vid) return;
+  const vEcon = econVillage(game, vid);
+  if (!vEcon) return;
+  const keys = Object.keys(vEcon.inputs || {});
+  if (keys.length === 0) return;
+  const picked = pickRandom(keys);
+  if (house?.role === 'market' || house?.role === 'forge' || house?.role === 'potions') {
+    vEcon.inputs[picked] = (vEcon.inputs[picked] || 0) + 1;
+    vEcon.treasury = (vEcon.treasury || 0) + 4;
+  } else if ((vEcon.inputs[picked] || 0) > 1) {
+    vEcon.inputs[picked] -= 1;
+    vEcon.treasury = Math.max(0, (vEcon.treasury || 0) + 3);
+  }
+}
+
+function handleExploringNpc(game, npc, place, dt) {
+  const nearbyFoe = (game.run.monsters || []).find((m) => !m.boss && m.health > 0 && Math.hypot(m.x - place.x, m.y - place.y) < 4.5);
+  if (nearbyFoe) {
+    if (npc.fighter) {
+      const distFoe = Math.hypot(nearbyFoe.x - place.x, nearbyFoe.y - place.y);
+      if (distFoe > 1.3) {
+        stepSmart(place, nearbyFoe.x, nearbyFoe.y, 2.0, dt);
+      } else {
+        place.walking = false;
+        place.dir = facingOf(nearbyFoe.x - place.x, nearbyFoe.y - place.y);
+        place._atkCd = (place._atkCd || 0) - dt;
+        if (place._atkCd <= 0) {
+          place._atkCd = 1.05;
+          nearbyFoe.health -= 14;
+          nearbyFoe.hitAt = Date.now();
+          burst(game, nearbyFoe.x, nearbyFoe.y - 0.3, '#ffd23f', 6);
+        }
+      }
+      return;
+    }
+    // Non-fighters actively evade & flee back through town gate instead of walking into monsters
+    const home = homeOf(game, npc);
+    stepSmart(place, home.x, home.y, 2.2, dt);
+    return;
+  }
+
+  const dest = place.exploreTarget;
+  if (!dest || Date.now() > (place.exploreUntil || 0) || Math.hypot(dest.x - place.x, dest.y - place.y) < 1.5) {
+    place.exploreTarget = null;
+    place.returningFromExplore = true;
+  }
+  if (place.returningFromExplore) {
+    const home = homeOf(game, npc);
+    if (Math.hypot(home.x - place.x, home.y - place.y) < 2.2 || !stepSmart(place, home.x, home.y, 1.6, dt)) {
+      place.exploring = false;
+      place.returningFromExplore = false;
+      place.errandTime = 15 + Math.random() * 20;
+    }
+    return;
+  }
+  stepSmart(place, dest.x, dest.y, 1.5, dt);
+}
+
 function runErrands(game, npc, dt) {
   const place = game.run.people[npc.id];
+  if (place.exploring) {
+    handleExploringNpc(game, npc, place, dt);
+    return true;
+  }
+  if (place.targetPoint) {
+    const far = Math.hypot(place.targetPoint.x - place.x, place.targetPoint.y - place.y);
+    if (far < 0.9 || !stepSmart(place, place.targetPoint.x, place.targetPoint.y, 1.45, dt, { stayInside: !place.targetOutside })) {
+      const doneTarget = place.targetPoint;
+      place.targetPoint = null;
+      place.targetOutside = false;
+      place.walking = false;
+      if (doneTarget.isDoor && doneTarget.house && !npc.wanderer) {
+        npcEconomicExchange(game, npc, doneTarget.house);
+        if (Math.random() < 0.65) {
+          place.indoors = {
+            village: doneTarget.house.village,
+            role: doneTarget.house.role,
+            house: doneTarget.house,
+            untilTime: Date.now() + 24000,
+          };
+          return true;
+        }
+      }
+      place.errandTime = place.away ? 8 + Math.random() * 14 : 16 + Math.random() * 28;
+      return true;
+    }
+    return true;
+  }
   if (place.path) {
-    if (followPath(place, 1.3, dt)) {
+    if (followPath(place, 1.4, dt)) {
       place.path = null;
-      place.errandTime = place.away ? 8 + Math.random() * 12 : ERRAND_EVERY[0] + Math.random() * (ERRAND_EVERY[1] - ERRAND_EVERY[0]);
+      place.errandTime = 12 + Math.random() * 16;
     }
     return true;
   }
   place.errandTime -= dt;
   if (place.errandTime > 0) return false;
+
+  const z = zoneAt(place.x, place.y);
+  // Adventure/Fighter/Merchant/Gatherer NPCs sometimes exit open gates to explore & interact outside town!
+  const canRoamOut = !npc.child && !npc.guild && z.kind === 'village' && (npc.fighter || ['aria', 'hugo', 'mira', 'yuki'].includes(npc.id));
+  if (canRoamOut && !place.away && Math.random() < 0.22) {
+    const angle = Math.random() * Math.PI * 2;
+    const outSpot = { x: place.x + Math.cos(angle) * 28, y: place.y + Math.sin(angle) * 28 };
+    const gate = bestGateOf(z, outSpot);
+    if (gate && !isSolid(gate.outside.x + Math.cos(angle) * 6, gate.outside.y + Math.sin(angle) * 6)) {
+      place.exploring = true;
+      place.returningFromExplore = false;
+      place.exploreTarget = { x: gate.outside.x + Math.cos(angle) * 10, y: gate.outside.y + Math.sin(angle) * 10 };
+      place.exploreUntil = Date.now() + 26000;
+      return true;
+    }
+  }
+
   const home = homeOf(game, npc);
   const spots = errandSpots(npc);
   if (place.away || spots.length === 0) {
-    place.path = findPath(place.x, place.y, home.x, home.y, 1500);
+    place.targetPoint = { x: home.x, y: home.y };
     place.away = false;
   } else {
-    const spot = pickRandom(spots);
-    place.path = findPath(place.x, place.y, spot.x, spot.y, 1500);
-    place.away = place.path !== null;
+    place.targetPoint = pickRandom(spots);
+    place.away = true;
   }
-  if (!place.path) place.errandTime = 20;
-  return place.path !== null;
+  return true;
 }
 
 export function updatePeople(game, dt) {
   const player = game.player;
+  const now = Date.now();
   for (const npc of NPCS) {
     const place = game.run.people[npc.id];
+    if (place?.indoors && now >= place.indoors.untilTime) {
+      place.indoors = null; // exits house back onto street cleanly
+    }
     const isVisible = isOutside(game, npc);
     game.run.visible[npc.id] = isVisible;
     if (!isVisible || game.npcs[npc.id].ko) continue;
-    const isListening = Math.hypot(place.x - player.x, place.y - player.y) < TALK_RANGE; // the player is near: stay
-    if (isListening) {
+    const isListening = Math.hypot(place.x - player.x, place.y - player.y) < TALK_RANGE;
+    if (isListening && !place.exploring) {
       place.walking = false;
-      place.dir = facingOf(player.x - place.x, player.y - place.y); // they turn to the player
-    } else if (!runErrands(game, npc, dt)) {
-      strollPerson(game, npc, dt);
+      place.dir = facingOf(player.x - place.x, player.y - place.y);
+    } else {
+      runErrands(game, npc, dt);
     }
   }
 }

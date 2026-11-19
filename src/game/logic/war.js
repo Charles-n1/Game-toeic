@@ -48,9 +48,13 @@ import {
   spawnRivalSkirmish,
 } from './war/skirmishes';
 import { advanceDemonThreat } from './war/demonThreat';
+import { spreadDemonLand, freeDemonGround } from './war/demonLand';
+import { regrowBurntTrees } from './war/forestFire';
+import { isDemonSpecies } from '../data/monsters';
 
 // The war of the world: the monster villages want land. Their warbands march on the villages, break the walls,
 // fight the villagers (who defend with pitchforks and stones), the knights and the turrets; a village can fall.
+// The demons come out of the Silent Isle and take the land around it, burning its forests (war/demonLand.js).
 // Also: the caravans of the merchants attacked on the roads, the corpses, the bandit camps, the ambushes,
 // kidnappings, and rival village skirmishes.
 // The main loop calls firstWar, updateWar, slowWar, newDayWar, actionsOfWar.
@@ -82,6 +86,10 @@ export function onFightEndWar(game, fight) {
 
   const opponent = fight.opponent;
   if (!opponent) return;
+
+  if (fight.phase === 'won' && fight.opponents.some((foe) => isDemonSpecies(foe.species) && !foe.key)) {
+    freeDemonGround(game, game.player.x, game.player.y); // the demons beaten here lose this land
+  }
 
   if (fight.phase === 'won' && (opponent.warKind === 'warband' || opponent.warKind === 'occupier')) {
     if (Math.random() < 0.35) {
@@ -134,6 +142,8 @@ export function newDayWar(game) {
   launchWarbands(game);
   advanceWarbandsDay(game);
   advanceDemonThreat(game);
+  spreadDemonLand(game); // after the threat: the higher it is, the faster the demons take land
+  regrowBurntTrees(game);
   war.corpses = war.corpses.filter((c) => game.day - (c.day || game.day) <= 14);
 }
 

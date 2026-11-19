@@ -202,7 +202,7 @@ export const NPCS = [
 
   // Eldermoor: the Arcane House and the Arcane School
   {
-    id: 'luna', name: 'Luna', role: 'Mage of the Royal Academy', at: ['lexia', 'arcane'], teachesSkills: ['verbTenses', 'gerunds'], romance: true, likes: ['gem', 'flower'],
+    id: 'luna', name: 'Luna', role: 'Mage of the Royal Academy', at: ['lexia', 'arcane'], shop: 'arcane', teachesSkills: ['verbTenses', 'gerunds'], romance: true, likes: ['gem', 'flower'],
     bonds: { selene: 'mentor', elara: 'friend' },
     look: { sheet: 'luna', skin: '#fde0c8', hair: '#8a4b24', style: 'long', eyes: '#3a6fd8', outfit: '#2d3a8e', trim: '#e8b83a' },
     hello: ['Oh! A visitor in the Arcane House! Mind the books, they bite.', 'Magic is grammar that glows.', 'The tenses are a river. I swim in it every morning.'],

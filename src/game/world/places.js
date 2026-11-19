@@ -2,6 +2,7 @@ import { KINGDOMS, BANDIT_CLANS } from '../data/kingdoms';
 import { STORY_VILLAGES } from '../data/storyVillages';
 import { STORY_DUNGEONS } from '../data/dungeons';
 import { VILLAGE_SIZES, VILLAGE_NEEDS } from '../data/buildings';
+import { CLASS_ACADEMIES } from '../data/classes';
 import { NAME_PARTS, MONSTER_TOWNS } from '../data/placeNames';
 import { CELLS, SCALE } from './size';
 import { isLivable, paintedBiome, paintedGround } from './painting';
@@ -156,7 +157,18 @@ function randomVillage(cx, cy, count) {
   const kind = randomKind(biome);
   const age = kind === 'hamlet' ? between(random, 3, 60) : between(random, 10, 500);
   const kingdom = KINGDOMS.find((item) => item.id === kingdomOfCell(cx, cy));
-  return { ...sizedPlace(kind), id: 'village-' + count, kingdom: kingdom ? kingdom.id : null, founded: age, roof: kingdom ? kingdom.roof : 'red', roles: [...VILLAGE_NEEDS[kind]] };
+  const roles = [...VILLAGE_NEEDS[kind]];
+  // Assign 1-2 class academies MAX to towns/villages (almost all stay in kingdom capitals)
+  const academySlots = kind === 'town' ? 2 : kind === 'village' ? 1 : 0;
+  if (academySlots > 0) {
+    const matching = CLASS_ACADEMIES.filter((a) => a.biomeHint.includes(biome) || a.biomeHint.includes(kind));
+    const pool = matching.length >= academySlots ? matching : CLASS_ACADEMIES;
+    for (let k = 0; k < academySlots; k++) {
+      const picked = pool[(count + k) % pool.length];
+      if (picked && !roles.includes(picked.role)) roles.push(picked.role);
+    }
+  }
+  return { ...sizedPlace(kind), id: 'village-' + count, kingdom: kingdom ? kingdom.id : null, founded: age, roof: kingdom ? kingdom.roof : 'red', roles };
 }
 
 function placeRandomVillages(placed) {

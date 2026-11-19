@@ -38,6 +38,7 @@ import { FLAT_DECORS } from '../data/decorations';
 import { isPropHarvested } from '../logic/harvest';
 import { economyDrawings } from './economyArt';
 import { familyKidsList } from '../logic/families';
+import { hasFires, treeFireAt, burningTrees } from '../logic/war/forestFire';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
 // then the buffer is drawn 2 to 4 times bigger on the screen, without smoothing: crisp pixel art.
@@ -231,19 +232,43 @@ function standingBlock(bx, by) {
   return items;
 }
 
+// Where the flames dance on a burning tree, from the foot of its trunk (pixels).
+const TREE_FLAME_SPOTS = [
+  [-8, -18],
+  [7, -26],
+  [-3, -38],
+  [5, -48],
+  [-6, -56],
+];
+
+// A tree of the forest fires (see logic/war/forestFire.js): its flames, or its black trunk once it burnt.
+// fire: 'burning' | 'burnt' | null.
+function treeDrawing(item, fire, view, time) {
+  const x = (item.x + 0.5) * T;
+  const y = (item.y + 1) * T - 2;
+  return (ctx) => {
+    put(ctx, fire === 'burnt' ? props.deadTree() : item.sprite, x, y, view);
+    if (fire !== 'burning') return;
+    TREE_FLAME_SPOTS.forEach(([dx, dy], i) => put(ctx, props.bigFlame(Math.floor(time * 9 + i + item.x) % 3), x + dx, y + dy, view));
+  };
+}
+
 // Each drawing: { y (the line of its feet, in tiles: who is lower is drawn later, in front), draw }.
-function treesAndRocks(view) {
+// game (null on the title screen): the trees burning or burnt by the demons are drawn so.
+function treesAndRocks(view, game = null, time = 0) {
   const area = tilesOf(view, 4, 8);
   const bx0 = Math.floor(area.left / CHUNK);
   const by0 = Math.floor(area.top / CHUNK);
   const bx1 = Math.floor((area.right - 1) / CHUNK);
   const by1 = Math.floor((area.bottom - 1) / CHUNK);
+  const withFires = Boolean(game) && hasFires(game);
   const drawings = [];
   for (let by = by0; by <= by1; by++) {
     for (let bx = bx0; bx <= bx1; bx++) {
       for (const item of standingBlock(bx, by)) {
         if (item.x >= area.left && item.x < area.right && item.y >= area.top && item.y < area.bottom) {
-          drawings.push({ y: item.y + 1, draw: (ctx) => put(ctx, item.sprite, (item.x + 0.5) * T, (item.y + 1) * T - 2, view) });
+          const fire = withFires ? treeFireAt(game, item.x, item.y) : null;
+          drawings.push({ y: item.y + 1, draw: treeDrawing(item, fire, view, time) });
         }
       }
     }
@@ -403,6 +428,8 @@ function propSprite(prop, time, game) {
     hearthTorch: () => buildings.furniture('lamp', '#ff8a2a'),
     crystalLantern: () => buildings.furniture('lamp', '#7fd6ff'),
     homeLamp: () => buildings.furniture('lamp', '#ffd23f'),
+    stairsUp: () => buildings.stairsUp(),
+    stairsDown: () => buildings.stairsDown(),
     keepFacade: () => buildings.keepFacade(prop.look, prop.w, blink),
     turret: () => buildings.turret(prop.look),
     hotSpring: () => isekaiArt.hotSpring(Math.floor(time * 3) % 3),
@@ -562,32 +589,66 @@ function personDrawing(look, place, view, time, salt, extra) {
   };
 }
 
-// The people inside guild halls & palaces (logic/guildHall.js, logic/houses.js): drinkers lift mugs, servers walk, rulers hold court.
+function drawTinyHeart(ctx, px, py) {
+  ctx.fillStyle = '#ff5c94';
+  ctx.fillRect(px - 2, py, 2, 2);
+  ctx.fillRect(px + 1, py, 2, 2);
+  ctx.fillRect(px - 1, py + 1, 3, 2);
+}
+
+// The people inside guild halls, houses & academies: sleeping in bedrooms, eating, playing, drinking, sharing love.
 function guildPatronDrawings(game, view, time) {
   const patrons = game.run.visitHouse && Array.isArray(game.run.visitHouse.patrons) ? game.run.visitHouse.patrons : [];
   return patrons.map((patron, i) => {
-    if (!patron.drinking) {
-      return personDrawing(patron.look, patron, view, time, i, (ctx) => {
-        if (patron.kind === 'server' && Math.sin(time * 2.2 + i * 2) > 0.72) {
-          const px = Math.round(patron.x * T - view.x);
-          const py = Math.round(patron.y * T - view.y - 30 - Math.abs(Math.sin(time * 4)) * 3);
-          ctx.fillStyle = '#ff6fa8';
-          ctx.fillRect(px - 2, py, 2, 2);
-          ctx.fillRect(px + 1, py, 2, 2);
-          ctx.fillRect(px - 1, py + 1, 3, 2);
-        }
-      });
+    const act = patron.activity || (patron.drinking ? 'drinking' : 'idle');
+    if (act === 'sleeping') {
+      return {
+        y: patron.y,
+        draw: (ctx) => {
+          const sprite = personSprite(patron.look, 'down', 'stand');
+          ctx.save();
+          ctx.translate(Math.round(patron.x * T - view.x), Math.round(patron.y * T - view.y - 3));
+          ctx.rotate(-Math.PI / 2);
+          ctx.drawImage(sprite.canvas, -sprite.canvas.height + 4, -sprite.canvas.width / 2);
+          ctx.restore();
+          const drift = Math.round((time * 8 + i * 3) % 10);
+          ctx.fillStyle = '#bfe6ff';
+          ctx.font = 'bold 7px monospace';
+          ctx.fillText('z', Math.round(patron.x * T - view.x + 6), Math.round(patron.y * T - view.y - 12 - drift));
+        },
+      };
     }
-    return {
-      y: patron.y,
-      draw: (ctx) => {
-        put(ctx, shadow(), patron.x * T, patron.y * T, view);
-        put(ctx, personSprite(patron.look, patron.dir, 'drink'), patron.x * T, patron.y * T, view);
-        const rise = Math.round((time * 12 + i * 3) % 10);
-        ctx.fillStyle = '#fff3b0';
-        ctx.fillRect(Math.round(patron.x * T - view.x + (patron.dir === 'left' ? -5 : 4)), Math.round(patron.y * T - view.y - 16 - rise), 2, 2);
-      },
-    };
+    if (act === 'drinking' || act === 'eating') {
+      return {
+        y: patron.y,
+        draw: (ctx) => {
+          put(ctx, shadow(), patron.x * T, patron.y * T, view);
+          put(ctx, personSprite(patron.look, patron.dir || 'down', 'drink'), patron.x * T, patron.y * T, view);
+          const rise = Math.round((time * 12 + i * 3) % 10);
+          ctx.fillStyle = act === 'eating' ? '#ffd98e' : '#fff3b0';
+          ctx.fillRect(Math.round(patron.x * T - view.x + (patron.dir === 'left' ? -5 : 4)), Math.round(patron.y * T - view.y - 16 - rise), 2, 2);
+        },
+      };
+    }
+    if (act === 'playing') {
+      const hop = Math.round(Math.abs(Math.sin(time * 7 + i * 1.4)) * 3);
+      return {
+        y: patron.y,
+        draw: (ctx) => {
+          put(ctx, shadow(), patron.x * T, patron.y * T, view);
+          put(ctx, personSprite(patron.look, patron.dir || 'down', walkPose(patron.step || time * 6, true, time, i)), patron.x * T, patron.y * T - hop, view);
+          ctx.fillStyle = '#7cd6ff';
+          ctx.fillRect(Math.round(patron.x * T - view.x), Math.round(patron.y * T - view.y - 29 - hop), 2, 2);
+        },
+      };
+    }
+    return personDrawing(patron.look, patron, view, time, i, (ctx) => {
+      if (act === 'romantic' || (patron.kind === 'server' && Math.sin(time * 2.2 + i * 2) > 0.72)) {
+        const px = Math.round(patron.x * T - view.x);
+        const py = Math.round(patron.y * T - view.y - 30 - Math.abs(Math.sin(time * 4 + i)) * 4);
+        drawTinyHeart(ctx, px, py);
+      }
+    });
   });
 }
 
@@ -1274,6 +1335,11 @@ function lightsOf(game, view, time = 0) {
   for (const house of burningHouses(game, view)) {
     lights.push({ x: (house.x + house.w / 2) * T - view.x, y: (house.y + house.h * 0.3) * T - view.y, radius: Math.max(70, house.w * 8), warm: true });
   }
+  for (const tree of burningTrees(game)) {
+    if (!isNear(view, tree.x - 2, tree.y - 4, 4, 5)) continue;
+    const flick = Math.round(Math.sin(time * 8 + tree.x) * 4);
+    lights.push({ x: (tree.x + 0.5) * T - view.x, y: (tree.y + 1) * T - 30 - view.y, radius: 58 + flick, warm: true });
+  }
   lights.push(...windowLights(game, view), ...walkingLights(game, view, time), ...isekaiArt.isekaiLights(game, view, time));
   return lights;
 }
@@ -1391,6 +1457,11 @@ function writeNames(ctx, game, view, scale) {
     writeText(ctx, `[${rank}] ${monster.name}`, (monster.x * T - view.x) * scale, (monster.y * T - 24 - view.y) * scale, 11, rankColors[rank] || '#ffffff');
   }
   const nowMs = Date.now();
+  for (const v of visibleVillagers(game)) {
+    if (!v.urgentShout || Math.hypot(v.x - game.player.x, v.y - game.player.y) > NAME_RANGE + 5) continue;
+    const shoutColor = Math.floor(nowMs / 350) % 2 === 0 ? '#ff6b7a' : '#ffd23f';
+    writeText(ctx, '📢 ' + v.urgentShout, (v.x * T - view.x) * scale, (v.y * T - 36 - view.y) * scale, 12, shoutColor);
+  }
   for (const follower of game.run.followers || []) {
     if (!follower.banter || follower.banter.until < nowMs) continue;
     const npcName = npcOf(follower.id)?.name || follower.id;
@@ -1712,7 +1783,7 @@ export function drawScene(ctx, game, width, height, time) {
   const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...childDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
   living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time), ...isekaiTodoDrawings(game, view, time), ...soulDrawings(game, view, time));
-  drawSorted(art, [...treesAndRocks(view), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
+  drawSorted(art, [...treesAndRocks(view, game, time), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) {
     drawHeroAura(art, game, view, time);
     drawHeroSlash(art, game, view);

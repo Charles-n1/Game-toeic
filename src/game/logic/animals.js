@@ -10,6 +10,7 @@ import { addTrack, bloodHit, bloodSplatter, burst, dust, floatText } from './par
 import { cue } from './cues';
 import { startFight } from './fight';
 import { ANIMAL_DROPS, FIGHT_ANIMALS, herdBackupsFor, isFighterAnimal, makeAnimalOpponent, shouldCounterFight } from './animalFight';
+import { provokePartyOnStrike } from './worldParties';
 
 // Farm animals & wild herds across the world, featuring species-authentic speeds,
 // real-life behavioral AI patterns, anti-one-shot resilience, burrow escapes, and counter-attack fights.
@@ -65,10 +66,21 @@ function initStats(obj) {
 }
 
 function animalsOfVillage(game, village) {
-  const animals = [];
+  const vState = game.villages[village.id];
   const pens = village.plan.pens;
-  const counts = game.villages[village.id].animals;
-  if (pens.length === 0) return animals;
+  if (!vState || pens.length === 0) return [];
+  const counts = vState.animals || {};
+
+  // Keep persisted farm pen animals across wake/sleep and new days rather than wiping them!
+  if (Array.isArray(vState.penState) && vState.penState.length > 0) {
+    return vState.penState.map((saved) => ({
+      ...initStats({ kind: saved.kind, pen: saved.pen || pens[0], village: village.id, x: saved.x, y: saved.y, walkX: 0, walkY: 0, walkTime: Math.random() * 2, step: saved.step || Math.random() * 4, dir: saved.dir || 'right' }),
+      hp: Math.min(saved.maxHp || 100, saved.hp ?? saved.maxHp ?? 100),
+      maxHp: saved.maxHp || animalSpecOf(saved.kind).hp,
+    }));
+  }
+
+  const animals = [];
   for (const kind of KINDS) {
     for (let i = 0; i < Math.min(counts[kind] || 0, MAX_SHOWN * pens.length); i++) {
       const pen = pens[i % pens.length];
@@ -86,10 +98,34 @@ function animalsOfVillage(game, village) {
       }));
     }
   }
+  vState.penState = animals.map((a) => ({ kind: a.kind, pen: a.pen, x: a.x, y: a.y, hp: a.hp, maxHp: a.maxHp, dir: a.dir, step: a.step }));
   return animals;
 }
 
+export function syncPenAnimals(game) {
+  if (!game?.run?.animals || !game?.villages) return;
+  const byVillage = {};
+  for (const animal of game.run.animals) {
+    if (!animal.village) continue;
+    if (!byVillage[animal.village]) byVillage[animal.village] = [];
+    byVillage[animal.village].push({
+      kind: animal.kind,
+      pen: animal.pen,
+      x: animal.x,
+      y: animal.y,
+      hp: animal.hp,
+      maxHp: animal.maxHp,
+      dir: animal.dir,
+      step: animal.step,
+    });
+  }
+  for (const [vid, list] of Object.entries(byVillage)) {
+    if (game.villages[vid]) game.villages[vid].penState = list;
+  }
+}
+
 export function placeAnimals(game) {
+  syncPenAnimals(game);
   game.run.animals = (game.run.awake || []).flatMap((id) => animalsOfVillage(game, villageOf(id)));
 }
 
@@ -194,10 +230,17 @@ export function spawnHerd(game, herdKind, cx, cy, homeKey = null) {
 }
 
 export function wakeAnimals(game) {
-  const shown = new Set(game.run.animals.map((animal) => animal.village));
   const awake = game.run.awake || [];
-  if (awake.length !== shown.size || !awake.every((id) => shown.has(id))) {
-    placeAnimals(game);
+  const awakeSet = new Set(awake);
+  syncPenAnimals(game);
+  // Keep already-live pen animals for awake villages without resetting them!
+  game.run.animals = (game.run.animals || []).filter((animal) => awakeSet.has(animal.village));
+  const shown = new Set(game.run.animals.map((animal) => animal.village));
+  for (const id of awake) {
+    if (!shown.has(id)) {
+      const v = villageOf(id);
+      if (v) game.run.animals.push(...animalsOfVillage(game, v));
+    }
   }
 
   if (!Array.isArray(game.run.wildAnimals)) game.run.wildAnimals = [];
@@ -413,6 +456,7 @@ export function strikeWorld(game) {
     .sort((a, b) => a.dist - b.dist);
 
   if (candidates.length === 0) {
+    if (provokePartyOnStrike(game, 2.35)) return true;
     cue(game, 'hit');
     return false;
   }

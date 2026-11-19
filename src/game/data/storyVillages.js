@@ -8,22 +8,22 @@
 export const STORY_VILLAGES = [
   {
     id: 'lexia', name: 'Eldermoor', kind: 'town', kingdom: 'lexia', x: 111, y: 93, founded: 420, roof: 'red',
-    roles: ['home', 'clinic', 'library', 'potions', 'guild', 'forge', 'arcane', 'weaver', 'bakery', 'elder', 'farm', 'school', 'carpenter', 'church', 'inn', 'stable'],
+    roles: ['home', 'clinic', 'library', 'potions', 'guild', 'armory', 'forge', 'arcane', 'weaver', 'bakery', 'elder', 'farm', 'school', 'academyMage', 'academyKnight', 'carpenter', 'church', 'inn', 'stable'],
     text: 'An old village of farmers, smiths and mages, behind its stone walls. Your new home.',
   },
   {
     id: 'greendale', name: 'Greendale', kind: 'village', kingdom: 'verdania', x: 67, y: 82, founded: 6, roof: 'red',
-    roles: ['smithy', 'lodge'],
+    roles: ['smithy', 'lodge', 'academyWilds'],
     text: 'A young village of woodcutters, in the middle of Verbwood. It is still growing.',
   },
   {
     id: 'port', name: 'Seabridge', kind: 'town', kingdom: 'aurelia', x: 223, y: 113, founded: 90, roof: 'blue',
-    roles: ['market', 'inn', 'barracks', 'harbor', 'clinic', 'church'],
+    roles: ['market', 'inn', 'armory', 'potions', 'barracks', 'harbor', 'clinic', 'church', 'academyKnight', 'academyShadow'],
     text: 'A busy harbor: maps, rings, sailors. Its boats go to every island.',
   },
   {
     id: 'riverford', name: 'Riverford', kind: 'village', kingdom: 'thornvale', x: 110, y: 196, founded: 150, roof: 'red',
-    roles: ['inn', 'farm', 'clinic', 'smithy', 'church'],
+    roles: ['inn', 'farm', 'clinic', 'potions', 'smithy', 'church', 'academyMerchant'],
     text: 'A village of fishers, where three rivers meet. Everybody passes through it one day.',
   },
   {

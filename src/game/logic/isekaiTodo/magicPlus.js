@@ -589,7 +589,10 @@ export function summonSpiritInFight(game, fight) {
   return { ok: true, spiritId: id, damage: dmg };
 }
 
-/** Grants XP to the currently equipped Elemental Spirit and levels it up (25 * lv per level, max 10). */
+// XP a spirit needs for each level: the same for every level (a steady progression).
+const SPIRIT_XP_PER_LEVEL = 50;
+
+/** Grants XP to the currently equipped Elemental Spirit and levels it up (SPIRIT_XP_PER_LEVEL per level, max 10). */
 export function addSpiritXp(game, amount = 5) {
   ensureRun(game);
   const st = ensureIsekaiTodo(game);
@@ -598,8 +601,8 @@ export function addSpiritXp(game, amount = 5) {
   if (!entry || entry.level >= 10) return null;
   entry.xp = (entry.xp || 0) + amount;
   const spirit = ELEMENTAL_SPIRITS.find((s) => s.id === id);
-  while (entry.level < 10 && entry.xp >= 25 * entry.level) {
-    entry.xp -= 25 * entry.level;
+  while (entry.level < 10 && entry.xp >= SPIRIT_XP_PER_LEVEL) {
+    entry.xp -= SPIRIT_XP_PER_LEVEL;
     entry.level += 1;
     cue(game, 'levelUp');
     notify(game, (spirit?.icon || '✨') + ' ' + (spirit?.name || id) + ' grew to Lv.' + entry.level + '!', spirit?.color || '#ffd23f');

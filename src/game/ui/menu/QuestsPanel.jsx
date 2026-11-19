@@ -10,7 +10,19 @@ import { ITEMS } from '../../data/items';
 import { goalOf, CHAPTERS } from '../../data/story';
 import { typeOf } from '../../data/types';
 import { currentChapter } from '../../logic/chapters';
-import { activeQuests, offeredQuest, isQuestReady, questProgress } from '../../logic/quests';
+import {
+  activeQuests,
+  availableSideQuests,
+  startQuest,
+  finishQuest,
+  isQuestReady,
+  questProgress,
+  ensureUrgentQuests,
+  acceptUrgentQuest,
+  turnInUrgentQuest,
+  urgentQuestProgress,
+  isUrgentQuestReady,
+} from '../../logic/quests';
 import { daysBeforeRaid } from '../../logic/raid';
 import { partnerOf, childrenOf } from '../../logic/families';
 import { bountyProgress } from '../../logic/society/worldLife';
@@ -65,7 +77,7 @@ function StoryBanner({ game }) {
   );
 }
 
-function QuestCard({ game, quest, ready, available }) {
+function QuestCard({ game, quest, ready, available, refresh }) {
   const giver = npcOf(quest.giver);
   const progress = available ? { have: 0, need: quest.needs.count || 1 } : questProgress(game, quest);
   const pct = progress.need > 0 ? progress.have / progress.need : 0;
@@ -92,16 +104,40 @@ function QuestCard({ game, quest, ready, available }) {
 
       {!available && <Bar value={pct} color={ready ? '#7cfc9a' : '#ffd23f'} height={6} />}
 
-      <div className="quest-card-rewards">
-        <span className="quest-reward-chip">
-          <PixelIcon name="lexis" size={14} /> +{quest.lexis} Lexis
-        </span>
-        {quest.gift && ITEMS[quest.gift] && (
+      <div className="row between wrap" style={{ gap: 6, marginTop: 2 }}>
+        <div className="quest-card-rewards">
           <span className="quest-reward-chip">
-            <PixelIcon name={quest.gift} size={14} /> {ITEMS[quest.gift].name}
+            <PixelIcon name="lexis" size={14} /> +{quest.lexis} Lexis
           </span>
+          {quest.gift && ITEMS[quest.gift] && (
+            <span className="quest-reward-chip">
+              <PixelIcon name={quest.gift} size={14} /> {ITEMS[quest.gift].name}
+            </span>
+          )}
+          <span className="quest-reward-chip">♥ Friendship +10</span>
+        </div>
+        {available && (
+          <button
+            className="px-button px-gold"
+            onClick={() => {
+              startQuest(game, quest);
+              if (refresh) refresh();
+            }}
+          >
+            Accept
+          </button>
         )}
-        <span className="quest-reward-chip">♥ Friendship +10</span>
+        {ready && !available && (
+          <button
+            className="px-button px-green"
+            onClick={() => {
+              finishQuest(game, quest);
+              if (refresh) refresh();
+            }}
+          >
+            Complete!
+          </button>
+        )}
       </div>
     </div>
   );
@@ -179,14 +215,13 @@ export default function QuestsPanel({ game, refresh, onClose }) {
   const focus = typeOf(game.focus.current);
   const quests = activeQuests(game);
   const readyQuests = quests.filter((q) => isQuestReady(game, q));
+  const urgentList = ensureUrgentQuests(game);
   const guild = ensureGuild(game);
   const gInfo = rankInfo(guild.rank);
   const gNext = nextRankInfo(guild.rank);
   const guildContracts = guild.activeContracts || [];
   const bounties = Object.values(game.society?.bounties || {}).filter((b) => b.active && !b.done);
-  const available = NPCS.filter((npc) => game.npcs[npc.id].alive && (game.npcs[npc.id].met || game.npcs[npc.id].talkedDay > 0))
-    .map((npc) => offeredQuest(game, npc.id))
-    .filter(Boolean);
+  const available = availableSideQuests(game);
   const completed = Object.keys(game.quests || {}).filter((id) => game.quests[id]?.done);
   const met = NPCS.filter((npc) => game.npcs[npc.id].talkedDay > 0 || game.npcs[npc.id].met || !game.npcs[npc.id].alive);
   const filteredVillages = VILLAGES.filter((village) => {
@@ -197,7 +232,7 @@ export default function QuestsPanel({ game, refresh, onClose }) {
   });
 
   const tabs = [
-    { id: 'quests', icon: '📜', label: 'Quests', count: quests.length + bounties.length + guildContracts.length },
+    { id: 'quests', icon: '📜', label: 'Quests', count: quests.length + bounties.length + guildContracts.length + urgentList.filter((u) => u.accepted).length },
     { id: 'expeditions', icon: '🏰', label: 'Guild & Spire' },
     { id: 'focus', icon: '🎯', label: 'Focus' },
     { id: 'villages', icon: '🧭', label: 'Towns', count: VILLAGES.length },
@@ -266,6 +301,62 @@ export default function QuestsPanel({ game, refresh, onClose }) {
             </>
           )}
 
+          {urgentList.length > 0 && (
+            <>
+              <span className="section">🚨 Urgent Town Crier Quests ({urgentList.length})</span>
+              <div className="quest-board-2x">
+                {urgentList.map((uq) => {
+                  const prog = urgentQuestProgress(game, uq);
+                  const ready = uq.accepted && isUrgentQuestReady(game, uq);
+                  return (
+                    <div key={uq.id} className={'quest-card quest-card-urgent' + (ready ? ' quest-card-ready' : '')}>
+                      <div className="quest-card-top">
+                        <PixelIcon name="quests" size={28} />
+                        <div className="grow" style={styles.minCol}>
+                          <div className="row between wrap" style={styles.headRow}>
+                            <span style={styles.cardTitle}>{uq.title}</span>
+                            <span className={'quest-pill ' + (ready ? 'quest-pill-ready' : 'quest-pill-danger')}>
+                              {ready ? '✓ Ready!' : uq.accepted ? `${prog.have}/${prog.need}` : 'URGENT'}
+                            </span>
+                          </div>
+                          <span className="small">📢 Shouted by Town Criers across villages</span>
+                        </div>
+                      </div>
+                      <span className="small" style={styles.quote}>“{uq.ask}”</span>
+                      <div className="row between wrap" style={{ gap: 6, marginTop: 2 }}>
+                        <div className="quest-card-rewards">
+                          <span className="quest-reward-chip">+{uq.lexis} Lexis</span>
+                          <span className="quest-reward-chip">♥ +{uq.rep} Town Mood</span>
+                        </div>
+                        {!uq.accepted ? (
+                          <button
+                            className="px-button px-gold"
+                            onClick={() => {
+                              acceptUrgentQuest(game, uq.id);
+                              if (refresh) refresh();
+                            }}
+                          >
+                            Accept Urgent
+                          </button>
+                        ) : ready ? (
+                          <button
+                            className="px-button px-green"
+                            onClick={() => {
+                              turnInUrgentQuest(game, uq.id);
+                              if (refresh) refresh();
+                            }}
+                          >
+                            Turn In!
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           <span className="section">
             Active Quests {readyQuests.length > 0 ? `· ${readyQuests.length} Ready!` : ''}
           </span>
@@ -276,22 +367,24 @@ export default function QuestsPanel({ game, refresh, onClose }) {
               <span className="small">Talk to townsfolk marked with ! or check any Guild / Town Quest Board.</span>
             </div>
           ) : (
-            <>
+            <div className="quest-board-2x">
               {quests.map((quest) => (
-                <QuestCard key={quest.id} game={game} quest={quest} ready={isQuestReady(game, quest)} />
+                <QuestCard key={quest.id} game={game} quest={quest} ready={isQuestReady(game, quest)} refresh={refresh} />
               ))}
               {bounties.map((bounty) => (
                 <BountyCard key={bounty.id} game={game} bounty={bounty} />
               ))}
-            </>
+            </div>
           )}
 
           {available.length > 0 && (
             <>
-              <span className="section">Available From Friends ({available.length})</span>
-              {available.map((quest) => (
-                <QuestCard key={quest.id} game={game} quest={quest} available />
-              ))}
+              <span className="section">📜 Side Quests Board ({available.length})</span>
+              <div className="quest-board-2x">
+                {available.map((quest) => (
+                  <QuestCard key={quest.id} game={game} quest={quest} available refresh={refresh} />
+                ))}
+              </div>
             </>
           )}
 

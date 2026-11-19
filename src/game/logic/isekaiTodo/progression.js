@@ -196,6 +196,9 @@ function specialMoveFor(wClass, lv) {
   return move;
 }
 
+// Mastery XP needed for each level of a weapon: the same for every level (a steady progression).
+const MASTERY_XP_PER_LEVEL = 40;
+
 /** Returns weapon mastery stats and special move info for `wClass`. */
 export function weaponMasteryInfo(game, wClass = null) {
   const st = ensureIsekaiTodo(game);
@@ -207,7 +210,7 @@ export function weaponMasteryInfo(game, wClass = null) {
   const entry = st.weaponMastery[resolved] || { xp: 0, lv: 1 };
   const lv = Math.max(1, Math.min(10, entry.lv || 1));
   const xp = entry.xp || 0;
-  const nextXp = 20 * lv;
+  const nextXp = MASTERY_XP_PER_LEVEL;
   const dmgMult = Math.round((1 + (lv - 1) * 0.06) * 100) / 100;
   const critBonus = (lv - 1) * 2;
   const specialMove = specialMoveFor(resolved, lv);
@@ -224,8 +227,8 @@ export function trainWeaponMastery(game, xpGain = 4) {
 
   entry.xp += Math.max(0, xpGain);
   const beforeLv = entry.lv;
-  while (entry.lv < 10 && entry.xp >= 20 * entry.lv) {
-    entry.xp -= 20 * entry.lv;
+  while (entry.lv < 10 && entry.xp >= MASTERY_XP_PER_LEVEL) {
+    entry.xp -= MASTERY_XP_PER_LEVEL;
     entry.lv += 1;
   }
   if (entry.lv >= 10) entry.xp = 0;

@@ -236,7 +236,7 @@ function pickHuntTarget(villageId, rand) {
     forest: ['goblin', 'wolf', 'spider', 'boar', 'bear'],
     desert: ['goblin', 'orc', 'drake', 'boar'],
     coast: ['slime', 'drowner', 'goblin', 'bison'],
-    mountain: ['orc', 'iceGolem', 'darkKnight', 'bear', 'moose'],
+    mountain: ['orc', 'iceGolem', 'harpy', 'bear', 'moose'], // (no demon: they only come out of the demon land)
   };
   const choices = biomePool[zone?.biome] || biomePool.meadow;
   return choices[Math.floor(rand() * choices.length)];

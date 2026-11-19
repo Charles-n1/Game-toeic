@@ -1,10 +1,11 @@
 import { zoneAt, dungeonOf, HOME_DOOR } from '../data/zones';
 import { MAP_SIZE, TILE, TREASURES, tileAt } from '../world/map';
-import { CELLS } from '../world/size';
+import { CELLS, SCALE } from '../world/size';
+import { takenCells } from '../logic/war/demonLand';
 import { paintedGround, paintedForest } from '../world/painting';
 import paintedMapUrl from '../assets/world/map2.png';
 import { BLOCKS, isBlockKnown, isKnown } from '../logic/explore';
-import { PLACES, SHOP_MARKS, mainQuestMark, sideQuestMarks, blockedMarks } from '../logic/places';
+import { PLACES, SHOP_MARKS, ACADEMY_MARKS, mainQuestMark, sideQuestMarks, urgentQuestMarks, blockedMarks, listBeacons } from '../logic/places';
 import { ensureRealism } from '../logic/realism/state';
 import { iconCanvas } from './icons';
 import { makeGrid, fillEllipse, drawLine, addOutline, toCanvas, once } from './pixels';
@@ -189,9 +190,50 @@ function drawPlaces(ctx, game, frame, view, selectedId) {
   return boxes;
 }
 
+function drawBeaconPin(ctx, frame, beacon, time, size = 14, clampToFrame = false) {
+  const at = toScreen(frame, beacon.x, beacon.y);
+  let px = at.x;
+  let py = at.y;
+  if (clampToFrame) {
+    px = Math.max(7, Math.min(frame.size - 7, px));
+    py = Math.max(7, Math.min(frame.size - 7, py));
+  } else if (px < -16 || py < -16 || px > frame.size + 16 || py > frame.size + 16) {
+    return;
+  }
+  const pulse = 1 + Math.sin(time * 5) * 0.16;
+  const r = (size * 0.55) * pulse;
+  ctx.save();
+  ctx.fillStyle = '#0e1430';
+  ctx.beginPath();
+  ctx.moveTo(px, py - r - 2);
+  ctx.lineTo(px + r + 2, py);
+  ctx.lineTo(px, py + r + 2);
+  ctx.lineTo(px - r - 2, py);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = beacon.color || '#ff4d6d';
+  ctx.beginPath();
+  ctx.moveTo(px, py - r);
+  ctx.lineTo(px + r, py);
+  ctx.lineTo(px, py + r);
+  ctx.lineTo(px - r, py);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(Math.round(px - 1), Math.round(py - 1), 2, 2);
+  if (!clampToFrame && beacon.label) {
+    ctx.font = 'bold 10px "Pixelify Sans", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(beacon.label, Math.round(px), Math.round(py - r - 7));
+  }
+  ctx.restore();
+}
+
 function drawMarks(ctx, game, frame, view, time) {
   const bob = Math.round(Math.sin(time * 4) * 2);
   if (view.zoom >= 8) SHOP_MARKS.filter((mark) => isKnown(game, mark.x, mark.y)).forEach((mark) => drawMark(ctx, frame, mark.icon, mark.x, mark.y, 14));
+  if (view.zoom >= 6) ACADEMY_MARKS.filter((mark) => isKnown(game, mark.x, mark.y)).forEach((mark) => drawMark(ctx, frame, 'star', mark.x, mark.y, 13));
   if (game.player.mapLevel >= 3) {
     const size = view.zoom >= 4 ? 14 : 8;
     TREASURES.filter((treasure) => !game.dug[treasure.key]).forEach((treasure) => drawMark(ctx, frame, 'treasure', treasure.x + 0.5, treasure.y + 0.5, size));
@@ -206,9 +248,26 @@ function drawMarks(ctx, game, frame, view, time) {
       drawMark(ctx, frame, 'travelerPack', r.world.lastDeathPos.x, r.world.lastDeathPos.y, 16, bob);
     }
   }
+  for (const beacon of listBeacons(game)) {
+    drawBeaconPin(ctx, frame, beacon, time, 14, false);
+  }
+  urgentQuestMarks(game).forEach((mark) => drawMark(ctx, frame, 'star', mark.x, mark.y - 1.5, 16, bob));
   sideQuestMarks(game).forEach((mark) => drawMark(ctx, frame, 'sideQuest', mark.x, mark.y - 1.5, 14, bob));
   const main = mainQuestMark(game);
   if (main) drawMark(ctx, frame, 'mainQuest', main.x, main.y - 2, 21, bob);
+}
+
+// The land the demons took out of the Silent Isle (see logic/war/demonLand.js): a dark red veil on it.
+function drawDemonLand(ctx, game, frame) {
+  const side = SCALE * frame.scale; // a cell of the painting, in pixels of the map
+  ctx.fillStyle = 'rgba(190, 30, 40, 0.5)';
+  for (const middle of takenCells(game)) {
+    const at = toScreen(frame, middle.x - SCALE / 2, middle.y - SCALE / 2);
+    if (at.x > frame.size || at.y > frame.size || at.x + side < 0 || at.y + side < 0) continue;
+    const left = Math.round(at.x); // rounded edges: two cells side by side touch without overlapping
+    const top = Math.round(at.y);
+    ctx.fillRect(left, top, Math.round(at.x + side) - left, Math.round(at.y + side) - top);
+  }
 }
 
 function drawPlayer(ctx, game, frame, time, size) {
@@ -225,6 +284,7 @@ export function drawWorldMap(ctx, game, view, size, time, selectedId) {
   ctx.drawImage(painting, ...paintingPart(painting, frame), 0, 0, size, size);
   ctx.imageSmoothingEnabled = false;
   drawFog(ctx, game, frame);
+  drawDemonLand(ctx, game, frame); // over the fog: the whole kingdom talks about where the demons are
   drawMarks(ctx, game, frame, view, time);
   const boxes = drawPlaces(ctx, game, frame, view, selectedId);
   drawPlayer(ctx, game, frame, time, 21);
@@ -288,6 +348,9 @@ export function drawMiniMap(ctx, game, size, time) {
     rect(ctx, Math.round(spot.x) - 2, Math.round(spot.y) - 2, 4, 4, '#0e1430');
     rect(ctx, Math.round(spot.x) - 1, Math.round(spot.y) - 1, 2, 2, '#ff3040');
   }
+  for (const beacon of listBeacons(game)) {
+    drawBeaconPin(ctx, frame, beacon, time, 9, true);
+  }
   const main = mainQuestMark(game);
   if (main) drawMark(ctx, frame, 'mainQuest', main.x, main.y, 12);
   if (Math.sin(time * 6) >= -0.6) drawMark(ctx, frame, 'you', at.x, at.y, 14);
@@ -297,6 +360,11 @@ export function drawMiniMap(ctx, game, size, time) {
 export function firstView(game) {
   const at = islandPosition(game);
   return { cx: at.x, cy: at.y, zoom: 8 };
+}
+
+export function screenToTile(view, size, px, py) {
+  const f = frameOf(view, size);
+  return { x: f.left + px / f.scale, y: f.top + py / f.scale };
 }
 
 // The tile under a pixel of the map (to move the view by dragging).

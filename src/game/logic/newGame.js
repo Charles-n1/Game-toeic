@@ -239,6 +239,8 @@ export function newGame(goalId, score = 450, stats = {}, hero, slot, customWeigh
     happiness: 50,
     deal: { day: 0, factor: 1 }, // the result of the last negotiation
     quests: {},
+    urgentQuests: [],
+    beacons: [],
     kills: {}, // { slime: 12, ... }
     counts: { kills: 0, answers: 0, correct: 0, harvested: 0, helped: 0, wallsRepaired: 0 },
     flags: {}, // the scenes already played
@@ -387,6 +389,8 @@ function addMissing(game) {
   if (!game.camp) game.camp = firstCamp();
   if (!game.bonds) game.bonds = firstBonds();
   if (!game.isekai) game.isekai = firstIsekai();
+  if (!Array.isArray(game.urgentQuests)) game.urgentQuests = [];
+  if (!Array.isArray(game.beacons)) game.beacons = [];
   if (!game.targetScore) game.targetScore = game.score || 400;
   if (!game.goalRate) game.goalRate = Math.max(55, Math.min(96, Math.round((game.targetScore / 495) * 100)));
   if (typeof game.explored !== 'string' || game.explored.length !== emptyExplored().length) game.explored = emptyExplored();

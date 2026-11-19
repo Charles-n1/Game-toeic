@@ -25,9 +25,11 @@ export const CRAFT_RECIPES = [
   { out: 'wheatSeed', needs: { wheat: 1 }, wage: 1, batch: 3, cap: 10, roles: ['bakery', 'farm', 'market'] },
 
   // Potions, Clinic & Arcane
-  { out: 'healthPotion', needs: { herb: 2, honey: 1 }, wage: 6, batch: 2, cap: 8, roles: ['potions', 'clinic'] },
-  { out: 'bigPotion', needs: { herb: 3, mushroom: 2, honey: 1 }, wage: 12, batch: 1, cap: 4, roles: ['potions', 'clinic'] },
+  { out: 'healthPotion', needs: { herb: 2, honey: 1 }, wage: 6, batch: 2, cap: 8, roles: ['potions'] },
+  { out: 'bigPotion', needs: { herb: 3, mushroom: 2, honey: 1 }, wage: 12, batch: 1, cap: 4, roles: ['potions'] },
   { out: 'manaPotion', needs: { crystal: 1, herb: 2 }, wage: 8, batch: 2, cap: 5, roles: ['potions', 'arcane'] },
+  { out: 'herbalPoultice', needs: { herb: 2 }, wage: 4, batch: 2, cap: 8, roles: ['clinic'] },
+  { out: 'antiseptic', needs: { herb: 2, honey: 1 }, wage: 6, batch: 2, cap: 6, roles: ['clinic'] },
 
   // Food preservation & harbor/lodge
   { out: 'driedMeat', needs: { rawMeat: 2 }, wage: 4, batch: 2, cap: 8, roles: ['market', 'lodge', 'inn'] },

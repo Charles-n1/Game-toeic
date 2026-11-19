@@ -88,9 +88,11 @@ export function criticalChance(player, game = null) {
   return 0.08 + Math.floor(player.level / 2) * 0.01 + tree;
 }
 
-// XP needed to finish a level (3x slower progression for a realistic RPG curve).
-export function xpForLevel(level) {
-  return Math.round(120 * Math.pow(level, 1.5));
+// XP needed to finish a level: the same for every level, so the progression stays steady (it never slows down).
+const XP_PER_LEVEL = 300;
+
+export function xpForLevel() {
+  return XP_PER_LEVEL;
 }
 
 export function heal(player, amount, game = null) {

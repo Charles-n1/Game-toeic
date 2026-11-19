@@ -12,8 +12,9 @@ import { cue } from '../cues';
 import { monsterCategory } from '../learning';
 import { TAG_POWER, TAG_ATTACK, tagOf, higherTag } from '../skills';
 import { startFight } from '../fight';
+import { isNight } from '../clock';
 import { addInfamy, changeVillageMood } from '../society/state';
-import { ensureEconomy } from '../economy/state';
+import { ensureEconomy, econVillage, transferTreasury } from '../economy/state';
 import { completeShipment } from '../economy/traffic';
 import {
   dist,
@@ -23,12 +24,12 @@ import {
   ensureRunWar,
   nextWarId,
   canStep,
-  moveSlide,
   placeNearSpot,
   spawnWarEffect,
   addCorpse,
   addGrave,
 } from './state';
+import { withDemonRule } from './demonLand';
 
 const MAX_CARAVANS = 4;
 const CARAVAN_SPEED = 2.05;
@@ -69,12 +70,12 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
   const friendly = VILLAGES.filter((v) => game.villages[v.id] && game.villages[v.id].owner === 'people');
   if (friendly.length < 2) return null;
 
-  let from = originVillage;
+  let from = typeof originVillage === 'string' ? villageById(originVillage) : originVillage;
   if (!from) {
     const near = friendly.filter((v) => dist(centerOfPlace(v), game.player) < 200);
     from = near.length > 0 ? pickRandom(near) : pickRandom(friendly);
   }
-  let to = destVillage;
+  let to = typeof destVillage === 'string' ? villageById(destVillage) : destVillage;
   if (!to) {
     const fromCenter = centerOfPlace(from);
     const others = friendly
@@ -87,7 +88,7 @@ export function spawnCaravan(game, originVillage = null, destVillage = null) {
   }
 
   const toCenter = centerOfPlace(to);
-  const gates = from.plan.gates || [];
+  const gates = from.plan?.gates || [];
   const bestGate = gates.reduce((best, g) => (!best || dist(g, toCenter) < dist(best, toCenter) ? g : best), null);
   const rawX = bestGate ? bestGate.x + bestGate.dx * 4 : from.x + from.w / 2;
   const rawY = bestGate ? bestGate.y + bestGate.dy * 4 : from.y + from.h + 3;
@@ -130,7 +131,8 @@ export function triggerCaravanAttack(game, caravan) {
   caravan.attackedOnce = true;
 
   const zone = zoneAt(caravan.x, caravan.y);
-  const pool = (zone.species && zone.species.length > 0 ? zone.species : ['wolf', 'goblin']).filter((s) => s !== 'mimic');
+  const local = withDemonRule(game, zone.species || [], caravan.x, caravan.y); // demons only on demon land
+  const pool = (local.length > 0 ? local : ['wolf', 'goblin']).filter((s) => s !== 'mimic');
   const species = pickRandom(pool.length > 0 ? pool : ['goblin', 'wolf']);
   const count = 2 + (zone.danger >= 2 ? 1 : 0);
 
@@ -154,26 +156,55 @@ export function triggerCaravanAttack(game, caravan) {
   return true;
 }
 
-function stepCaravanAlongRoad(game, caravan, dt) {
-  const dest = { x: caravan.targetX, y: caravan.targetY };
-  const far = dist(caravan, dest);
-  if (far < 10) return true; // arrived at destination
-
-  const destZone = zoneAt(dest.x, dest.y);
-  if (destZone.kind === 'village') {
-    const entry = bestGateOf(destZone, caravan);
-    if (entry && dist(caravan, entry.outside) < 5) return true;
+function tradeWithTownShops(game, caravan, village) {
+  if (!village || caravan.tradedTownId === village.id) return;
+  caravan.tradedTownId = village.id;
+  const vEcon = econVillage(game, village.id);
+  if (!vEcon) return;
+  // Caravan exchanges goods directly with local village workshops/shops
+  const stockKeys = Object.keys(vEcon.inputs || {});
+  const deficitKey = stockKeys.sort((a, b) => (vEcon.inputs[a] || 0) - (vEcon.inputs[b] || 0))[0];
+  const surplusKey = stockKeys.sort((a, b) => (vEcon.inputs[b] || 0) - (vEcon.inputs[a] || 0))[0];
+  if (deficitKey) {
+    vEcon.inputs[deficitKey] = (vEcon.inputs[deficitKey] || 0) + 3;
+    const cost = 18;
+    if (vEcon.treasury >= cost) vEcon.treasury -= cost;
   }
+  if (surplusKey && (vEcon.inputs[surplusKey] || 0) >= 5) {
+    vEcon.inputs[surplusKey] -= 2;
+    vEcon.treasury += 14;
+    caravan.cargo = { itemId: surplusKey, qty: 2, feeLexis: 14 };
+  }
+}
 
-  const baseAngle = Math.atan2(dest.y - caravan.y, dest.x - caravan.x);
+function townHaltSpot(village, sleepAtInn = false) {
+  if (!village?.plan) return { x: village.x + 4, y: village.y + 4 };
+  if (sleepAtInn) {
+    const inn = village.plan.houses.find((h) => h.role === 'inn');
+    if (inn) return { x: inn.x + Math.floor(inn.w / 2) + 0.5, y: inn.y + inn.h + 1.4 };
+  }
+  const sq = village.plan.square || village;
+  return { x: sq.x + Math.floor(sq.w / 2) + 1.5, y: sq.y + Math.floor(sq.h / 2) + 1.5 };
+}
+
+function stepCaravanAlongRoad(game, caravan, dt) {
+  const destVillage = villageById(caravan.toId);
+  const wantInn = Boolean(destVillage && caravan.inTownState === 'sleeping');
+  const halt = destVillage ? townHaltSpot(destVillage, wantInn) : { x: caravan.targetX, y: caravan.targetY };
+  const dest = caravan.inTownState ? halt : { x: caravan.targetX, y: caravan.targetY };
+  const far = dist(caravan, dest);
+
+  // Caravans actually ride THROUGH open village gates into town square / Inn instead of stopping outside fences!
+  if (far < (caravan.inTownState ? 1.8 : 4.2)) return true;
+
   const moved = stepSmart(caravan, dest.x, dest.y, CARAVAN_SPEED, dt, {
     canWalk: (x, y) => canStep(game, x, y),
-    stopAtGate: true,
+    stopAtGate: false,
   });
   if (moved) {
     caravan.horseStep += dt * 5;
   } else {
-    moveSlide(game, caravan, Math.cos(baseAngle) * CARAVAN_SPEED * 0.5 * dt, Math.sin(baseAngle) * CARAVAN_SPEED * 0.5 * dt);
+    caravan.walking = false;
   }
   return false;
 }
@@ -228,7 +259,7 @@ function updateCaravanAttackers(game, caravan, dt) {
     const far = dist(m, goal);
     const speed = (1 + (m.speed || 8) * 0.12) * 0.95;
     if (far > 1.1) {
-      moveSlide(game, m, ((goal.x - m.x) / far) * speed * dt, ((goal.y - m.y) / far) * speed * dt);
+      stepSmart(m, goal.x, goal.y, speed, dt);
     } else if (goal === caravan && m.attackCd <= 0) {
       m.attackCd = 1.2;
       const dmg = Math.max(7, Math.round((m.attack || 14) * 0.55));
@@ -268,6 +299,24 @@ export function slowCaravans(game) {
 }
 
 function continueCaravanRoute(game, caravan) {
+  const destVillage = villageById(caravan.toId);
+  const now = Date.now();
+  // First settle in town square (trade stall & exchange with local shops), or rest by Inn if night!
+  if (destVillage && !caravan.inTownState) {
+    caravan.inTownState = isNight(game) ? 'sleeping' : 'trading';
+    caravan.townStayUntil = now + (isNight(game) ? 35000 : 28000);
+    if (caravan.inTownState === 'trading') tradeWithTownShops(game, caravan, destVillage);
+    return true;
+  }
+  if (destVillage && caravan.inTownState && now < (caravan.townStayUntil || 0)) {
+    if (isNight(game) && caravan.inTownState !== 'sleeping') caravan.inTownState = 'sleeping';
+    caravan.sleepingInInn = caravan.inTownState === 'sleeping';
+    caravan.walking = false;
+    return true;
+  }
+  caravan.inTownState = null;
+  caravan.sleepingInInn = false;
+
   if (caravan.shipmentId) {
     const shipment = (ensureEconomy(game).shipments || []).find((s) => s.id === caravan.shipmentId);
     if (shipment) {
@@ -555,10 +604,16 @@ export function interactCaravan(game, caravan) {
     });
   }
 
+  const townActivity =
+    caravan.inTownState === 'trading'
+      ? '\n🏪 Currently set up in town trading goods with local shops!'
+      : caravan.inTownState === 'sleeping'
+        ? '\n🏨 Resting at the local inn for the night.'
+        : '';
   const cargoLine = cargo
     ? `Hauling ${cargo.qty}× ${ITEMS[cargo.itemId].name} from ${fromName} to ${toName} (paid ${cargo.feeLexis} Lexis freight).`
     : `Hauling goods from ${fromName} to ${toName}!`;
-  say(game, null, ['🛒 ' + caravan.name + ' waves from atop the horse leading a loaded wagon.\n"' + cargoLine + '"' + escortNote], choices);
+  say(game, null, ['🛒 ' + caravan.name + ' waves beside the merchant wagon.\n"' + cargoLine + '"' + escortNote + townActivity], choices);
 }
 
 // ---------- Corpses & Burying ----------

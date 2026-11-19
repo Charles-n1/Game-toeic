@@ -993,23 +993,33 @@ export function gameStall() {
 }
 
 // Wooden notice / bounty board with pinned parchments.
+// Quest & town notice board enlarged 2x cleanly for readable prominence.
 export function board() {
-  return once('board', () => {
+  return once('boardV2', () => {
     const grid = makeGrid(18, 26);
     fillRect(grid, 2, 8, 2, 17, WOOD.dark);
     fillRect(grid, 14, 8, 2, 17, WOOD.dark);
     fillRect(grid, 1, 3, 16, 14, WOOD_RAMP[2]);
     fillRect(grid, 0, 1, 18, 3, WOOD_RAMP[1]);
     fillRect(grid, 1, 1, 16, 1, WOOD_RAMP[4]);
-    // Pinned parchment notices
-    fillRect(grid, 3, 5, 5, 7, '#f6efe0');
-    fillRect(grid, 10, 6, 5, 6, '#e6d3ad');
-    dot(grid, 5, 5, '#e8423f');
-    dot(grid, 12, 6, '#e8423f');
-    fillRect(grid, 4, 7, 3, 1, '#5a442c');
-    fillRect(grid, 4, 9, 3, 1, '#5a442c');
-    fillRect(grid, 11, 8, 3, 1, '#5a442c');
-    return sprite(toCanvas(addOutline(grid, OUTLINE)), 9, 25);
+    // Urgent crimson notice & parchment side quests
+    fillRect(grid, 2, 5, 4, 6, '#f6efe0');
+    fillRect(grid, 7, 5, 4, 6, '#ffe5e0');
+    fillRect(grid, 12, 5, 4, 7, '#e6d3ad');
+    dot(grid, 4, 5, '#e8423f');
+    dot(grid, 9, 5, '#ff3040');
+    dot(grid, 14, 5, '#3b7be0');
+    fillRect(grid, 3, 7, 2, 1, '#5a442c');
+    fillRect(grid, 8, 7, 2, 1, '#8a1a1a');
+    fillRect(grid, 13, 8, 2, 1, '#3a4a6b');
+    const raw = toCanvas(addOutline(grid, OUTLINE));
+    const big = document.createElement('canvas');
+    big.width = raw.width * 2;
+    big.height = raw.height * 2;
+    const ctx = big.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(raw, 0, 0, big.width, big.height);
+    return sprite(big, raw.width, big.height - 2);
   });
 }
 

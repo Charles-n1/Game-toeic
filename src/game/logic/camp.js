@@ -37,6 +37,7 @@ import { applySleepQualityRecovery, singCampfireSong, changeMorale } from './rea
 import { evaluateMealNutrition, saltRawFood, placeTrailCairn } from './realism/foodAndNature';
 import { canUseTinderboxInRain } from './realism/magicPhysics';
 import { triggerCampfireBanter } from './soul';
+import { withDemonRule } from './war/demonLand';
 
 // Camping in the wild: pitching camp, firewood vs Magic Auto-Heater, cooking pot recipes
 // (with timed stat boosts), dried meat, character tastes, and companion fatigue.
@@ -261,7 +262,8 @@ export function restAtCamp(game, hours = null) {
     const ambushChance = watchSafe ? 0 : (z.danger || 0) >= 2 ? ((player.party || []).length > 0 ? 0.08 : 0.22) : 0;
     if (ambushChance > 0 && Math.random() < ambushChance && !game.run.fight) {
       if (real) real.combatRealism.wakeSleepyTurn = true;
-      const prowler = z.species?.length > 0 ? z.species[Math.floor(Math.random() * z.species.length)] : 'wolf';
+      const prowlers = withDemonRule(game, z.species || [], player.x, player.y); // demons only on demon land
+      const prowler = prowlers.length > 0 ? prowlers[Math.floor(Math.random() * prowlers.length)] : 'wolf';
       const ambusher = makeMonster(game, prowler, player.x + 1.5, player.y);
       game.run.monsters.push(ambusher);
       notify(game, '⚠️ A nocturnal ' + ambusher.name + ' prowled into camp while you slept!', '#ff8a95');

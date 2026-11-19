@@ -28,6 +28,7 @@ export const ROLES = {
   potions: { size: 'shop', sign: 'potion', name: 'House of potions' },
   guild: { size: 'hall', sign: 'guild', name: 'Guild of adventurers' },
   forge: { size: 'shop', sign: 'ironSword', name: 'Forge' },
+  armory: { size: 'shop', sign: 'ironSword', name: 'Armory' },
   smithy: { size: 'shop', sign: 'ironSword', name: 'Smithy' },
   arcane: { size: 'shop', sign: 'star', name: 'Arcane house' },
   weaver: { size: 'shop', sign: 'cloth', name: 'Weaver' },
@@ -35,6 +36,14 @@ export const ROLES = {
   elder: { size: 'house', sign: null, name: 'House of the elder' },
   farm: { size: 'house', sign: 'carrot', name: 'Farm' },
   school: { size: 'hall', sign: null, name: 'Arcane School' },
+  academyMage: { size: 'hall', sign: 'star', name: 'Mage Academy' },
+  academyKnight: { size: 'hall', sign: 'shield', name: 'Knight Academy' },
+  academyBlade: { size: 'hall', sign: 'sword', name: 'Blademaster Dojo' },
+  academyShadow: { size: 'shop', sign: 'lockpick', name: 'Shadow Academy' },
+  academyWilds: { size: 'shop', sign: 'flower', name: 'Beast & Druid Hall' },
+  academyOccult: { size: 'shop', sign: 'crystal', name: 'Occult Academy' },
+  academyAlchemist: { size: 'shop', sign: 'potion', name: 'Cloister Academy' },
+  academyMerchant: { size: 'shop', sign: 'coin', name: 'Guildsmith Academy' },
   church: { size: 'church', sign: null, name: 'Church' },
   carpenter: { size: 'shop', sign: 'logs', name: 'Carpenter' },
   inn: { size: 'big', sign: 'mug', name: 'Inn' },
@@ -50,9 +59,13 @@ export const ROLES = {
 
 // What each kind of village has, besides its houses (in this order: the first ones are closest to the square).
 export const VILLAGE_NEEDS = {
-  capital: ['church', 'market', 'arena', 'inn', 'clinic', 'guild', 'forge', 'bakery', 'potions', 'barracks', 'stable', 'library', 'weaver', 'barracks', 'inn'],
-  town: ['church', 'inn', 'market', 'clinic', 'forge', 'barracks', 'bakery', 'stable'],
-  village: ['inn', 'clinic', 'forge', 'bakery'],
+  capital: [
+    'church', 'market', 'arena', 'inn', 'clinic', 'potions', 'armory', 'guild', 'forge', 'bakery', 'arcane', 'weaver', 'carpenter',
+    'barracks', 'stable', 'library', 'academyMage', 'academyKnight', 'academyBlade', 'academyShadow', 'academyWilds', 'academyOccult',
+    'academyAlchemist', 'academyMerchant', 'inn',
+  ],
+  town: ['church', 'inn', 'market', 'clinic', 'potions', 'armory', 'forge', 'barracks', 'bakery', 'stable'],
+  village: ['inn', 'clinic', 'forge', 'potions', 'bakery'],
   hamlet: [],
   farm: ['mill', 'farm', 'stable', 'bakery'],
 };

@@ -18,6 +18,9 @@ An isekai in 2D where every fight is a TOEIC question. To enter: do the level te
 - **Monsters**: small ones ask RC 10 / RC 8, big ones the hard questions, the demons of the north the long texts (RC 55).
 - **The world**: an island with rivers, bridges, a desert, snowy peaks and a volcanic land. Day and night, 2 villages,
   3 dungeons, the castle of the Demon King (sealed until General Barbarism falls), a raid on the village every 7 nights.
+- **The demon land**: the demons only appear on their land. They come out of the Silent Isle and take a bit more land
+  every day (in red on the world map), often setting its forests on fire (the fire spreads from tree to tree, the rain
+  puts it out). Beat a demon on their land to take it back; the bosses push it back. Their generals never leave the isle.
 - **The world map** (`M`): what you explored, the rest is in the fog. The maps sold by Luna show more (roads, the whole
   land, the treasures). Main quest, side quests, shops, your party and a legend.
   Talk, help (quests), give gifts, recruit, date, marry. Plant carrots, dig treasures, work as a scribe, negotiate prices.

@@ -36,7 +36,8 @@ import { updateWar, slowWar, actionsOfWar } from './war';
 import { updateSociety, slowSociety, actionsOfSociety, ridingSpeedMultiplier } from './society';
 import { updateCamp, slowCamp, actionsOfCamp } from './camp';
 import { updateBonds, slowBonds, actionsOfBonds } from './bonds';
-import { exitVisitedHouseIfStairs, actionsOfHouses } from './houses';
+import { exitVisitedHouseIfStairs, actionsOfHouses, updateHouseResidents } from './houses';
+import { ensureUrgentQuests, acceptUrgentQuest, turnInUrgentQuest, isUrgentQuestReady } from './quests';
 import { updateIsekaiStructures, actionsOfStructures } from './isekaiStructures';
 import { updateWorldParties, syncWorldParties, actionsOfParties, onFightEndParties } from './worldParties';
 import { actionsOfIsekai, slowIsekai, updateIsekai } from './isekai';
@@ -293,6 +294,22 @@ function talkToVillager(game, villager) {
     say(game, null, [villager.name + ': "The bells haven’t felt the same since the last raid... Wait beside the memorial stone if you have a quiet minute."']);
     return;
   }
+  if (villager.crier) {
+    const uqList = ensureUrgentQuests(game);
+    const uq = uqList.find((u) => u.id === villager.urgentQuestId) || uqList[0];
+    if (uq && !uq.done) {
+      const choices = [];
+      if (!uq.accepted) {
+        choices.push({ label: '🚨 Accept Urgent Quest (+' + uq.lexis + ' Lexis)', icon: 'quests', run: () => acceptUrgentQuest(game, uq.id) });
+      } else if (isUrgentQuestReady(game, uq)) {
+        choices.push({ label: '✅ Turn In Urgent Quest (+' + uq.lexis + ' Lexis)', icon: 'quests', run: () => turnInUrgentQuest(game, uq.id) });
+      }
+      choices.push({ label: 'Hear Town News', icon: 'talk', run: () => say(game, null, [villager.name + ': "' + villageNews(game, villager.village) + '"']) });
+      choices.push({ label: 'Step back', run: () => {} });
+      say(game, null, ['📢 ' + villager.name + ' (Town Crier): "' + (villager.urgentShout || uq.shout) + '"\n\n' + uq.title + ' — ' + uq.ask], choices);
+      return;
+    }
+  }
   const words = villager.working ? 'Hard work today. ' : 'Hello, traveler. ';
   say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + '"']);
 }
@@ -459,6 +476,7 @@ export function updateGame(game, input, dt) {
   updateMonsters(game, dt);
   updatePowers(game, dt);
   updateGuildHall(game, dt);
+  updateHouseResidents(game, dt);
   updateRaid(game, dt);
   updateWeather(game, dt);
   updateIsekai(game, dt);

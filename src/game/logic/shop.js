@@ -38,7 +38,9 @@ function unownedGear(player, pool, limit) {
 
 export function currentShopVillageId(game) {
   const zone = zoneAt(game.player.x, game.player.y);
-  return zone.kind === 'village' ? zone.id : 'lexia';
+  if (zone.kind === 'village') return zone.id;
+  if (game.run.visitHouse?.house?.village) return game.run.visitHouse.house.village;
+  return 'lexia';
 }
 
 export function shopStock(game, itemId) {
@@ -83,9 +85,14 @@ export function shopItems(game, kind) {
   const player = game.player;
   if (kind === 'forge') {
     const upgrades = [nextUpgrade('weapon', player.weapon), nextUpgrade('armor', player.armor), nextUpgrade('boots', player.boots)].filter((id) => id !== null);
-    return [...upgrades, 'turretKit', ...unownedGear(player, FORGE_GEAR_IDS, 4)];
+    return [...upgrades, 'turretKit', 'repairKit', 'refineStone', 'protectionScroll', ...unownedGear(player, FORGE_GEAR_IDS, 4)];
   }
-  const base = SHOPS[kind].filter((id) => shouldOfferShopItem(game, id));
+  if (kind === 'armory') {
+    const upgrades = [nextUpgrade('weapon', player.weapon), nextUpgrade('armor', player.armor), nextUpgrade('boots', player.boots)].filter((id) => id !== null);
+    const armoryStock = (SHOPS.armory || []).filter((id) => shouldOfferShopItem(game, id));
+    return [...upgrades, ...armoryStock, ...unownedGear(player, FORGE_GEAR_IDS, 4)];
+  }
+  const base = (SHOPS[kind] || SHOPS.market).filter((id) => shouldOfferShopItem(game, id));
   if (kind === 'market') {
     const campGear = player.bag.autoHeater || game.camp?.autoHeater ? [] : ['autoHeater'];
     return [...base, ...campGear, 'wheatSeed', 'horseFeed', 'firewood', 'driedMeat', 'decorBanner', ...unownedGear(player, ACCESSORY_IDS, 4)];

@@ -9,6 +9,7 @@ import { makeMonster } from '../monsters';
 import { startFight } from '../fight';
 import { maxPartySize } from '../guild/ranks';
 import { pushBackDoom } from '../war/demonThreat';
+import { isOnSilentIsle, deepIslePlaces } from '../war/demonLand';
 import { say, notify } from '../messages';
 import { burst, floatText, spawnRing } from '../particles';
 import { cue } from '../cues';
@@ -92,11 +93,11 @@ export function monsterRankInfo(monster) {
     return rankEntry(danger >= 3 ? 'B' : 'C');
   }
 
-  const hp = monster.maxHealth || monster.health || SPECIES[sp]?.health || 20;
-  if ((sp === 'slime' || sp === 'rat') && danger <= 1 && hp <= 25) {
+  const hp = monster.maxHealth || monster.health || SPECIES[sp]?.health || 40;
+  if ((sp === 'slime' || sp === 'rat') && danger <= 1 && hp <= 55) {
     return rankEntry('F');
   }
-  if (danger <= 1 && hp < 40) {
+  if (danger <= 1 && hp < 80) {
     return rankEntry('E');
   }
   return rankEntry('D');
@@ -209,6 +210,9 @@ export function activeTamedBonus(game) {
   };
 }
 
+// XP a tamed monster needs for each level: the same for every level (a steady progression).
+const TAMED_XP_PER_LEVEL = 40;
+
 /** Grants XP to the active 'party' tamed monster and levels it up. */
 export function gainTamedXp(game, xp = 5) {
   ensureRun(game);
@@ -216,8 +220,8 @@ export function gainTamedXp(game, xp = 5) {
   const active = st.tamed.find((t) => t.place === 'party');
   if (!active || (active.level || 1) >= 20) return null;
   active.xp = (active.xp || 0) + xp;
-  while ((active.level || 1) < 20 && active.xp >= 20 * (active.level || 1)) {
-    active.xp -= 20 * (active.level || 1);
+  while ((active.level || 1) < 20 && active.xp >= TAMED_XP_PER_LEVEL) {
+    active.xp -= TAMED_XP_PER_LEVEL;
     active.level = (active.level || 1) + 1;
     cue(game, 'levelUp');
     notify(game, '🐾 ' + active.name + ' grew to Lv.' + active.level + '!', '#7cfc9a');
@@ -527,16 +531,41 @@ function buildEmissaryUnit(game, speciesId, x, y, extra = {}) {
   };
 }
 
-function findEmissarySpawn(game) {
-  for (let tries = 0; tries < 24; tries++) {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 14 + Math.random() * 10;
-    const x = game.player.x + Math.cos(angle) * radius;
-    const y = game.player.y + Math.sin(angle) * radius;
-    if (!isSolid(x, y) && zoneAt(x, y).kind === 'land') return { x, y };
-  }
-  const lexia = VILLAGES[0];
-  return findOpenLandSpot(lexia.x + lexia.w / 2, lexia.y + lexia.h + 16, 40);
+// The demon generals (the emissaries) never leave the Silent Isle: each one keeps its camp deep in it,
+// always at the same place, and only walks around it.
+const EMISSARY_LEASH = 10; // tiles: how far a general walks from its camp
+
+function emissaryCamp(spec) {
+  const index = DEMON_EMISSARIES.findIndex((entry) => entry.id === spec.id);
+  const place = deepIslePlaces(DEMON_EMISSARIES.length)[Math.max(0, index)];
+  return place ? findOpenLandSpot(place.x, place.y, 12) : null;
+}
+
+// Can the general step on (x, y)? Land of the isle, near its camp.
+function canEmissaryStep(em, x, y) {
+  return !isSolid(x, y) && zoneAt(x, y).kind === 'land' && isOnSilentIsle(x, y) && Math.hypot(x - em.homeX, y - em.homeY) <= EMISSARY_LEASH;
+}
+
+// A general in its camp on the isle.
+function placeEmissary(spec, camp) {
+  const angle = Math.random() * Math.PI * 2;
+  return {
+    id: spec.id,
+    name: spec.name,
+    title: spec.title,
+    species: spec.species,
+    x: camp.x,
+    y: camp.y,
+    homeX: camp.x,
+    homeY: camp.y,
+    dx: Math.cos(angle),
+    dy: Math.sin(angle),
+    walkTime: 2,
+    announced: false,
+    doomCut: spec.doomCut,
+    bounty: spec.bounty,
+    xp: spec.xp,
+  };
 }
 
 /** Starts a clan battle against a Demon King Emissary and 2 demon guards. */
@@ -589,7 +618,7 @@ export function onEmissaryDefeated(game, emissaryId) {
   return true;
 }
 
-/** Spawns, roams, announces, and engages roaming Demon King Emissary Clans from Day 2 onward. */
+/** Places the Demon King Emissary Clans in their camps on the Silent Isle (from Day 2), walks them around, and starts their fight when the hero comes. */
 export function tickEmissaries(game, dt = 0.016) {
   ensureRun(game);
   if (game.run.emissaryFight && !game.run.fight) {
@@ -600,11 +629,8 @@ export function tickEmissaries(game, dt = 0.016) {
     } else {
       const target = game.run.emissaries.find((entry) => entry.id === finished.id);
       if (target) {
-        const away = findOpenLandSpot(target.x + 5, target.y + 5, 10);
-        if (away) {
-          target.x = away.x;
-          target.y = away.y;
-        }
+        target.x = target.homeX; // the general goes back to its camp
+        target.y = target.homeY;
       }
     }
   }
@@ -621,27 +647,10 @@ export function tickEmissaries(game, dt = 0.016) {
     return;
   }
 
-  if (game.run.emissaries.length === 0) {
-    const spec = remaining[0];
-    const spot = findEmissarySpawn(game);
-    if (spot) {
-      const angle = Math.random() * Math.PI * 2;
-      game.run.emissaries.push({
-        id: spec.id,
-        name: spec.name,
-        title: spec.title,
-        species: spec.species,
-        x: spot.x,
-        y: spot.y,
-        dx: Math.cos(angle),
-        dy: Math.sin(angle),
-        walkTime: 2,
-        announced: false,
-        doomCut: spec.doomCut,
-        bounty: spec.bounty,
-        xp: spec.xp,
-      });
-    }
+  for (const spec of remaining) {
+    if (game.run.emissaries.some((entry) => entry.id === spec.id)) continue;
+    const camp = emissaryCamp(spec);
+    if (camp) game.run.emissaries.push(placeEmissary(spec, camp));
   }
 
   if (game.run.timeStopUntil && game.run.timeStopUntil > Date.now()) return;
@@ -657,16 +666,16 @@ export function tickEmissaries(game, dt = 0.016) {
     const step = 2.0 * dt;
     const nx = em.x + em.dx * step;
     const ny = em.y + em.dy * step;
-    if (!isSolid(nx, em.y) && zoneAt(nx, em.y).kind === 'land') em.x = nx;
+    if (canEmissaryStep(em, nx, em.y)) em.x = nx;
     else em.dx = -em.dx;
-    if (!isSolid(em.x, ny) && zoneAt(em.x, ny).kind === 'land') em.y = ny;
+    if (canEmissaryStep(em, em.x, ny)) em.y = ny;
     else em.dy = -em.dy;
 
     const dist = Math.hypot(em.x - game.player.x, em.y - game.player.y);
     if (dist <= 14 && !em.announced) {
       em.announced = true;
       cue(game, 'thunder');
-      notify(game, '🌩️ A Demon King Emissary Clan marches nearby! (' + em.name + ')', '#ff5a6e');
+      notify(game, '🌩️ A demon general guards its camp here! (' + em.name + ')', '#ff5a6e');
     }
 
     const playerZone = zoneAt(game.player.x, game.player.y);

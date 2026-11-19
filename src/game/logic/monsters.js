@@ -1,4 +1,4 @@
-import { SPECIES, speciesForSkill } from '../data/monsters';
+import { SPECIES, speciesForSkill, isDemonSpecies } from '../data/monsters';
 import { zoneAt, MONSTER_TOWNS, DUNGEONS, WILD_STRUCTURES } from '../data/zones';
 import { pickRandom } from '../../logic/random';
 import { isSolid, dungeonMonsters } from '../world/map';
@@ -14,9 +14,11 @@ import { isWorldTimeFrozen } from './isekaiTodo/magicPlus';
 import { monsterRankInfo } from './isekaiTodo/monstersPlus';
 import { ensureRealism } from './realism/state';
 import { maybePlayPreBossScene } from './soul';
+import { isDemonGround, demonGroundAround, withDemonRule, FRONT_SPECIES } from './war/demonLand';
 
 // The monsters walking on the map. Touching one starts a fight.
 // Wild monsters emerge from Monster Camps, Monster Towns, and Dungeon/Cave mouths rather than appearing randomly in thin air.
+// The demons only come out of the demon land: the Silent Isle and the land they took around it (war/demonLand.js).
 
 const WILD_BY_DAY = 4; // how many wild monsters can prowl around nearby camps
 const WILD_BY_NIGHT = 7;
@@ -123,12 +125,17 @@ function speciesForCamp(game, source, x, y) {
     (id) => SPECIES[id] && (night || !SPECIES[id].night)
   );
   if (night) pool.push(...(NIGHT_GUESTS[zone.id] || []));
-  return [...new Set(pool)];
+  return withDemonRule(game, [...new Set(pool)], x, y); // demons on demon land only
+}
+
+// The demon land around the player: each walkable cell of it is a place the demons come out of.
+function demonSources(game) {
+  return demonGroundAround(game, game.player.x, game.player.y, 45).map((spot) => ({ id: 'demonLand', kind: 'demonLand', x: spot.x, y: spot.y, species: FRONT_SPECIES }));
 }
 
 // Picks an active monster camp / monster town / cave near the player so monsters always originate from real lairs.
 function spawnPlace(game) {
-  const nearbyCamps = CAMP_SOURCES.filter((src) => {
+  const nearbyCamps = [...CAMP_SOURCES, ...demonSources(game)].filter((src) => {
     if (src.kind === 'monsterCamp' && isLairCleared(game, src.id)) return false;
     const far = distance(src, game.player);
     return far >= 4 && far <= 55;
@@ -170,9 +177,10 @@ function spawnPlace(game) {
   return null;
 }
 
-function pickWeakestSpecies(game, campList, night) {
+function pickWeakestSpecies(game, campList, night, spot) {
+  if (isDemonGround(game, spot.x, spot.y)) return pickRandom(campList); // on demon land: only its demons
   const targetCat = monsterCategory(game);
-  const skillMatches = speciesForSkill(targetCat).filter((id) => SPECIES[id] && !SPECIES[id].boss && (night || !SPECIES[id].night));
+  const skillMatches = speciesForSkill(targetCat).filter((id) => SPECIES[id] && !SPECIES[id].boss && !isDemonSpecies(id) && (night || !SPECIES[id].night));
   const localMatches = campList.filter((id) => SPECIES[id]?.category === targetCat);
   if (localMatches.length > 0 && Math.random() < 0.8) return pickRandom(localMatches);
   if (skillMatches.length > 0 && Math.random() < 0.65) {
@@ -196,7 +204,7 @@ function spawnWild(game) {
     const spot = i === 0 ? place : { x: place.x + (Math.random() - 0.5) * 2, y: place.y + (Math.random() - 0.5) * 2 };
     if (i > 0 && isSolid(spot.x, spot.y)) continue;
     game.run.monsters.push(
-      makeMonster(game, pickWeakestSpecies(game, list, night), spot.x, spot.y, {
+      makeMonster(game, pickWeakestSpecies(game, list, night, place), spot.x, spot.y, {
         homeCampId: place.source.id,
         campX: place.source.x,
         campY: place.source.y,

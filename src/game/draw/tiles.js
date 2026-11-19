@@ -28,7 +28,7 @@ const SIMPLE_GROUND = {
   [TILE.STAIRS]: 'stairs',
   [TILE.ORE]: 'ore',
   [TILE.WOOD_FLOOR]: 'wood',
-  [TILE.RUG]: 'wood',
+  [TILE.RUG]: 'carpet',
   [TILE.GRASS]: 'grass',
   [TILE.FLOWER]: 'grass',
   [TILE.SAND]: 'sand',
@@ -70,7 +70,7 @@ const OVERHANG = { grass: 'g', snow: 's', ash: 'a' };
 function edgeOf(kind, neighbor) {
   if (SOFT_GROUNDS.includes(kind) && OVERHANG[neighbor]) return OVERHANG[neighbor];
   if (kind === 'water' && neighbor !== 'water') return 'f'; // the shore
-  if ((kind === 'floor' || kind === 'wood') && (neighbor === 'wall' || neighbor === 'void')) return 'w'; // the shadow of the wall
+  if ((kind === 'floor' || kind === 'wood' || kind === 'carpet') && (neighbor === 'wall' || neighbor === 'void')) return 'w'; // the shadow of the wall
   if (kind === 'wall' && neighbor !== 'wall' && neighbor !== 'void') return 'r'; // the rim of the wall
   if (kind === 'cliff' && (neighbor === 'cliff' || neighbor === 'ore')) return 'c'; // the cliff goes on
   if (kind === 'bridge' && neighbor === 'water') return 'b'; // the rail of the bridge
@@ -408,6 +408,20 @@ function paintWood(grid, bx, by) {
   }
 }
 
+// Warm plush bedroom carpet (clearly distinct from wood dining floors and stone washrooms).
+const CARPET_RAMP = ['#5d2230', '#712b3b', '#863547', '#9b4154'];
+function paintCarpet(grid, bx, by) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const px = bx * S + x;
+      const py = by * S + y;
+      const weave = (px + py) % 4 === 0 ? 0.14 : (px - py) % 6 === 0 ? -0.1 : 0;
+      const goldTrim = px % 16 === 0 || py % 16 === 0;
+      dot(grid, x, y, goldTrim && (px + py) % 2 === 0 ? '#c49645' : toneOf(CARPET_RAMP, 0.48 + weave + randomOf(px, py, 59) * 0.16, x, y));
+    }
+  }
+}
+
 function paintSoil(grid) {
   for (let y = 0; y < S; y++) {
     const ridge = y % 4; // the furrows: light on the top of the ridge, dark in the hollow
@@ -434,6 +448,7 @@ function paintGround(grid, kind, bx, by, frame, edges, theme) {
   else if (kind === 'stairs') paintStairs(grid, theme);
   else if (kind === 'ore') paintOre(grid, bx, by);
   else if (kind === 'wood') paintWood(grid, bx, by);
+  else if (kind === 'carpet') paintCarpet(grid, bx, by);
   else if (kind === 'path') paintPath(grid, bx, by);
   else if (kind === 'cobble') paintCobbles(grid, bx, by);
   else if (kind === 'sand') paintSand(grid, bx, by);

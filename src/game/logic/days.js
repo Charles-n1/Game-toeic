@@ -8,7 +8,7 @@ import { drainCurse } from './isekai/curses';
 import { updateSurvival } from './survival';
 import { growVillages } from './villages';
 import { placeVillagers } from './villagers';
-import { placeAnimals } from './animals';
+import { placeAnimals, syncPenAnimals } from './animals';
 import { refreshWorld } from './worldState';
 import { isOutdoors, cureCold } from './weather';
 import { notify } from './messages';
@@ -24,6 +24,7 @@ import { refreshDailyLetters, syncWeeklyChallenge } from './isekaiTodo/socialPlu
 import { checkAchievements } from './isekaiTodo/progression';
 import { hourlyRealism, dailyRealism } from './realism/index';
 import { hourlySoul, dailySoul } from './soul';
+import { burnForests } from './war/forestFire';
 
 // Time passing: the clock moves, and a new day changes the world.
 
@@ -34,7 +35,8 @@ function newDay(game) {
   placeDungeonMonsters(game); // the guards of the dungeons are back
   if (growVillages(game)) refreshWorld(game); // the villages gather, breed, build
   placeVillagers(game);
-  placeAnimals(game);
+  syncPenAnimals(game);
+  if (!game.run.animals || game.run.animals.length === 0) placeAnimals(game);
   game.gathered = {}; // the trees and the rocks have grown back
   newDayWar(game);
   newDaySociety(game);
@@ -59,6 +61,7 @@ function addHours(game, hours, allowLethal = true) {
   stepEconomyHours(game, hours);
   hourlyRealism(game, hours, allowLethal);
   hourlySoul(game, hours);
+  burnForests(game, hours); // the forest fires the demons lit (see war/forestFire.js)
   game.hour += hours;
   if (game.hour >= 24) {
     game.hour -= 24;

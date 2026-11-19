@@ -4,7 +4,7 @@ import Window from './Window';
 import PixelIcon from './PixelIcon';
 import StatusPanel from './StatusPanel';
 import useScreen from './useScreen';
-import Passage from '../../components/Passage';
+import FightPassage from './FightPassage';
 import { playEffect } from '../audio/effects';
 import { TYPES, typeOf, weaknessOf } from '../data/types';
 import { ITEMS } from '../data/items';
@@ -561,7 +561,7 @@ export default function FightScreen({ game, refresh }) {
         {isOver && <Ending game={game} fight={fight} onContinue={goOn} />}
         {!isOver && fight.question.text && (
           <div className="window" style={styles.passage}>
-            <Passage key={fight.question.text} text={fight.question.text} />
+            <FightPassage key={fight.question.text} question={fight.question} />
           </div>
         )}
         {!isOver && (
@@ -617,9 +617,7 @@ const styles = {
     pointerEvents: 'auto',
   },
   passage: {
-    maxHeight: '26vh',
-    overflowY: 'auto',
-    color: '#14101e',
+    padding: 6, // the text scrolls inside (see FightPassage.jsx)
   },
   bottom: {
     alignItems: 'stretch',

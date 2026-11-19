@@ -77,7 +77,15 @@ function pickPartyDest(fromPos, excludeId = null) {
   return { id: picked.id, name: picked.name, x: picked.x + picked.w / 2, y: picked.y + picked.h / 2 };
 }
 
-function findSpawnSpotNearPlayer(player) {
+function findSpawnSpotFromGate(player) {
+  const friendly = VILLAGES.filter((v) => Math.hypot(v.x + v.w / 2 - player.x, v.y + v.h / 2 - player.y) < 140);
+  if (friendly.length > 0) {
+    const v = pickRandom(friendly);
+    const gate = bestGateOf(v, player);
+    if (gate && !isSolid(gate.outside.x, gate.outside.y)) {
+      return { x: gate.outside.x, y: gate.outside.y, originId: v.id };
+    }
+  }
   const pcx = Math.floor(player.x / SCALE);
   const pcy = Math.floor(player.y / SCALE);
   for (let tries = 0; tries < 24; tries++) {
@@ -89,17 +97,19 @@ function findSpawnSpotNearPlayer(player) {
     const x = cx * SCALE + 5 + (Math.random() - 0.5) * 3;
     const y = cy * SCALE + 5 + (Math.random() - 0.5) * 3;
     const far = Math.hypot(x - player.x, y - player.y);
-    if (far >= 10 && far <= 34 && !isSolid(x, y) && zoneAt(x, y).kind === 'land') return { x, y };
+    if (far >= 12 && far <= 34 && !isSolid(x, y) && zoneAt(x, y).kind === 'land') return { x, y, originId: null };
   }
   return null;
 }
 
 function spawnParty(game) {
-  const spot = findSpawnSpotNearPlayer(game.player);
+  const spot = findSpawnSpotFromGate(game.player);
   if (!spot) return null;
   const id = 'party-' + Date.now() + '-' + Math.floor(Math.random() * 999);
-  const dest = pickPartyDest(spot);
-  const startCamping = Math.random() < 0.35 && !isSolid(spot.x - 2, spot.y - 2) && !isSolid(spot.x + 2, spot.y + 1);
+  const dest = pickPartyDest(spot, spot.originId);
+  const name = pickRandom(PARTY_NAMES);
+  const disposition = name === 'Crimson Vanguard' ? 'hostile' : name === 'Ironhelm Guild' ? 'territorial' : 'friendly';
+  const startCamping = Math.random() < 0.25 && !isSolid(spot.x - 2, spot.y - 2) && !isSolid(spot.x + 2, spot.y + 1);
   const roles = pickRandom([
     ['knight', 'archer', 'mage'],
     ['knight', 'cleric', 'archer', 'mage'],
@@ -108,7 +118,10 @@ function spawnParty(game) {
   const members = roles.map((r, i) => makeMember(id, i, r, spot.x, spot.y));
   const party = {
     id: id,
-    name: pickRandom(PARTY_NAMES),
+    name: name,
+    disposition: disposition,
+    provoked: false,
+    bumpWarnUntil: 0,
     state: startCamping ? 'camping' : 'marching',
     stateTime: startCamping ? 22 + Math.random() * 14 : 24 + Math.random() * 16,
     x: spot.x,
@@ -362,11 +375,62 @@ function updatePartyBehavior(game, party, dt) {
   });
 }
 
+export function provokePartyOnStrike(game, range = 2.35) {
+  if (!game?.run?.parties || game.run.fight) return false;
+  const px = game.player.x;
+  const py = game.player.y;
+  for (const party of game.run.parties) {
+    if (party.plundered) continue;
+    const hitMember = party.members.find((m) => m.hp > 0 && Math.hypot(m.x - px, m.y - py) <= range);
+    if (!hitMember) continue;
+    party.provoked = true;
+    const foe = makeSparChampion(game, party, true);
+    const backups = party.members
+      .filter((m) => m.hp > 0 && m !== party.members[0])
+      .slice(0, 2)
+      .map((m) => ({
+        ...foe,
+        name: m.name,
+        look: m.look,
+      }));
+    notify(game, '🛡️ ' + party.name + ' raises weapons to defend itself!', '#ff8a95');
+    game.run.safeUntil = Date.now() + 3000;
+    startFight(game, foe, backups);
+    game.run.partyRaid = { partyId: party.id, fight: game.run.fight };
+    return true;
+  }
+  return false;
+}
+
 export function updateWorldParties(game, dt) {
   if (!Array.isArray(game.run.parties)) game.run.parties = [];
+  const now = Date.now();
   for (const party of game.run.parties) {
     updatePartyBehavior(game, party, dt);
     updateProjectiles(game, party, dt);
+
+    // Outdoor roaming groups can attack on contact (hostile/territorial) or defend when provoked!
+    if (game.run.screen === 'play' && !game.run.fight && now > (game.run.safeUntil || 0) && !party.plundered) {
+      const bumper = party.members.find((m) => m.hp > 0 && dist(m, game.player) < 1.05);
+      if (bumper) {
+        if (party.disposition === 'hostile' || party.provoked) {
+          const foe = makeSparChampion(game, party, true);
+          notify(game, '⚔️ ' + party.name + ' challenges you in the open wilds!', '#ff8a95');
+          game.run.safeUntil = now + 4000;
+          startFight(game, foe);
+          game.run.partyRaid = { partyId: party.id, fight: game.run.fight };
+          break;
+        } else if (party.disposition === 'territorial' && now > (party.bumpWarnUntil || 0)) {
+          party.bumpWarnUntil = now + 4500;
+          if (!party._warnedBump) {
+            party._warnedBump = true;
+            notify(game, '⚠️ ' + party.name + ': "Watch where you bump into armored scouts, stranger!"', '#ffd23f');
+          } else {
+            party.provoked = true;
+          }
+        }
+      }
+    }
   }
 }
 

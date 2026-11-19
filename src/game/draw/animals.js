@@ -879,11 +879,27 @@ const PAINTERS = {
   bison: (f) => animalRig(BISON_UPPER, BISON_LEGS, PAL.bison, f),
 };
 
+// Only beasts considered large in real life are scaled up visually (never rabbits, chickens, pigs, sheep, etc.).
+export const LARGE_ANIMAL_KINDS = new Set(['cow', 'horse', 'wildHorse', 'deer', 'doe', 'bison', 'bear', 'moose', 'boar']);
+
 export function animalSprite(kind, dir, frame) {
-  return once('animalV2_' + kind + dir + frame, () => {
+  return once('animalV3_' + kind + dir + frame, () => {
     const painter = PAINTERS[kind] || PAINTERS.rabbit;
     const grid = painter(frame || 0);
     const outlined = addOutline(dir === 'left' ? mirrored(grid) : grid, OUTLINE);
-    return { canvas: toCanvas(outlined), ax: Math.floor(outlined.width / 2), ay: outlined.height - 1 };
+    const raw = toCanvas(outlined);
+    const ax = Math.floor(outlined.width / 2);
+    const ay = outlined.height - 1;
+    if (!LARGE_ANIMAL_KINDS.has(kind)) {
+      return { canvas: raw, ax, ay };
+    }
+    const scale = 1.48;
+    const big = document.createElement('canvas');
+    big.width = Math.round(raw.width * scale);
+    big.height = Math.round(raw.height * scale);
+    const g = big.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(raw, 0, 0, big.width, big.height);
+    return { canvas: big, ax: Math.round(ax * scale), ay: Math.round(ay * scale) };
   });
 }

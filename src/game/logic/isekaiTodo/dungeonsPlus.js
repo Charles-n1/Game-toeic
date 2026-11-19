@@ -21,12 +21,13 @@ export const TOWER_FLOORS = [
   { floor: 2, species: 'orc', name: 'Spire Orc Vanguard (F2)', tag: 'normal', tier: 'small', hpScale: 1.0, atkScale: 0.95, rewardLexis: 55, rewardXp: 40 },
   { floor: 3, species: 'drake', name: 'Cinder Spire Drake (F3)', tag: 'normal', tier: 'big', hpScale: 1.0, atkScale: 1.0, rewardLexis: 80, rewardXp: 55 },
   { floor: 4, species: 'darkKnight', name: 'Oathbreaker Knight (F4)', tag: 'normal', tier: 'big', hpScale: 1.05, atkScale: 1.0, rewardLexis: 105, rewardXp: 75 },
-  { floor: 5, species: 'thamuz', name: 'Thamuz, Spire Floor 5 Boss', tag: 'hard', tier: 'boss', boss: true, hpScale: 0.75, atkScale: 0.85, rewardLexis: 220, rewardXp: 160 },
+  // (No demon general in the Spire: they stay on the Silent Isle. Beating "Thamuz" here also killed the real one.)
+  { floor: 5, species: 'boneGolem', name: 'Bone Colossus, Spire Floor 5 Boss', tag: 'hard', tier: 'boss', boss: true, hpScale: 0.75, atkScale: 0.85, rewardLexis: 220, rewardXp: 160 },
   { floor: 6, species: 'shadowMage', name: 'Babel Shadow Archon (F6)', tag: 'hard', tier: 'big', hpScale: 1.0, atkScale: 0.9, rewardLexis: 150, rewardXp: 110 },
   { floor: 7, species: 'demonLich', name: 'Spire Demon Lich (F7)', tag: 'hard', tier: 'demon', hpScale: 1.0, atkScale: 0.9, rewardLexis: 185, rewardXp: 135 },
   { floor: 8, species: 'hellknight', name: 'Babel Hellknight (F8)', tag: 'hard', tier: 'demon', hpScale: 1.05, atkScale: 0.95, rewardLexis: 220, rewardXp: 165 },
   { floor: 9, species: 'demonBehemoth', name: 'Abyssal Behemoth (F9)', tag: 'extreme', tier: 'demon', hpScale: 0.72, atkScale: 0.65, rewardLexis: 300, rewardXp: 230 },
-  { floor: 10, species: 'warGeneral', name: 'Empowered Archdemon (F10 Apex)', tag: 'extreme', tier: 'demon', boss: true, hpScale: 0.9, atkScale: 0.72, rewardLexis: 520, rewardXp: 400 },
+  { floor: 10, species: 'darkPaladin', name: 'Empowered Archdemon (F10 Apex)', tag: 'extreme', tier: 'demon', boss: true, hpScale: 0.9, atkScale: 0.72, rewardLexis: 520, rewardXp: 400 },
 ];
 
 export const SECRET_CLUES = {
@@ -427,7 +428,7 @@ export function raidSquadRoles(game, fillMissing = true) {
 /** Launches a Group Raid battle with tank/healer/DPS roles assigned against a boss. */
 export function startGroupRaid(game, bossSpec = null) {
   const roles = raidSquadRoles(game, true);
-  const speciesId = bossSpec?.species && SPECIES[bossSpec.species] ? bossSpec.species : 'warGeneral';
+  const speciesId = bossSpec?.species && SPECIES[bossSpec.species] ? bossSpec.species : 'hellknight'; // (the generals stay on the isle)
   const tag = bossSpec?.tag || 'hard';
   const tier = bossSpec?.tier || (tag === 'normal' ? 'big' : 'demon');
   const opponent = buildScaledOpponent(

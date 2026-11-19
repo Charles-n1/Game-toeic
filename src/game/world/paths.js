@@ -141,12 +141,37 @@ export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
       tx = exit.outside.x;
       ty = exit.outside.y;
     }
-  } else if (options.stopAtGate && goalZone.kind === 'village' && startZone.id !== goalZone.id) {
+  } else if (goalZone.kind === 'village' && startZone.id !== goalZone.id) {
     const entry = bestGateOf(goalZone, walker);
     if (entry) {
-      tx = entry.outside.x;
-      ty = entry.outside.y;
+      if (options.stopAtGate || Math.hypot(entry.outside.x - walker.x, entry.outside.y - walker.y) > 3.2) {
+        tx = entry.outside.x;
+        ty = entry.outside.y;
+      } else {
+        tx = entry.inside.x;
+        ty = entry.inside.y;
+      }
     }
+  }
+
+  // Anti-stuck detector: if an entity barely moved over 420ms, clear stale paths and sidestep obstacles
+  if (now - (walker._stAt || 0) > 420) {
+    const movedSince = Math.hypot(walker.x - (walker._stX ?? walker.x), walker.y - (walker._stY ?? walker.y));
+    if (walker._stAt && movedSince < 0.05) {
+      walker._stuckCount = (walker._stuckCount || 0) + 1;
+      walker._navPath = null;
+      walker._navRetryAt = 0;
+      walker._steerSign = -1 * (walker._steerSign || 1);
+      const escapeAngle = Math.atan2(ty - walker.y, tx - walker.x) + (walker._stuckCount % 2 === 0 ? 1.57 : -1.57);
+      const ex = walker.x + Math.cos(escapeAngle) * 2.2;
+      const ey = walker.y + Math.sin(escapeAngle) * 2.2;
+      if (canWalk(ex, ey)) walker._navPath = [{ x: ex, y: ey }];
+    } else {
+      walker._stuckCount = 0;
+    }
+    walker._stX = walker.x;
+    walker._stY = walker.y;
+    walker._stAt = now;
   }
 
   // Follow cached short detour path if still valid toward current waypoint
@@ -209,6 +234,8 @@ export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
   // Last-resort X/Y axis slide (never passes through solid walls or water)
   const ux = Math.cos(baseAngle) * move;
   const uy = Math.sin(baseAngle) * move;
+  const beforeX = walker.x;
+  const beforeY = walker.y;
   let moved = false;
   if (canWalk(walker.x + ux, walker.y)) {
     walker.x += ux;
@@ -218,10 +245,11 @@ export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
     walker.y += uy;
     moved = true;
   }
-  walker.walking = moved;
-  if (moved) {
+  const actualDelta = Math.hypot(walker.x - beforeX, walker.y - beforeY);
+  walker.walking = moved && actualDelta > 0.002;
+  if (walker.walking) {
     walker.step = (walker.step || 0) + dt * 6;
     walker.dir = Math.abs(ux) > Math.abs(uy) ? (ux < 0 ? 'left' : 'right') : uy < 0 ? 'up' : 'down';
   }
-  return moved;
+  return walker.walking;
 }

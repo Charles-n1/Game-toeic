@@ -832,3 +832,35 @@ export function throne() {
     return sprite(grid, 0, 27);
   });
 }
+
+// Wooden indoor staircase ascending to the 2nd floor (étags / upstairs).
+export function stairsUp() {
+  return once('stairsUp', () => {
+    const grid = makeGrid(16, 16);
+    fillRect(grid, 1, 1, 14, 14, WOOD.dark);
+    for (let step = 0; step < 4; step++) {
+      const y = 11 - step * 3;
+      fillRect(grid, 2, y, 12, 2, WOOD.light);
+      fillRect(grid, 2, y + 2, 12, 1, WOOD.deep);
+    }
+    fillRect(grid, 1, 0, 2, 16, '#c9a050'); // banister rail
+    fillRect(grid, 13, 0, 2, 16, '#c9a050');
+    return sprite(grid, 0, 15);
+  });
+}
+
+// Indoor staircase descending back down to the ground floor.
+export function stairsDown() {
+  return once('stairsDown', () => {
+    const grid = makeGrid(16, 16);
+    fillRect(grid, 1, 1, 14, 14, '#181322');
+    for (let step = 0; step < 4; step++) {
+      const y = 2 + step * 3;
+      fillRect(grid, 2 + step, y, 12 - step * 2, 2, WOOD.base);
+      fillRect(grid, 2 + step, y + 2, 12 - step * 2, 1, WOOD.dark);
+    }
+    fillRect(grid, 1, 0, 2, 16, '#c9a050');
+    fillRect(grid, 13, 0, 2, 16, '#c9a050');
+    return sprite(grid, 0, 15);
+  });
+}

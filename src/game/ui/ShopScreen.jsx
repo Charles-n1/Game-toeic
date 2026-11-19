@@ -34,12 +34,30 @@ function dealText(game) {
   return game.deal.factor < 1 ? 'Deal of the day: −30%' : 'The sellers are upset today: +10%';
 }
 
+const SHOP_TITLES = {
+  forge: 'Forge & Smithy',
+  armory: 'Armory',
+  potions: 'House of Potions',
+  clinic: 'Medical Clinic',
+  arcane: 'Arcane Shop',
+  bakery: 'Bakery',
+  weaver: 'Weaver & Tailor',
+  carpenter: 'Carpenter Workshop',
+  otherworld: 'Inn & Earth Kitchen',
+  market: 'General Market',
+};
+
 // A shop: buy, sell, and negotiate the prices with a duel of words (once a day).
 export default function ShopScreen({ game, refresh, onClose }) {
   const [useProt, setUseProt] = useState(false);
   const [useStone, setUseStone] = useState(false);
   const shop = game.run.shop;
-  const seller = npcOf(shop.npcId);
+  const seller = npcOf(shop.npcId) || {
+    id: shop.npcId || 'merchant',
+    name: shop.sellerName || 'Shopkeeper',
+    role: shop.sellerRole || SHOP_TITLES[shop.kind] || 'Specialist Merchant',
+    look: shop.sellerLook || { skin: '#fde0c8', hair: '#5a3a1e', style: 'short', eyes: '#3a6fd8', outfit: '#4a3a5a', trim: '#ffd23f' },
+  };
   const player = game.player;
   const deal = dealText(game);
   const offers = shopItems(game, shop.kind);
@@ -85,7 +103,7 @@ export default function ShopScreen({ game, refresh, onClose }) {
 
   return (
     <div className="overlay">
-      <Window title={shop.kind === 'forge' ? 'Forge' : 'Shop'} gold onClose={onClose}>
+      <Window title={SHOP_TITLES[shop.kind] || 'Shop'} gold onClose={onClose}>
         <div className="row" style={styles.top}>
           <Portrait look={seller.look} size={64} />
           <div className="grow">

@@ -43,3 +43,18 @@ export function classOf(id) {
 export function classOfMaster(npcId) {
   return CLASSES.find((item) => item.master === npcId) || null;
 }
+
+export const CLASS_ACADEMIES = [
+  { role: 'academyMage', title: 'Grand Mage Academy', classes: ['mage', 'arcanist', 'sage'], biomeHint: ['meadow', 'lake'] },
+  { role: 'academyKnight', title: 'Order of Knights Academy', classes: ['knight', 'paladin', 'swordSaint'], biomeHint: ['meadow', 'coast'] },
+  { role: 'academyBlade', title: 'Blademaster & Runeblade Dojo', classes: ['samurai', 'runeblade'], biomeHint: ['mountain', 'woods'] },
+  { role: 'academyShadow', title: 'Shadow & Brigand Collegium', classes: ['brigand', 'assassin', 'puppeteer'], biomeHint: ['desert', 'coast'] },
+  { role: 'academyWilds', title: 'Verdant Druid & Beast School', classes: ['beastmaster', 'druid'], biomeHint: ['forest', 'heartwood'] },
+  { role: 'academyOccult', title: 'Umbral & Plague Academy', classes: ['necromancer', 'plagueDoctor'], biomeHint: ['oldwood', 'mountain'] },
+  { role: 'academyAlchemist', title: 'Sanctum Witch & Saint Cloister', classes: ['witch', 'saint'], biomeHint: ['meadow', 'lake'] },
+  { role: 'academyMerchant', title: 'Guildsmith & Commerce Hall', classes: ['smith', 'merchant'], biomeHint: ['desert', 'town'] },
+];
+
+export function academyForRole(role) {
+  return CLASS_ACADEMIES.find((a) => a.role === role) || null;
+}

@@ -184,6 +184,8 @@ function buildHome(inside) {
   fillRect(inside.x, inside.y, inside.w, inside.h, T.WALL);
   fillRect(inside.x + 1, inside.y + 2, inside.w - 2, inside.h - 3, T.WOOD_FLOOR);
   // Bedroom wing partition walls with open doorways to master (north) and guest/companion (south) bedrooms
+  fillRect(inside.x + 1, inside.y + 2, 3, 3, T.RUG);
+  fillRect(inside.x + 1, inside.y + 6, 3, inside.h - 7, T.RUG);
   fillRect(inside.x + 1, inside.y + 5, 3, 1, T.WALL);
   fillRect(inside.x + 4, inside.y + 2, 1, inside.h - 3, T.WALL);
   setTile(inside.x + 4, inside.y + 4, T.WOOD_FLOOR);
@@ -194,6 +196,7 @@ function buildHome(inside) {
   inside.landing = { x: mat.x, y: mat.y - 1 };
   linkOneWay(mat.x, mat.y, { x: HOME_DOOR.x, y: HOME_DOOR.y + 1 });
   linkOneWay(HOME_DOOR.x, HOME_DOOR.y, inside.landing); // the door of the house (outside) leads in
+  INSIDE_PROPS.push({ kind: 'stairsUp', x: inside.x + inside.w - 3, y: inside.y + inside.h - 3, w: 1, h: 1, walkable: true });
   INSIDE_PROPS.push({ kind: 'bed', x: inside.x + 1, y: inside.y + 2, w: 2, h: 2, fixed: true });
   INSIDE_PROPS.push({ kind: 'bed', x: inside.x + 1, y: inside.y + 6, w: 2, h: 2, fixed: true });
   INSIDE_PROPS.push({ kind: 'stove', x: inside.x + inside.w - 3, y: inside.y + 1, w: 2, h: 2, fixed: true });

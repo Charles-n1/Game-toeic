@@ -69,12 +69,8 @@ const SERVER_LINES = [
 
 // ---------- The room ----------
 
-// Builds the guild hall in the room of the visits: floor, bar, tables, board. Returns its props and its people.
-export function buildGuildHall(game, house) {
-  const { x, y, w, h } = insideOf('visitHouse');
-  fillRect(x, y, w, h, TILE.WALL);
-  fillRect(x + 1, y + 2, w - 2, h - 3, TILE.WOOD_FLOOR);
-
+// Builds the guild hall (Ground Floor tavern & Upstairs Guild Dormitory/Strategy Loft).
+function buildGuildFloor0(game, house, x, y, w, h) {
   const props = [
     { kind: 'barCounter', x: x + 12, y: y + 4, w: 8, h: 1, fixed: true },
     { kind: 'barrels', x: x + 13, y: y + 2, w: 1, h: 1, fixed: true },
@@ -103,24 +99,105 @@ export function buildGuildHall(game, house) {
     { kind: 'guildBed', x: x + 18, y: y + 12, w: 2, h: 2, fixed: true },
     { kind: 'toilet', x: x + 20, y: y + 2, w: 1, h: 1, fixed: true },
     { kind: 'basin', x: x + 20, y: y + 3, w: 1, h: 1, fixed: true },
+    { kind: 'stairsUp', x: x + 20, y: y + 5, w: 1, h: 1, walkable: true },
   ];
+  return {
+    title: 'Guild of Adventurers (1F · Tavern)',
+    props,
+    patrons: patronsOf(game, x, y),
+    upPos: { x: x + 20, y: y + 5 },
+    paint: () => {
+      fillRect(x, y, w, h, TILE.WALL);
+      fillRect(x + 1, y + 2, w - 2, h - 3, TILE.WOOD_FLOOR);
+      // Corner Guild Dorm Alcove carpet
+      fillRect(x + 17, y + 11, 4, h - 12, TILE.RUG);
+    },
+  };
+}
+
+function buildGuildFloor1(x, y, w, h) {
+  const props = [
+    { kind: 'stairsDown', x: x + 20, y: y + 5, w: 1, h: 1, walkable: true },
+    // Strategy & Contract War Room (Left Wing)
+    { kind: 'diningTable', x: x + 4, y: y + 5, w: 2, h: 1, fixed: true },
+    { kind: 'diningTable', x: x + 4, y: y + 9, w: 2, h: 1, fixed: true },
+    { kind: 'weaponRack', x: x + 2, y: y + 2, w: 2, h: 1 },
+    { kind: 'weaponRack', x: x + 6, y: y + 2, w: 2, h: 1 },
+    { kind: 'banner', color: '#d0202a', x: x + 1, y: y + 2, w: 1, h: 1, walkable: true },
+    { kind: 'banner', color: '#2f50a0', x: x + 9, y: y + 2, w: 1, h: 1, walkable: true },
+    { kind: 'board', x: x + 4, y: y + 2, w: 1, h: 1, fixed: true },
+    { kind: 'crystalLantern', x: x + 8, y: y + 5, w: 1, h: 1, fixed: true },
+    { kind: 'storage', x: x + 2, y: y + 12, w: 1, h: 1, fixed: true },
+    { kind: 'window', x: x + 3, y: y + 1, w: 2, h: 1, walkable: true },
+    { kind: 'window', x: x + 13, y: y + 1, w: 2, h: 1, walkable: true },
+    { kind: 'window', x: x + 17, y: y + 1, w: 2, h: 1, walkable: true },
+    // Upstairs Washroom
+    { kind: 'toilet', x: x + 12, y: y + 12, w: 1, h: 1, fixed: true },
+    { kind: 'basin', x: x + 14, y: y + 12, w: 1, h: 1, fixed: true },
+    // Upstairs Guild Dormitory Bedroom (Right Wing, plush carpet)
+    { kind: 'guildBed', x: x + 13, y: y + 3, w: 2, h: 2, fixed: true },
+    { kind: 'guildBed', x: x + 17, y: y + 3, w: 2, h: 2, fixed: true },
+    { kind: 'guildBed', x: x + 13, y: y + 8, w: 2, h: 2, fixed: true },
+    { kind: 'guildBed', x: x + 17, y: y + 8, w: 2, h: 2, fixed: true },
+    { kind: 'wardrobe', x: x + 19, y: y + 2, w: 1, h: 1, fixed: true },
+    { kind: 'hearthTorch', x: x + 16, y: y + 2, w: 1, h: 1, walkable: true },
+  ];
+  const patrons = [
+    { kind: 'drinker', name: 'Guild Strategist', look: SERVER_LOOKS[0], x: x + 7.5, y: y + 6.5, dir: 'left', activity: 'idle' },
+    { kind: 'drinker', name: 'Off-Duty Scout', look: DRINKER_LOOKS[0], x: x + 13.8, y: y + 4.3, dir: 'down', activity: 'sleeping' },
+    { kind: 'drinker', name: 'Veteran Lancer', look: DRINKER_LOOKS[2], x: x + 17.8, y: y + 9.3, dir: 'down', activity: 'sleeping' },
+  ];
+  return {
+    title: 'Guild of Adventurers (2F · War Loft & Dormitory)',
+    props,
+    patrons,
+    downPos: { x: x + 20, y: y + 5 },
+    paint: () => {
+      fillRect(x, y, w, h, TILE.WALL);
+      fillRect(x + 1, y + 2, 10, h - 3, TILE.FLOOR); // Tactical War Room
+      fillRect(x + 12, y + 2, 9, 9, TILE.RUG); // Dormitory Bedrooms (distinct carpet!)
+      fillRect(x + 12, y + 11, 9, h - 12, TILE.WOOD_FLOOR);
+      fillRect(x + 11, y + 2, 1, h - 3, TILE.WALL); // Wing divider wall
+      setTile(x + 11, y + 6, TILE.WOOD_FLOOR);
+      setTile(x + 11, y + 7, TILE.WOOD_FLOOR);
+    },
+  };
+}
+
+export function applyGuildFloor(visit, floor = 0) {
+  if (!visit?.floorData?.[floor]) return;
+  const f = visit.floorData[floor];
+  visit.floor = floor;
+  visit.title = f.title;
+  visit.props = f.props;
+  visit.patrons = f.patrons;
+  f.paint();
+  if (visit.mat) setTile(visit.mat.x, visit.mat.y, floor === 0 ? TILE.STAIRS : TILE.WALL);
+}
+
+export function buildGuildHall(game, house) {
+  const { x, y, w, h } = insideOf('visitHouse');
+  const floor0 = buildGuildFloor0(game, house, x, y, w, h);
+  const floor1 = buildGuildFloor1(x, y, w, h);
 
   const mat = { x: x + 10, y: y + h - 1 };
-  setTile(mat.x, mat.y, TILE.STAIRS);
   const door = doorOf(house);
-
-  return {
+  const visit = {
     house: house,
     guild: true,
+    floor: 0,
+    floorData: { 0: floor0, 1: floor1 },
     info: { names: [] },
-    title: 'Guild of Adventurers',
+    title: floor0.title,
     isFamily: false,
-    props: props,
-    patrons: patronsOf(game, x, y),
+    props: floor0.props,
+    patrons: floor0.patrons,
     mat: mat,
     landing: { x: mat.x + 0.5, y: mat.y - 1 },
     exit: { x: door.x + 0.5, y: door.y + 1.5 },
   };
+  applyGuildFloor(visit, 0);
+  return visit;
 }
 
 // The people inside: drinkers at the tables, the two servers, and the guild members (real people of the story).

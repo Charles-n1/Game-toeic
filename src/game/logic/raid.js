@@ -8,6 +8,8 @@ import { killNpc, addHappiness } from './village';
 import { earnLexis, awaken } from './player';
 import { say, notify } from './messages';
 import { recordRaidFallenSoul, triggerRaidVsCaravanDilemma, ensureSoul } from './soul';
+import { isDemonSpecies } from '../data/monsters';
+import { isDemonGroundNear } from './war/demonLand';
 
 // Every 7 nights, the north attacks Eldermoor. The monsters walk to the villagers and kill them,
 // unless the player fights them first. Each raid is bigger than the one before.
@@ -20,6 +22,8 @@ const ELDERMOOR = villageOf('lexia');
 const GATES = ELDERMOOR.plan.gates.map((gate) => ({ x: gate.x + (gate.dx === 0 ? 1 : 0.5) + gate.dx * 2, y: gate.y + (gate.dy === 0 ? 1 : 0.5) + gate.dy * 2 }));
 // The monsters of the 1st raid, of the 2nd... (the last list is used for all the next ones).
 const WAVES = [['wolf', 'goblin'], ['wolf', 'orc'], ['orc', 'skeleton'], ['orc', 'drake'], ['darkKnight', 'shadowMage'], ['demonSoldier', 'demonArcher'], ['darkPaladin', 'succubus']];
+const NO_DEMON_WAVE = ['orc', 'drake', 'shadowMage', 'boneGolem']; // the strongest raiders when no demon is close
+const DEMONS_CLOSE = 60; // tiles: the demons join the raids once their land is this close to Eldermoor
 
 function raiders(game) {
   return game.run.monsters.filter((monster) => monster.raid);
@@ -31,9 +35,19 @@ function raidSize(game) {
   return game.bosses.general ? Math.ceil(size / 2) : size;
 }
 
+// The monsters of this raid. The demons only come when their land is close to Eldermoor (see war/demonLand.js):
+// before that, the monsters of the land raid without them.
+function raidWave(game) {
+  const wave = WAVES[Math.min(game.raid.count, WAVES.length - 1)];
+  const center = { x: ELDERMOOR.x + ELDERMOOR.w / 2, y: ELDERMOOR.y + ELDERMOOR.h / 2 };
+  if (isDemonGroundNear(game, center.x, center.y, DEMONS_CLOSE + ELDERMOOR.w / 2)) return wave;
+  const withoutDemons = wave.filter((id) => !isDemonSpecies(id));
+  return withoutDemons.length > 0 ? withoutDemons : NO_DEMON_WAVE;
+}
+
 function spawnRaider(game) {
   const gate = pickRandom(GATES);
-  const wave = WAVES[Math.min(game.raid.count, WAVES.length - 1)];
+  const wave = raidWave(game);
   const x = gate.x + (Math.random() - 0.5) * 2;
   const y = gate.y + (Math.random() - 0.5) * 2;
   game.run.monsters.push(makeMonster(game, pickRandom(wave), x, y, { raid: true, target: gate, biteTime: 0 }));

@@ -118,15 +118,17 @@ export const UPGRADES = {
   boots: ['sandals', 'leatherBoots', 'windBoots'],
 };
 
-// What each kind of shop sells.
+// What each kind of shop sells (specialized by building: Clinic=Medicine, Potions=Elixirs/Potions, Armory=Weapons/Armor, Arcane=Magic/Scrolls, Market=Travel/Goods).
 export const SHOPS = {
-  clinic: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'speedPotion', 'timePotion', 'hintPotion', 'herbalPoultice', 'antiseptic', 'honeyLemonTea', 'spicedBroth'],
-  bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'oil', 'salt', 'tallow', 'smokedJerky', 'pickledRadish', 'spicedBroth', 'honeyLemonTea'],
-  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion', 'herbalPoultice', 'antiseptic', 'honeyLemonTea', 'soap', 'oilWax', 'chalk', 'tallow', 'coreShard', 'alchemyDesk'],
+  clinic: ['herbalPoultice', 'antiseptic', 'honeyLemonTea', 'spicedBroth', 'soap'],
+  potions: ['healthPotion', 'bigPotion', 'antidote', 'manaPotion', 'hintPotion', 'timePotion', 'speedPotion', 'oilWax', 'chalk', 'tallow', 'alchemyDesk'],
+  armory: ['hunterBow', 'oakLongbow', 'crimsonDagger', 'frostAxe', 'repairKit', 'refineStone', 'protectionScroll'],
+  arcane: ['sageStaff', 'fireScroll', 'healScroll', 'wardScroll', 'blinkScroll', 'spiritCharm', 'manaLantern', 'coreShard'],
+  bakery: ['bread', 'carrotSeed', 'herbSeed', 'flowerSeed', 'salt', 'smokedJerky', 'pickledRadish', 'spicedBroth', 'honeyLemonTea'],
   carpenter: ['table', 'chair', 'plant', 'shelf', 'homeLamp', 'candelabra', 'hearthTorch', 'crystalLantern', 'painting', 'rugRed', 'rugBlue', 'dryingRack', 'iceBox', 'studyShelf', 'tentKit'],
-  market: ['map1', 'map2', 'map3', 'travelerPack', 'packMule', 'repairKit', 'protectionScroll', 'refineStone', 'spiritCharm', 'hunterBow', 'oakLongbow', 'crimsonDagger', 'sageStaff', 'frostAxe', 'griffinWhistle', 'royalPass', 'ring', 'healthPotion', 'manaPotion', 'oil', 'salt', 'soap', 'parchment', 'ink', 'tinder', 'chalk', 'lockpick', 'compass', 'manaLantern', 'oilWax', 'bait', 'postLetter', 'tentKit', 'delveCharter', 'merchantPatent', 'hoodedCloak', 'monocle', 'fireScroll', 'healScroll', 'wardScroll', 'blinkScroll'],
+  market: ['map1', 'map2', 'map3', 'packMule', 'griffinWhistle', 'royalPass', 'ring', 'oil', 'parchment', 'ink', 'tinder', 'compass', 'lockpick', 'bait', 'postLetter', 'delveCharter', 'merchantPatent', 'monocle'],
   weaver: ['cloth', 'travelerPack', 'hoodedCloak'],
-  otherworld: ['curryRice', 'ramen', 'mayonnaise', 'healthPotion', 'curryStew', 'omeletteRice', 'honeyToast', 'misoBroth', 'karagePlate'],
+  otherworld: ['curryRice', 'ramen', 'mayonnaise', 'curryStew', 'omeletteRice', 'honeyToast', 'misoBroth', 'karagePlate'],
 };
 
 // The next item of an upgrade path (null = already the best).

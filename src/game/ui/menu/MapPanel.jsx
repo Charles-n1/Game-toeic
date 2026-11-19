@@ -5,8 +5,19 @@ import Portrait from '../Portrait';
 import PixelIcon from '../PixelIcon';
 import { npcOf } from '../../data/npcs';
 import { drawLandscape } from '../../draw/scene';
-import { drawWorldMap, firstView, tilesPerPixel, clampView } from '../../draw/worldmap';
-import { placeHere, placeOf, mainQuestMark, sideQuestMarks } from '../../logic/places';
+import { drawWorldMap, firstView, tilesPerPixel, clampView, screenToTile } from '../../draw/worldmap';
+import {
+  placeHere,
+  placeOf,
+  mainQuestMark,
+  sideQuestMarks,
+  urgentQuestMarks,
+  listBeacons,
+  addMapBeacon,
+  removeMapBeacon,
+  togglePlaceBeacon,
+  BEACON_COLORS,
+} from '../../logic/places';
 import { maxHealth, maxMana } from '../../logic/player';
 import { zoneAt } from '../../data/zones';
 
@@ -22,6 +33,7 @@ const LEGEND = [
   ['you', 'You'],
   ['mainQuest', 'Main quest'],
   ['sideQuest', 'Side quest'],
+  ['star', 'Balise / Urgent / Academy'],
   ['town', 'Town'],
   ['dungeon', 'Dungeon'],
   ['shop', 'Shop'],
@@ -31,8 +43,8 @@ const LEGEND = [
   ['blocked', 'Blocked path'],
 ];
 
-// The map itself: drag it to move, tap a name to see the place, + and − to zoom.
-function MapView({ game, view, selectedId, onSelect }) {
+// The map itself: drag it to move, tap a name to see the place (or drop a beacon in Beacon Mode).
+function MapView({ game, view, selectedId, beaconMode, beaconColor, onSelect, onBeaconChange }) {
   const boxes = useRef([]); // the names drawn on the map, to know which one is tapped
   const size = useRef(0);
   const drag = useRef(null); // { x, y, moved } while a finger is on the map
@@ -57,7 +69,7 @@ function MapView({ game, view, selectedId, onSelect }) {
     drag.current.y = event.clientY;
   }
 
-  // A tap (not a drag): the name under the finger, if any.
+  // A tap (not a drag): toggle/place a beacon if beaconMode is active, else select tapped place name.
   function release(event) {
     const wasTap = drag.current && !drag.current.moved;
     drag.current = null;
@@ -65,12 +77,27 @@ function MapView({ game, view, selectedId, onSelect }) {
     const box = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - box.left;
     const y = event.clientY - box.top;
+    if (beaconMode && size.current > 0) {
+      const tile = screenToTile(view.current, size.current, x, y);
+      const hit = boxes.current.find((label) => x >= label.x && x <= label.x + label.w && y >= label.y && y <= label.y + label.h);
+      const label = hit ? hit.place.name : 'Balise #' + (listBeacons(game).length + 1);
+      addMapBeacon(game, tile.x, tile.y, label, beaconColor);
+      if (onBeaconChange) onBeaconChange();
+      return;
+    }
     const hit = boxes.current.find((label) => x >= label.x && x <= label.x + label.w && y >= label.y && y <= label.y + label.h);
     if (hit) onSelect(hit.place);
   }
 
   return (
-    <canvas ref={canvasRef} style={styles.map} onPointerDown={press} onPointerMove={move} onPointerUp={release} onPointerCancel={() => (drag.current = null)} />
+    <canvas
+      ref={canvasRef}
+      style={{ ...styles.map, cursor: beaconMode ? 'crosshair' : 'grab' }}
+      onPointerDown={press}
+      onPointerMove={move}
+      onPointerUp={release}
+      onPointerCancel={() => (drag.current = null)}
+    />
   );
 }
 
@@ -80,7 +107,9 @@ function Thumbnail({ place }) {
   return <canvas ref={canvasRef} style={styles.thumbnail} />;
 }
 
-function PlaceInfo({ place }) {
+function PlaceInfo({ place, game, onToggleBeacon }) {
+  const beacons = listBeacons(game);
+  const pinnedHere = place && beacons.some((b) => Math.hypot(b.x - place.x, b.y - place.y) < 12);
   return (
     <div className="row" style={styles.place}>
       <div className="portrait-box" style={styles.thumbnailBox}>
@@ -91,14 +120,24 @@ function PlaceInfo({ place }) {
           {place.name}
         </span>
         <span style={styles.placeText}>{place.text}</span>
+        {onToggleBeacon && (
+          <button
+            className="px-button"
+            style={{ marginTop: 6, alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
+            onClick={() => onToggleBeacon(place)}
+          >
+            {pinnedHere ? '📍 Retirer balise' : '📍 Baliser ce lieu'}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// The main quest (gold) and the side quests (blue). Tap one: the map goes there.
+// The main quest (gold), urgent alerts (crimson) and side quests (blue). Tap one: the map goes there.
 function QuestList({ game, onFocus }) {
   const main = mainQuestMark(game);
+  const urgent = urgentQuestMarks(game);
   const sides = sideQuestMarks(game);
   return (
     <>
@@ -109,13 +148,43 @@ function QuestList({ game, onFocus }) {
           <span>{main.title}</span>
         </button>
       )}
-      {sides.map((mark) => (
+      {urgent.map((mark) => (
+        <button key={mark.id || mark.title} className="menu-item" onClick={() => onFocus(mark)}>
+          <PixelIcon name="star" size={14} />
+          <span>{mark.title}</span>
+        </button>
+      ))}
+      {sides.slice(0, 8).map((mark) => (
         <button key={mark.title} className="menu-item" onClick={() => onFocus(mark)}>
           <PixelIcon name="sideQuest" size={14} />
           <span>{mark.title}</span>
         </button>
       ))}
-      {!main && sides.length === 0 && <span className="small">No quest right now.</span>}
+      {!main && sides.length === 0 && urgent.length === 0 && <span className="small">No quest right now.</span>}
+    </>
+  );
+}
+
+function BeaconList({ game, onFocus, onRemove }) {
+  const beacons = listBeacons(game);
+  return (
+    <>
+      <span className="section">Balises ({beacons.length})</span>
+      {beacons.length === 0 ? (
+        <span className="small">Aucune balise. Activez « Poser balise » et touchez la carte.</span>
+      ) : (
+        beacons.map((b) => (
+          <div key={b.id} className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
+            <button className="menu-item grow" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => onFocus(b)}>
+              <span style={{ display: 'inline-block', width: 10, height: 10, background: b.color || '#ff4d6d', borderRadius: 2 }} />
+              <span>{b.label}</span>
+            </button>
+            <button className="px-button" style={{ padding: '3px 7px', fontSize: 11 }} onClick={() => onRemove(b.id)} aria-label="Remove beacon">
+              ✕
+            </button>
+          </div>
+        ))
+      )}
     </>
   );
 }
@@ -168,10 +237,17 @@ function Legend() {
 }
 
 // The world map window: the map, the selected place, the quests, the party and the legend.
-export default function MapPanel({ game }) {
+export default function MapPanel({ game, refresh }) {
   const view = useRef(firstView(game)); // what part of the map is shown (changed by dragging, not by React)
   const [selected, setSelected] = useState(() => placeHere(game));
   const [zoomIndex, setZoomIndex] = useState(3);
+  const [beaconMode, setBeaconMode] = useState(false);
+  const [beaconColor, setBeaconColor] = useState(BEACON_COLORS[0]);
+  const [, setTick] = useState(0);
+  const bump = () => {
+    setTick((t) => t + 1);
+    if (refresh) refresh();
+  };
   const level = game.player.mapLevel;
 
   useEffect(listenToKeys, []);
@@ -199,17 +275,26 @@ export default function MapPanel({ game }) {
     });
   }
 
-  // A quest was tapped: the map goes to it, and shows the place there.
+  // A quest or beacon was tapped: the map goes to it, and shows the place there.
   function focus(mark) {
     view.current = clampView({ ...view.current, cx: mark.x, cy: mark.y });
-    setSelected(placeOf(zoneAt(mark.x, mark.y).id));
+    const found = placeOf(zoneAt(mark.x, mark.y).id);
+    if (found) setSelected(found);
   }
 
   return (
     <div className="map-layout">
       <div className="map-main">
         <div className="map-frame">
-          <MapView game={game} view={view} selectedId={selected.id} onSelect={setSelected} />
+          <MapView
+            game={game}
+            view={view}
+            selectedId={selected.id}
+            beaconMode={beaconMode}
+            beaconColor={beaconColor}
+            onSelect={setSelected}
+            onBeaconChange={bump}
+          />
           <div style={styles.zoom}>
             <button className="px-button" style={styles.zoomButton} disabled={zoomIndex === ZOOMS.length - 1} onClick={() => zoom(1)} aria-label="zoom in">
               +
@@ -219,6 +304,30 @@ export default function MapPanel({ game }) {
             </button>
           </div>
         </div>
+        <div className="row wrap" style={{ gap: 6, marginTop: 8, alignItems: 'center' }}>
+          <button
+            className={'px-button ' + (beaconMode ? 'px-gold' : '')}
+            style={{ padding: '4px 10px', fontSize: 12 }}
+            onClick={() => setBeaconMode((v) => !v)}
+          >
+            {beaconMode ? '📍 Mode Balise ACTIF (cliquez la carte)' : '📍 Poser balise sur la carte'}
+          </button>
+          {BEACON_COLORS.map((c) => (
+            <button
+              key={c}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                background: c,
+                border: beaconColor === c ? '2px solid #fff' : '2px solid #0e1430',
+                padding: 0,
+              }}
+              onClick={() => setBeaconColor(c)}
+              aria-label={'Beacon color ' + c}
+            />
+          ))}
+        </div>
         <div className="row small" style={styles.mapLevel}>
           <PixelIcon name={level > 0 ? 'map' + level : 'map'} size={14} />
           <span>
@@ -227,7 +336,24 @@ export default function MapPanel({ game }) {
         </div>
       </div>
       <div className="map-info">
-        <PlaceInfo place={selected} />
+        <PlaceInfo
+          place={selected}
+          game={game}
+          onToggleBeacon={(pl) => {
+            togglePlaceBeacon(game, pl);
+            bump();
+          }}
+        />
+        <div>
+          <BeaconList
+            game={game}
+            onFocus={focus}
+            onRemove={(id) => {
+              removeMapBeacon(game, id);
+              bump();
+            }}
+          />
+        </div>
         <div>
           <QuestList game={game} onFocus={focus} />
         </div>

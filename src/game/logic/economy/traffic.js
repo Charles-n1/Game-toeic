@@ -163,15 +163,35 @@ function stepShipment(game, shipment, dt, isNearPlayer) {
   if (isNearPlayer) return; // driven live along real roads by war/caravans.js
 
   const far = Math.hypot(shipment.targetX - shipment.x, shipment.targetY - shipment.y);
-  if (far <= 10) {
+  if (far <= 14) {
     completeShipment(game, shipment, true);
     return;
   }
   const step = SHIPMENT_SPEED * dt;
   const dx = ((shipment.targetX - shipment.x) / far) * step;
   const dy = ((shipment.targetY - shipment.y) / far) * step;
-  if (!isSolid(shipment.x + dx, shipment.y) && tileAt(shipment.x + dx, shipment.y) !== TILE.WATER) shipment.x += dx;
-  if (!isSolid(shipment.x, shipment.y + dy) && tileAt(shipment.x, shipment.y + dy) !== TILE.WATER) shipment.y += dy;
+  let moved = false;
+  if (!isSolid(shipment.x + dx, shipment.y) && tileAt(shipment.x + dx, shipment.y) !== TILE.WATER) {
+    shipment.x += dx;
+    moved = true;
+  }
+  if (!isSolid(shipment.x, shipment.y + dy) && tileAt(shipment.x, shipment.y + dy) !== TILE.WATER) {
+    shipment.y += dy;
+    moved = true;
+  }
+  if (!moved) {
+    // Slide along tangent when an off-screen shipment encounters a town fence or lake edge
+    const sign = shipment.id.charCodeAt(shipment.id.length - 1) % 2 === 0 ? 1 : -1;
+    const tx = -dy * sign;
+    const ty = dx * sign;
+    if (!isSolid(shipment.x + tx, shipment.y + ty) && tileAt(shipment.x + tx, shipment.y + ty) !== TILE.WATER) {
+      shipment.x += tx;
+      shipment.y += ty;
+    } else if (!isSolid(shipment.x - tx, shipment.y - ty) && tileAt(shipment.x - tx, shipment.y - ty) !== TILE.WATER) {
+      shipment.x -= tx;
+      shipment.y -= ty;
+    }
+  }
   shipment.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
 }
 

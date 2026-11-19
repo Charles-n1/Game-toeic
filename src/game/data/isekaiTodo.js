@@ -277,10 +277,12 @@ export const INTELLIGENT_MONSTERS = [
   },
 ];
 
+// The demon generals and their clans: each one keeps a camp deep in the Silent Isle and never leaves it
+// (see logic/isekaiTodo/monstersPlus.js).
 export const DEMON_EMISSARIES = [
-  { id: 'emissary_ash', name: "Ashfang War Clan", species: 'warGeneral', title: 'Demon King Vanguard', region: 'Northern Plains', bounty: 240, xp: 160, doomCut: 15 },
-  { id: 'emissary_malakor', name: "Inquisitor Malakor's Coven", species: 'sorcererGeneral', title: 'Grand Inquisitor Emissary', region: 'Eastern Marshes', bounty: 300, xp: 200, doomCut: 20 },
-  { id: 'emissary_krag', name: 'General Skorn Legion', species: 'demonBehemoth', title: 'Breaker of Borders', region: 'Frozen Pass', bounty: 360, xp: 250, doomCut: 25 },
+  { id: 'emissary_ash', name: "Ashfang War Clan", species: 'warGeneral', title: 'Demon King Vanguard', region: 'Ash Fields of the Silent Isle', bounty: 240, xp: 160, doomCut: 15 },
+  { id: 'emissary_malakor', name: "Inquisitor Malakor's Coven", species: 'sorcererGeneral', title: 'Grand Inquisitor Emissary', region: 'Ember Cliffs of the Silent Isle', bounty: 300, xp: 200, doomCut: 20 },
+  { id: 'emissary_krag', name: 'General Skorn Legion', species: 'demonBehemoth', title: 'Breaker of Borders', region: 'Lava Gate of the Silent Isle', bounty: 360, xp: 250, doomCut: 25 },
 ];
 
 export const COMPANION_ARCS = {
@@ -412,7 +414,7 @@ export const PART6_LETTERS = [
     sender: 'Royal Chancery of Lexia',
     subject: 'Border Patrol & Monster Emissaries',
     urgent: true,
-    text: 'Royal Decree #408:\nEmissary warbands carrying the Demon King’s crimson seal have entered outer provinces. Adventurers ____ Adventurer Cards show Rank D or higher are authorized to claim priority border stipends.',
+    text: 'Royal Decree #408:\nEmissary warbands carrying the Demon King’s crimson seal guard their camps on the Silent Isle. Adventurers ____ Adventurer Cards show Rank D or higher are authorized to claim priority border stipends.',
     question: 'Select the relative pronoun that completes the decree:',
     answers: ['whose', 'whom', 'which', 'what'],
     correct: 0,
