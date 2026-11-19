@@ -60,6 +60,8 @@ function isLandRoute(fromCenter, toCenter) {
 
 // ---------- 1. Paid Inter-Town Road Shipments ----------
 
+const BUYERS_PER_TRY = 3; // towns that look for a seller, each time a shipment is tried
+
 export function dispatchShipment(game) {
   const econ = ensureEconomy(game);
   if (econ.shipments.length >= MAX_SHIPMENTS) return null;
@@ -67,8 +69,9 @@ export function dispatchShipment(game) {
   const peopleTowns = VILLAGES.filter((v) => game.villages[v.id]?.owner === 'people');
   if (peopleTowns.length < 2) return null;
 
-  // Prioritize buyers with genuine shortages whose treasuries can pay for supplies + transport
-  const shuffledBuyers = [...peopleTowns].sort(() => Math.random() - 0.5);
+  // A few towns at random look for what they miss (and can pay for, with the transport). It is tried again every
+  // second: looking at every town each time (and every seller for each one) was a tenth of the time of the game.
+  const shuffledBuyers = [...peopleTowns].sort(() => Math.random() - 0.5).slice(0, BUYERS_PER_TRY);
   for (const buyer of shuffledBuyers) {
     const gaps = missingInputsFor(game, buyer.id);
     if (gaps.length === 0) continue;

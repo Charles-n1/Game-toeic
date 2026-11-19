@@ -14,36 +14,61 @@ function sunsetAmount(hour) {
   return 0;
 }
 
+// The pictures of a light, made once (64 x 64) and copied at the size of each light at every frame:
+// a hole in the darkness, and a warm glow. (A new gradient for each light at each frame was slow.)
+const HALO = 64;
+let darkHole = null;
+let warmGlow = null;
+
+function haloPicture(stops) {
+  const canvas = document.createElement('canvas');
+  canvas.width = HALO;
+  canvas.height = HALO;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(HALO / 2, HALO / 2, 0, HALO / 2, HALO / 2, HALO / 2);
+  for (const [at, color] of stops) gradient.addColorStop(at, color);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, HALO, HALO);
+  return canvas;
+}
+
+function darkHolePicture() {
+  if (!darkHole) darkHole = haloPicture([[0, 'rgba(0, 0, 0, 1)'], [0.52, 'rgba(0, 0, 0, 0.72)'], [1, 'rgba(0, 0, 0, 0)']]);
+  return darkHole;
+}
+
+function warmGlowPicture() {
+  if (!warmGlow) warmGlow = haloPicture([[0, 'rgba(255, 178, 72, 0.26)'], [0.6, 'rgba(255, 118, 42, 0.1)'], [1, 'rgba(255, 100, 30, 0)']]);
+  return warmGlow;
+}
+
 function paintNight(ctx, width, height, dark, lights) {
-  lightMap.width = width;
-  lightMap.height = height;
+  if (lightMap.width !== width || lightMap.height !== height) {
+    lightMap.width = width; // (a new size empties the canvas: only when the size changes, not every frame)
+    lightMap.height = height;
+  }
   const map = lightMap.getContext('2d');
+  map.globalCompositeOperation = 'source-over';
+  map.clearRect(0, 0, width, height);
   map.fillStyle = 'rgba(10, 10, 34, ' + NIGHT_STRENGTH * dark + ')';
   map.fillRect(0, 0, width, height);
   map.globalCompositeOperation = 'destination-out';
-  for (const light of lights) {
-    const glow = map.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius);
-    glow.addColorStop(0, 'rgba(0, 0, 0, 1)');
-    glow.addColorStop(0.52, 'rgba(0, 0, 0, 0.72)');
-    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    map.fillStyle = glow;
-    map.fillRect(light.x - light.radius, light.y - light.radius, light.radius * 2, light.radius * 2);
-  }
+  const hole = darkHolePicture();
+  for (const light of lights) map.drawImage(hole, light.x - light.radius, light.y - light.radius, light.radius * 2, light.radius * 2);
+  map.globalCompositeOperation = 'source-over';
   ctx.drawImage(lightMap, 0, 0);
 }
 
 function paintGlows(ctx, lights, strength) {
   ctx.globalCompositeOperation = 'lighter';
-  const bloomScale = Math.max(0.28, strength);
-  for (const light of lights.filter((item) => item.warm)) {
+  ctx.globalAlpha = Math.max(0.28, strength);
+  const glow = warmGlowPicture();
+  for (const light of lights) {
+    if (!light.warm) continue;
     const radius = light.radius * 0.68;
-    const glow = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, radius);
-    glow.addColorStop(0, 'rgba(255, 178, 72, ' + (0.26 * bloomScale).toFixed(3) + ')');
-    glow.addColorStop(0.6, 'rgba(255, 118, 42, ' + (0.1 * bloomScale).toFixed(3) + ')');
-    glow.addColorStop(1, 'rgba(255, 100, 30, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(light.x - radius, light.y - radius, radius * 2, radius * 2);
+    ctx.drawImage(glow, light.x - radius, light.y - radius, radius * 2, radius * 2);
   }
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 }
 
@@ -52,13 +77,22 @@ function paintTint(ctx, width, height, color) {
   ctx.fillRect(0, 0, width, height);
 }
 
+// The dark edges of the screen: made once for a size of screen, then copied.
+const vignette = document.createElement('canvas');
+
 function paintVignette(ctx, width, height) {
-  const rad = Math.max(width, height) * 0.72;
-  const g = ctx.createRadialGradient(width / 2, height / 2, rad * 0.45, width / 2, height / 2, rad);
-  g.addColorStop(0, 'rgba(14, 10, 24, 0)');
-  g.addColorStop(1, 'rgba(10, 8, 22, 0.28)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, width, height);
+  if (vignette.width !== width || vignette.height !== height) {
+    vignette.width = width;
+    vignette.height = height;
+    const v = vignette.getContext('2d');
+    const rad = Math.max(width, height) * 0.72;
+    const g = v.createRadialGradient(width / 2, height / 2, rad * 0.45, width / 2, height / 2, rad);
+    g.addColorStop(0, 'rgba(14, 10, 24, 0)');
+    g.addColorStop(1, 'rgba(10, 8, 22, 0.28)');
+    v.fillStyle = g;
+    v.fillRect(0, 0, width, height);
+  }
+  ctx.drawImage(vignette, 0, 0);
 }
 
 export function drawLights(ctx, game, width, height, lights, dark = darkness(game)) {

@@ -40,6 +40,7 @@ import { economyDrawings } from './economyArt';
 import { familyKidsList } from '../logic/families';
 import { hasFires, treeFireAt, burningTrees } from '../logic/war/forestFire';
 import { spokenLines } from '../logic/smallTalk';
+import { writeText } from './textPictures';
 import { drawLifeGround, lifeDrawings, drawLifeEffects, writeLifeLabels } from './lifeArt';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
@@ -1444,17 +1445,6 @@ function drawOpeningIntro(ctx, game, view, time) {
 
 // ---------- The texts, written on the big screen (sharper than in the buffer) ----------
 
-function writeText(ctx, text, x, y, size, color) {
-  ctx.font = size + 'px "Pixelify Sans", monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = Math.max(3, size / 4);
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#1c1726';
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-}
 
 function writeNames(ctx, game, view, scale) {
   if (game.run.fight) return;

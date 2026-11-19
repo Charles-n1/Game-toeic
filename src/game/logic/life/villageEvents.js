@@ -10,6 +10,10 @@ import { cue } from '../cues';
 import { addParticle } from '../particles';
 import { ensureLife, ensureRunLife, recordGossip, recordAbsenceNote } from './state';
 import { distance } from '../../world/geometry';
+import { isDemonGroundNear } from '../war/demonLand';
+import { isInSight } from './spots';
+
+const FRONTIER_RANGE = 150; // tiles: a village this close to the demon land is on the frontier (towers, empty houses)
 
 
 const PERFORMER_LOOKS = {
@@ -43,190 +47,132 @@ function findRiverbankNear(town, maxRadius = 24) {
   return null;
 }
 
+// ---------- The people of the squares: crier, artists, beggar, council, washerwoman, processions ----------
+// Each one has its hours. Coming while the hero looks, they come out of a house of the village and walk to their
+// place; their hours over, they walk into a house (out of sight, they just come and go).
+
+// About once per second: who should be in the villages near the hero now, and who should leave.
 export function syncVillagePerformers(game) {
-  const life = ensureLife(game);
   const rl = ensureRunLife(game);
   const awake = new Set(game.run?.awake || []);
-  rl.performers = rl.performers.filter((p) => awake.has(p.villageId));
+  const wanted = new Map();
+  for (const id of awake) for (const performer of performersOf(game, villageOf(id))) wanted.set(performer.id, performer);
+  rl.performers = rl.performers.filter((p) => awake.has(p.villageId) && (wanted.has(p.id) || p.kind === 'guardRelief' || isInSight(game, p)));
+  for (const performer of rl.performers) if (!wanted.has(performer.id) && performer.kind !== 'guardRelief') leaveIntoAHouse(performer);
+  for (const performer of wanted.values()) if (!rl.performers.some((p) => p.id === performer.id)) rl.performers.push(arrive(game, performer));
+}
 
-  const day = game.day || 1;
-  const hour = game.hour || 12;
-  const marketDay = day % 7 === 3;
+// The performers a village has now (its spot in x, y; its way, if it walks somewhere, in tx, ty).
+function performersOf(game, town) {
+  if (!town?.plan?.center) return [];
+  const makers = [crier, streetArtists, gateBeggar, council, washerwoman, newcomerCart, funeralProcession, celebration];
+  return makers.flatMap((make) => make(game, town, game.hour || 12, game.day || 1) || []);
+}
 
-  for (const vid of awake) {
-    const v = villageOf(vid);
-    if (!v || !v.plan?.center) continue;
-    const c = v.plan.center;
-    if (rl.performers.some((p) => p.villageId === vid)) continue;
+// A new performer: at its place if the hero does not see it, else out of the closest door, walking to its place.
+function arrive(game, performer) {
+  const goal = { x: performer.tx ?? performer.x, y: performer.ty ?? performer.y };
+  if (!isInSight(game, performer)) return { ...performer, tx: goal.x, ty: goal.y };
+  const door = closestDoor(performer);
+  return { ...performer, x: door.x, y: door.y, tx: goal.x, ty: goal.y, walking: true };
+}
 
-    // Morning Town Square Crier reading dawn news (#29)
-    if (hour >= 7 && hour < 10.5) {
-      const headline =
-        marketDay
-          ? 'Hear ye! Grand Market Fair opens on ' + v.name + ' Square today!'
-          : life.gossip.length > 0
-            ? 'Hear ye! ' + life.gossip[life.gossip.length - 1].text
-            : 'Hear ye! Fair skies along the high roads—watch the forest traps!';
-      rl.performers.push({
-        id: 'crier-' + vid,
-        villageId: vid,
-        kind: 'crier',
-        name: 'Morning Town Crier',
-        look: PERFORMER_LOOKS.crier,
-        x: c.x,
-        y: c.y - 1.5,
-        dir: 'down',
-        shout: headline,
-      });
-    }
+// Its hours are over: it walks into the closest house (and is forgotten once there, or out of sight).
+function leaveIntoAHouse(performer) {
+  if (performer.leaving) return;
+  const door = closestDoor(performer);
+  performer.leaving = true;
+  performer.tx = door.x;
+  performer.ty = door.y;
+}
 
-    // Street juggler & musician on Capitals (#39) + Weekly Market vendors (#21)
-    if (v.kind === 'capital' || marketDay) {
-      rl.performers.push({
-        id: 'perf-jug-' + vid,
-        villageId: vid,
-        kind: 'juggler',
-        name: marketDay ? 'Market Herald' : 'Street Juggler',
-        look: PERFORMER_LOOKS.juggler,
-        x: c.x - 2,
-        y: c.y + 1,
-        dir: 'down',
-        shout: marketDay ? 'Fresh market wares—best prices today!' : 'Watch three fire-pins fly!',
-      });
-      rl.performers.push({
-        id: 'perf-mus-' + vid,
-        villageId: vid,
-        kind: 'musician',
-        name: 'Lute Player',
-        look: PERFORMER_LOOKS.musician,
-        x: c.x + 2,
-        y: c.y + 1,
-        dir: 'down',
-        shout: life.heroSongs.length > 0 ? '♪ Ballad of ' + (game.player?.name || 'the Hero') + '! ♪' : '♪ Golden meadows of spring! ♪',
-      });
-    }
-
-    // Capital Gate Beggar (#38)
-    if (v.kind === 'capital' && v.plan?.gates?.length > 0) {
-      const g = v.plan.gates[0];
-      rl.performers.push({
-        id: 'beg-' + vid,
-        villageId: vid,
-        kind: 'beggar',
-        name: 'Gate Beggar',
-        look: PERFORMER_LOOKS.beggar,
-        x: g.x + (g.dx === 0 ? 2 : -g.dx * 2),
-        y: g.y + (g.dy === 0 ? 2 : -g.dy * 2),
-        dir: 'down',
-        helped: false,
-        shout: 'Spare a copper coin for bread, traveler?',
-      });
-    }
-
-    // Village Council (#40): elder & citizens debating at square table
-    if (v.kind !== 'hamlet' && hour >= 9 && hour < 17) {
-      rl.performers.push({
-        id: 'coun-' + vid,
-        villageId: vid,
-        kind: 'council',
-        name: v.name + ' Councilor',
-        look: PERFORMER_LOOKS.council,
-        x: c.x + 3.2,
-        y: c.y - 1.5,
-        dir: 'left',
-        shout: 'Taxes, palisades, and the northern frontier...',
-      });
-    }
-
-    // Riverbank Washerwoman during sunny mornings (#30)
-    if (!isNight(game) && game.weather?.kind !== 'storm' && hour >= 7.5 && hour < 15.5) {
-      const bank = findRiverbankNear(v);
-      if (bank) {
-        rl.performers.push({
-          id: 'wash-' + vid,
-          villageId: vid,
-          kind: 'washer',
-          name: 'River Washerwoman',
-          look: PERFORMER_LOOKS.washer,
-          x: bank.x,
-          y: bank.y,
-          dir: 'right',
-          shout: 'Sun-dried linens smell sweet by noon!',
-        });
-      }
-    }
-
-    // Newcomer Cart full of furniture moving in after cottage completion or moving-day (#15)
-    const builtHouse = (v.plan?.houses || [])[0];
-    if (builtHouse && (day % 4 === 3 || life.absenceLog.some((n) => n.day === day && n.text.includes('cottage'))) && v.plan?.gates?.length) {
-      const g = v.plan.gates[0].outside || { x: v.x, y: c.y };
-      rl.performers.push({
-        id: 'newcart-' + vid + '-' + day,
-        villageId: vid,
-        kind: 'newcomerCart',
-        name: 'Newcomer Family Cart',
-        look: PERFORMER_LOOKS.newcomer,
-        x: g.x,
-        y: g.y,
-        tx: builtHouse.x + Math.floor(builtHouse.w / 2),
-        ty: builtHouse.y + builtHouse.h + 1.2,
-        dir: 'right',
-        step: 0,
-        walking: true,
-        shout: '🪑 Just arrived with chests and oak chairs for our new cottage!',
-      });
-    }
-
-    // Funeral Procession slowly walking toward newly dug grave (#23)
-    const freshGrave = life.graves.find((g) => g.villageId === vid && day <= (g.day || 0) + 1);
-    if (freshGrave) {
-      rl.performers.push({
-        id: 'fun-' + vid + '-' + freshGrave.id,
-        villageId: vid,
-        kind: 'funeral',
-        name: 'Funeral Procession',
-        look: PERFORMER_LOOKS.mourner,
-        x: c.x,
-        y: c.y,
-        tx: freshGrave.x - 1,
-        ty: freshGrave.y + 0.8,
-        dir: 'right',
-        step: 0,
-        walking: true,
-        shout: '🕯️ May ' + freshGrave.name + ' rest gently beneath the pines...',
-      });
-    }
-
-    // Periodic Wedding (#22) or Birth Gift Bearer (#24) celebration
-    if (day % 9 === 0 && v.id === 'lexia') {
-      rl.performers.push({
-        id: 'wed-' + vid + '-' + day,
-        villageId: vid,
-        kind: 'wedding',
-        name: 'Wedding Procession',
-        look: PERFORMER_LOOKS.musician,
-        x: c.x - 1,
-        y: c.y - 2,
-        tx: c.x + 1,
-        ty: c.y + 2,
-        dir: 'down',
-        shout: '💐 Long live the newlyweds!',
-      });
-    } else if (day % 5 === 0 && v.plan?.houses?.length > 0) {
-      const h = v.plan.houses[0];
-      rl.performers.push({
-        id: 'birth-' + vid + '-' + day,
-        villageId: vid,
-        kind: 'giftBearer',
-        name: 'Happy Neighbor',
-        look: PERFORMER_LOOKS.newcomer,
-        x: h.x + Math.floor(h.w / 2),
-        y: h.y + h.h + 1.4,
-        dir: 'up',
-        shout: '🎀 A new baby was born today! Bringing gifts!',
-      });
+function closestDoor(performer) {
+  const houses = villageOf(performer.villageId)?.plan?.houses || [];
+  let best = { x: performer.x, y: performer.y };
+  let bestFar = Infinity;
+  for (const house of houses) {
+    const door = { x: house.x + Math.floor(house.w / 2) + 0.5, y: house.y + house.h + 0.5 };
+    if (distance(door, performer) < bestFar) {
+      best = door;
+      bestFar = distance(door, performer);
     }
   }
+  return best;
+}
+
+function marketDay(day) {
+  return day % 7 === 3;
+}
+
+// The crier reads the news on the square, in the morning.
+function crier(game, town, hour, day) {
+  if (hour < 7 || hour >= 10.5) return null;
+  const gossip = ensureLife(game).gossip;
+  const news = marketDay(day) ? 'Hear ye! Grand Market Fair opens on ' + town.name + ' Square today!' : gossip.length > 0 ? 'Hear ye! ' + gossip[gossip.length - 1].text : 'Hear ye! Fair skies along the high roads—watch the forest traps!';
+  const c = town.plan.center;
+  return { id: 'crier-' + town.id, villageId: town.id, kind: 'crier', name: 'Morning Town Crier', look: PERFORMER_LOOKS.crier, x: c.x, y: c.y - 1.5, dir: 'down', shout: news };
+}
+
+// A juggler and a musician on the squares of the capitals (and of every village on market day).
+function streetArtists(game, town, hour, day) {
+  if (hour < 8 || hour >= 19 || !(town.kind === 'capital' || marketDay(day))) return null;
+  const c = town.plan.center;
+  const songs = ensureLife(game).heroSongs;
+  return [
+    { id: 'perf-jug-' + town.id, villageId: town.id, kind: 'juggler', name: marketDay(day) ? 'Market Herald' : 'Street Juggler', look: PERFORMER_LOOKS.juggler, x: c.x - 2, y: c.y + 1, dir: 'down', shout: marketDay(day) ? 'Fresh market wares—best prices today!' : 'Watch three fire-pins fly!' },
+    { id: 'perf-mus-' + town.id, villageId: town.id, kind: 'musician', name: 'Lute Player', look: PERFORMER_LOOKS.musician, x: c.x + 2, y: c.y + 1, dir: 'down', shout: songs.length > 0 ? '♪ Ballad of ' + (game.player?.name || 'the Hero') + '! ♪' : '♪ Golden meadows of spring! ♪' },
+  ];
+}
+
+// A beggar at the gate of the capitals, by day.
+function gateBeggar(game, town, hour) {
+  if (town.kind !== 'capital' || !town.plan?.gates?.length || hour < 7 || hour >= 20) return null;
+  const g = town.plan.gates[0];
+  return { id: 'beg-' + town.id, villageId: town.id, kind: 'beggar', name: 'Gate Beggar', look: PERFORMER_LOOKS.beggar, x: g.x + (g.dx === 0 ? 2 : -g.dx * 2), y: g.y + (g.dy === 0 ? 2 : -g.dy * 2), dir: 'down', helped: false, shout: 'Spare a copper coin for bread, traveler?' };
+}
+
+// The council debates at a table on the square, in the day.
+function council(game, town, hour) {
+  if (town.kind === 'hamlet' || hour < 9 || hour >= 17) return null;
+  const c = town.plan.center;
+  return { id: 'coun-' + town.id, villageId: town.id, kind: 'council', name: town.name + ' Councilor', look: PERFORMER_LOOKS.council, x: c.x + 3.2, y: c.y - 1.5, dir: 'left', shout: 'Taxes, palisades, and the northern frontier...' };
+}
+
+// The washerwoman at the river, on mornings without a storm.
+function washerwoman(game, town, hour) {
+  if (isNight(game) || game.weather?.kind === 'storm' || hour < 7.5 || hour >= 15.5) return null;
+  const bank = findRiverbankNear(town);
+  if (!bank) return null;
+  return { id: 'wash-' + town.id, villageId: town.id, kind: 'washer', name: 'River Washerwoman', look: PERFORMER_LOOKS.washer, x: bank.x, y: bank.y, dir: 'right', shout: 'Sun-dried linens smell sweet by noon!' };
+}
+
+// Moving day (every 4 days, or when a new cottage is done): a family cart comes in by the gate.
+function newcomerCart(game, town, hour, day) {
+  const life = ensureLife(game);
+  const house = town.plan?.houses?.[0];
+  const isMovingDay = day % 4 === 3 || life.absenceLog.some((note) => note.day === day && note.text.includes('cottage'));
+  if (!house || !town.plan?.gates?.length || !isMovingDay || hour < 8 || hour >= 18) return null;
+  const gate = bestGateOf(town, house)?.outside || { x: town.x, y: town.plan.center.y };
+  return { id: 'newcart-' + town.id + '-' + day, villageId: town.id, kind: 'newcomerCart', name: 'Newcomer Family Cart', look: PERFORMER_LOOKS.newcomer, x: gate.x, y: gate.y, tx: house.x + Math.floor(house.w / 2), ty: house.y + house.h + 1.2, dir: 'right', step: 0, shout: '🪑 Just arrived with chests and oak chairs for our new cottage!' };
+}
+
+// A funeral procession walks to a new grave (the day of the death and the next).
+function funeralProcession(game, town, hour, day) {
+  const grave = ensureLife(game).graves.find((g) => g.villageId === town.id && day <= (g.day || 0) + 1);
+  if (!grave || hour < 9 || hour >= 17) return null;
+  const c = town.plan.center;
+  return { id: 'fun-' + town.id + '-' + grave.id, villageId: town.id, kind: 'funeral', name: 'Funeral Procession', look: PERFORMER_LOOKS.mourner, x: c.x, y: c.y, tx: grave.x - 1, ty: grave.y + 0.8, dir: 'right', step: 0, shout: '🕯️ May ' + grave.name + ' rest gently beneath the pines...' };
+}
+
+// A wedding in Eldermoor every 9 days; a birth (a neighbor bringing gifts) every 5 days.
+function celebration(game, town, hour, day) {
+  const c = town.plan.center;
+  if (day % 9 === 0 && town.id === 'lexia' && hour >= 10 && hour < 18) {
+    return { id: 'wed-' + town.id + '-' + day, villageId: town.id, kind: 'wedding', name: 'Wedding Procession', look: PERFORMER_LOOKS.musician, x: c.x - 1, y: c.y - 2, tx: c.x + 1, ty: c.y + 2, dir: 'down', shout: '💐 Long live the newlyweds!' };
+  }
+  const house = town.plan?.houses?.[0];
+  if (day % 5 !== 0 || !house || hour < 9 || hour >= 17) return null;
+  return { id: 'birth-' + town.id + '-' + day, villageId: town.id, kind: 'giftBearer', name: 'Happy Neighbor', look: PERFORMER_LOOKS.newcomer, x: house.x + Math.floor(house.w / 2), y: house.y + house.h + 1.4, dir: 'up', shout: '🎀 A new baby was born today! Bringing gifts!' };
 }
 
 export function triggerHeroVictoryLife(game, deedTitle, villageId = 'lexia') {
@@ -288,7 +234,8 @@ export function newDayVillagesLife(game) {
 
   // 2. Border Exodus & Abandoned Homes near northern Demon frontier (#16) + Frontier Watchtowers (#62)
   for (const v of VILLAGES) {
-    const isFrontier = v.y < 680 || Boolean(game.war?.warbands?.some((b) => b.targetId === v.id));
+    const center = { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+    const isFrontier = isDemonGroundNear(game, center.x, center.y, FRONTIER_RANGE) || Boolean(game.war?.warbands?.some((b) => b.targetId === v.id));
     if (isFrontier && (v.plan?.gates?.length || 0) > 0 && !life.borderTowers.some((t) => t.villageId === v.id)) {
       const g = bestGateOf(v, { x: v.x + v.w / 2, y: 0 }) || v.plan.gates[0];
       life.borderTowers.push({ id: 'twr-' + v.id, villageId: v.id, x: g.x - (g.dx || 0) * 3, y: g.y - (g.dy || 0) * 3, builtDay: day });
@@ -372,12 +319,13 @@ export function slowVillageEvents(game) {
   if (hour >= 17.5 && hour < 19.5 && currentV) {
     const lamps = (currentV.plan?.props || []).filter((p) => p.kind === 'lamp');
     if (lamps.length > 0 && (!rl.lamplighter || rl.lamplighter.villageId !== currentV.id)) {
+      const door = closestDoor({ villageId: currentV.id, x: currentV.plan.center.x, y: currentV.plan.center.y }); // comes out of a house
       rl.lamplighter = {
         villageId: currentV.id,
         name: 'Evening Lamplighter',
         look: PERFORMER_LOOKS.lamplighter,
-        x: currentV.plan.center.x,
-        y: currentV.plan.center.y,
+        x: door.x,
+        y: door.y,
         dir: 'down',
         step: 0,
         walking: false,
@@ -433,6 +381,28 @@ export function slowVillageEvents(game) {
   }
 }
 
+// A performer walks to its place (or to the door it leaves by), then stands there.
+function walkPerformer(perf, dt) {
+  if (perf.tx === undefined || Math.hypot(perf.tx - perf.x, perf.ty - perf.y) <= 0.6) {
+    perf.walking = false;
+    return;
+  }
+  const speed = perf.kind === 'funeral' ? 0.7 : perf.kind === 'guardRelief' ? 1.85 : 1.1;
+  if (!stepSmart(perf, perf.tx, perf.ty, speed, dt, { stopAtGate: false })) perf.walking = false;
+}
+
+// The juggled pins, the soap of the washerwoman, the petals of the wedding.
+function performerEffects(game, perf, dt) {
+  if (perf.walking) return;
+  if (perf.kind === 'juggler' && Math.random() < dt * 3.5) {
+    addParticle(game, { x: perf.x, y: perf.y - 1.1, vx: (Math.random() - 0.5) * 0.9, vy: -1.8, life: 0.5, color: ['#ffd23f', '#ff5c94', '#7cfc9a'][Math.floor(Math.random() * 3)], size: 2 });
+  } else if (perf.kind === 'washer' && Math.random() < dt * 2.2) {
+    addParticle(game, { x: perf.x + 0.6, y: perf.y, vx: 0.3, vy: -0.4, life: 0.6, color: '#eef8ff', size: 2 });
+  } else if (perf.kind === 'wedding' && Math.random() < dt * 2.5) {
+    addParticle(game, { x: perf.x + (Math.random() - 0.5), y: perf.y - 0.8, vx: 0.3, vy: 0.5, life: 0.8, color: '#ff8ca8', size: 2 });
+  }
+}
+
 export function updateVillageEvents(game, dt) {
   const rl = ensureRunLife(game);
   const now = Date.now();
@@ -468,22 +438,11 @@ export function updateVillageEvents(game, dt) {
   }
 
   for (const perf of rl.performers) {
-    if (perf.kind === 'juggler' && Math.random() < dt * 3.5) {
-      addParticle(game, { x: perf.x, y: perf.y - 1.1, vx: (Math.random() - 0.5) * 0.9, vy: -1.8, life: 0.5, color: ['#ffd23f', '#ff5c94', '#7cfc9a'][Math.floor(Math.random() * 3)], size: 2 });
-    } else if (perf.kind === 'washer' && Math.random() < dt * 2.2) {
-      addParticle(game, { x: perf.x + 0.6, y: perf.y, vx: 0.3, vy: -0.4, life: 0.6, color: '#eef8ff', size: 2 });
-    } else if (perf.kind === 'wedding' || perf.kind === 'newcomerCart' || perf.kind === 'funeral' || perf.kind === 'guardRelief') {
-      const spd = perf.kind === 'funeral' ? 0.7 : perf.kind === 'guardRelief' ? 1.85 : 1.1;
-      if (Math.hypot((perf.tx || perf.x) - perf.x, (perf.ty || perf.y) - perf.y) > 0.6) {
-        stepSmart(perf, perf.tx, perf.ty, spd, dt, { stopAtGate: false });
-      } else {
-        perf.walking = false;
-      }
-      if (perf.kind === 'wedding' && Math.random() < dt * 2.5) {
-        addParticle(game, { x: perf.x + (Math.random() - 0.5), y: perf.y - 0.8, vx: 0.3, vy: 0.5, life: 0.8, color: '#ff8ca8', size: 2 });
-      }
-    }
+    walkPerformer(perf, dt);
+    performerEffects(game, perf, dt);
   }
+  rl.performers = rl.performers.filter((p) => !(p.leaving && !p.walking)); // in the house: gone
+  rl.performers = rl.performers.filter((p) => !(p.kind === 'guardRelief' && !p.walking && !isInSight(game, p))); // on the wall
 }
 
 export function actionsOfVillageLife(game) {

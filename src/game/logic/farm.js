@@ -147,10 +147,32 @@ function treasureNear(game, x, y) {
 }
 
 // The closest treasure still in the ground, within `range` tiles (undefined = none).
+// The treasures sorted by blocks of 32 x 32 tiles: only the blocks around the hero are looked at (the treasure
+// hint is looked for at every frame: going through all the treasures of the world each time was slow).
+const BLOCK = 32;
+let treasuresByBlock = null;
+
+function treasuresNear(x, y) {
+  if (!treasuresByBlock) {
+    treasuresByBlock = new Map();
+    for (const treasure of TREASURES) {
+      const key = Math.floor(treasure.x / BLOCK) + ',' + Math.floor(treasure.y / BLOCK);
+      if (!treasuresByBlock.has(key)) treasuresByBlock.set(key, []);
+      treasuresByBlock.get(key).push(treasure);
+    }
+  }
+  const bx = Math.floor(x / BLOCK);
+  const by = Math.floor(y / BLOCK);
+  const near = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) near.push(...(treasuresByBlock.get(bx + dx + ',' + (by + dy)) || []));
+  return near;
+}
+
+// The closest treasure not dug yet, at most `range` tiles away (range: less than a block).
 export function closestTreasure(game, range) {
   let closest;
   let best = range;
-  for (const treasure of TREASURES) {
+  for (const treasure of treasuresNear(game.player.x, game.player.y)) {
     const far = Math.hypot(treasure.x + 0.5 - game.player.x, treasure.y + 0.5 - game.player.y);
     if (!game.dug[treasure.key] && far < best) {
       closest = treasure;

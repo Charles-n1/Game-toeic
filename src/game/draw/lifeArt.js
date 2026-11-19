@@ -9,6 +9,7 @@ import { personSprite, walkPose } from './people';
 import { animalSprite } from './animals';
 import { makeGrid, dot, fillRect, addOutline, toCanvas, once } from './pixels';
 import { OUTLINE, WOOD, STONE_RAMP } from './palette';
+import { writeText } from './textPictures';
 
 function drawFeetShadow(ctx, x, y, view) {
   ctx.fillStyle = 'rgba(14, 10, 24, 0.34)';
@@ -731,44 +732,32 @@ export function writeLifeLabels(ctx, game, view, scale) {
 
   for (const v of visibleVillagers(game)) {
     if (v.lifeBubble && Math.hypot(v.x - game.player.x, v.y - game.player.y) < 9) {
-      writeBadge(ctx, v.lifeBubble, (v.x * T - view.x) * scale, (v.y * T - 34 - view.y) * scale, 11, '#fff6d8');
+      writeText(ctx, v.lifeBubble, (v.x * T - view.x) * scale, (v.y * T - 34 - view.y) * scale, 11, '#fff6d8');
     }
   }
   for (const d of rl.townDogs) {
     if (d.shout && Math.hypot(d.x - game.player.x, d.y - game.player.y) < 10) {
-      writeBadge(ctx, d.shout, (d.x * T - view.x) * scale, (d.y * T - 20 - view.y) * scale, 11, '#ffe680');
+      writeText(ctx, d.shout, (d.x * T - view.x) * scale, (d.y * T - 20 - view.y) * scale, 11, '#ffe680');
     }
   }
   for (const p of [...rl.performers, ...rl.pickpockets]) {
     if (p.shout && Math.hypot(p.x - game.player.x, p.y - game.player.y) < 10) {
-      writeBadge(ctx, p.shout, (p.x * T - view.x) * scale, (p.y * T - 34 - view.y) * scale, 11, p.kind === 'pickpocket' ? '#ff6b7a' : '#b8ffd0');
+      writeText(ctx, p.shout, (p.x * T - view.x) * scale, (p.y * T - 34 - view.y) * scale, 11, p.kind === 'pickpocket' ? '#ff6b7a' : '#b8ffd0');
     }
   }
   for (const m of rl.milestones) {
     if (Math.hypot(m.x - game.player.x, m.y - game.player.y) < 5.5) {
-      writeBadge(ctx, '📍 ' + m.name + ' (' + m.paces + 'p)', (m.x * T - view.x) * scale, (m.y * T - 22 - view.y) * scale, 11, '#ffd86b');
+      writeText(ctx, '📍 ' + m.name + ' (' + m.paces + 'p)', (m.x * T - view.x) * scale, (m.y * T - 22 - view.y) * scale, 11, '#ffd86b');
     }
   }
   for (const grv of life.graves) {
     if (Math.hypot(grv.x - game.player.x, grv.y - game.player.y) < 4) {
-      writeBadge(ctx, '🪦 ' + grv.name, (grv.x * T - view.x) * scale, (grv.y * T - 20 - view.y) * scale, 11, '#cfd6e6');
+      writeText(ctx, '🪦 ' + grv.name, (grv.x * T - view.x) * scale, (grv.y * T - 20 - view.y) * scale, 11, '#cfd6e6');
     }
   }
   for (const st of life.statues) {
     if (Math.hypot(st.x - game.player.x, st.y - game.player.y) < 5) {
-      writeBadge(ctx, '🗿 ' + st.title, (st.x * T - view.x) * scale, (st.y * T - 32 - view.y) * scale, 11, '#ffd23f');
+      writeText(ctx, '🗿 ' + st.title, (st.x * T - view.x) * scale, (st.y * T - 32 - view.y) * scale, 11, '#ffd23f');
     }
   }
-}
-
-function writeBadge(ctx, text, x, y, size, color) {
-  ctx.font = size + 'px "Pixelify Sans", monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = Math.max(3, size / 4);
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#1c1726';
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
 }

@@ -316,6 +316,14 @@ function touchedMonster(game) {
   return game.run.monsters.find((monster) => distance(monster, game.player) < TOUCH);
 }
 
+// Only the monsters near the hero move (nobody sees the others: the guards of the dungeons far away were 170
+// monsters walking for nothing at every frame). A raid or a warband always moves: it has somewhere to go.
+const MOVE_RANGE = 40; // tiles
+
+function isWorthMoving(game, monster) {
+  return monster.raid || monster.warKind || distance(monster, game.player) < MOVE_RANGE;
+}
+
 // Called every frame. dt: seconds since the last frame.
 export function updateMonsters(game, dt) {
   game.run.spawnTime -= dt;
@@ -325,7 +333,7 @@ export function updateMonsters(game, dt) {
     removeFarMonsters(game);
   }
   if (!isWorldTimeFrozen(game)) {
-    game.run.monsters.forEach((monster) => moveMonster(game, monster, dt));
+    for (const monster of game.run.monsters) if (isWorthMoving(game, monster)) moveMonster(game, monster, dt);
   }
 
   const touched = touchedMonster(game);

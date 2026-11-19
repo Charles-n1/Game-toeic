@@ -1,6 +1,7 @@
 import { VILLAGES } from '../../data/zones';
 
-// Persisted living-world state (`game.life`) + transient on-screen world-life entities (`game.run.life`).
+// The state of the life of the world (see life.txt): what is saved (game.life: gossip, graves, statues, planted
+// trees...) and what only lives on screen (game.run.life: cats, dogs, performers, travelers, birds...).
 
 export function firstLife() {
   const aging = {};
@@ -41,33 +42,28 @@ export function firstLife() {
   };
 }
 
+// The life states already completed (a new game, or an older save): the missing parts are added ONCE, not at
+// every call (it was called many times a frame, and built a whole new state each time).
+const COMPLETED = new WeakSet();
+const LISTS = ['gossip', 'constructions', 'graves', 'plantedTrees', 'statues', 'fallenBranches', 'brokenBridges', 'abandonedHouses', 'rainMushrooms', 'brokenFences', 'borderTowers', 'wornTiles', 'absenceLog', 'heroSongs'];
+
 export function ensureLife(game) {
   if (!game) return firstLife();
-  if (!game.life || typeof game.life !== 'object') {
-    game.life = firstLife();
-    return game.life;
+  if (!game.life || typeof game.life !== 'object') game.life = firstLife();
+  if (!COMPLETED.has(game.life)) {
+    completeLife(game.life);
+    COMPLETED.add(game.life);
   }
-  const base = firstLife();
-  for (const [k, v] of Object.entries(base)) {
-    if (game.life[k] === undefined) game.life[k] = v;
-  }
-  if (!Array.isArray(game.life.gossip)) game.life.gossip = [];
-  if (!Array.isArray(game.life.constructions)) game.life.constructions = [];
-  if (!Array.isArray(game.life.graves)) game.life.graves = [];
-  if (!Array.isArray(game.life.plantedTrees)) game.life.plantedTrees = [];
-  if (!Array.isArray(game.life.statues)) game.life.statues = [];
-  if (!Array.isArray(game.life.fallenBranches)) game.life.fallenBranches = [];
-  if (!Array.isArray(game.life.brokenBridges)) game.life.brokenBridges = [];
-  if (!Array.isArray(game.life.abandonedHouses)) game.life.abandonedHouses = [];
-  if (!Array.isArray(game.life.rainMushrooms)) game.life.rainMushrooms = [];
-  if (!Array.isArray(game.life.brokenFences)) game.life.brokenFences = [];
-  if (!Array.isArray(game.life.borderTowers)) game.life.borderTowers = [];
-  if (!Array.isArray(game.life.wornTiles)) game.life.wornTiles = [];
-  if (!Array.isArray(game.life.absenceLog)) game.life.absenceLog = [];
-  if (!Array.isArray(game.life.heroSongs)) game.life.heroSongs = [];
-  if (!game.life.stats) game.life.stats = { ...base.stats };
-  if (!game.life.whiteStag) game.life.whiteStag = { ...base.whiteStag };
   return game.life;
+}
+
+// Adds what an older save does not have yet.
+function completeLife(life) {
+  const base = firstLife();
+  for (const [key, value] of Object.entries(base)) if (life[key] === undefined) life[key] = value;
+  for (const key of LISTS) if (!Array.isArray(life[key])) life[key] = [];
+  if (!life.stats) life.stats = { ...base.stats };
+  if (!life.whiteStag) life.whiteStag = { ...base.whiteStag };
 }
 
 export function firstRunLife() {
@@ -100,12 +96,11 @@ export function firstRunLife() {
 
 export function ensureRunLife(game) {
   if (!game || !game.run) return firstRunLife();
-  if (!game.run.life || typeof game.run.life !== 'object') {
-    game.run.life = firstRunLife();
-  }
-  const base = firstRunLife();
-  for (const [k, v] of Object.entries(base)) {
-    if (game.run.life[k] === undefined) game.run.life[k] = v;
+  if (!game.run.life || typeof game.run.life !== 'object') game.run.life = firstRunLife();
+  if (!COMPLETED.has(game.run.life)) {
+    const base = firstRunLife();
+    for (const [key, value] of Object.entries(base)) if (game.run.life[key] === undefined) game.run.life[key] = value;
+    COMPLETED.add(game.run.life);
   }
   return game.run.life;
 }
