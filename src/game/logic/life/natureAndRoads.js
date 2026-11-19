@@ -321,7 +321,10 @@ function closestTown(game, place) {
 function updateWarTravelers(game, here) {
   const rl = ensureRunLife(game);
   rl.warEntities = rl.warEntities.filter((w) => !mayGoAway(game, w, here.now >= w.expiresAt) && distance(w, game.player) < FORGET_RANGE);
-  for (const id of game.run.awake || []) placeTownWarPeople(game, villageOf(id), here.now);
+  for (const id of game.run.awake || []) {
+    const town = villageOf(id);
+    if (town && distance({ x: town.x + town.w / 2, y: town.y + town.h / 2 }, game.player) < FORGET_RANGE) placeTownWarPeople(game, town, here.now);
+  }
   if (here.zone.kind === 'land' && rl.warEntities.filter((w) => !w.villageId).length < 2) sendWarTraveler(game, here);
 }
 

@@ -79,9 +79,11 @@ function paintTint(ctx, width, height, color) {
 
 // The dark edges of the screen: made once for a size of screen, then copied.
 const vignette = document.createElement('canvas');
+let vignetteSize = ''; // the size it was painted for ('' = never painted: a new canvas is already 300 x 150)
 
 function paintVignette(ctx, width, height) {
-  if (vignette.width !== width || vignette.height !== height) {
+  if (vignetteSize !== width + 'x' + height) {
+    vignetteSize = width + 'x' + height;
     vignette.width = width;
     vignette.height = height;
     const v = vignette.getContext('2d');

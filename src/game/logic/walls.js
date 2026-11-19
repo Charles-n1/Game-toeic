@@ -1,5 +1,6 @@
 import { VILLAGES, villageOf } from '../data/zones';
 import { isSolid } from '../world/map';
+import { CHAPTERS } from '../data/story';
 
 // The walls around the villages. A wall is made of SECTIONS (8 tiles each, all around the village), and each
 // section is built on its own: nothing, a palisade of wood, or a wall of stone. So a wall can be half stone,
@@ -193,6 +194,12 @@ export function describeWalls(state) {
 }
 
 // Finds a nearby damaged, missing, or unfortified wooden village wall section within range of player.
+// The chapter "Renovate the walls" (data/story.js): even a stone wall in good shape can be reinforced then.
+// (Eldermoor is old: all its walls are stone from the start, and there was nothing to do for this chapter.)
+function isFortifyChapter(game) {
+  return CHAPTERS[game.goal]?.[game.chapter]?.id === 'fortify';
+}
+
 export function wallRepairSpotNear(game) {
   const { x, y } = game.player;
   for (const village of VILLAGES) {
@@ -204,7 +211,7 @@ export function wallRepairSpotNear(game) {
       const letter = state.walls[tile.section];
       const hp = state.wallHp[tile.section] || 0;
       const max = WALL_HP[letter] || 0;
-      if (letter === '-' || hp < max || letter === 'w') {
+      if (letter === '-' || hp < max || letter === 'w' || (letter === 's' && isFortifyChapter(game))) {
         return { village, state, section: tile.section, letter, hp, max };
       }
     }

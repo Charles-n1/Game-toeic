@@ -111,10 +111,10 @@ function tickFrame(game, input, seenLines = []) {
 }
 
 // Physically walks the hero along an A* grid path using real keyboard inputs & updateGame().
-function walkPathTo(game, targetX, targetY, { maxSteps = 200000, stopRange = 0.7, seenLines = [] } = {}) {
+function walkPathTo(game, targetX, targetY, { maxSteps = 20000, stopRange = 0.7, seenLines = [] } = {}) {
   const startZoneObj = zoneAt(game.player.x, game.player.y);
   let attempts = 0;
-  while (Math.hypot(game.player.x - targetX, game.player.y - targetY) > stopRange && attempts++ < 16) {
+  while (Math.hypot(game.player.x - targetX, game.player.y - targetY) > stopRange && attempts++ < 12) {
     const path = findPath(game.player.x, game.player.y, targetX, targetY, maxSteps);
     assert.ok(path && path.length > 0, 'No walkable A* path from (' + game.player.x.toFixed(1) + ',' + game.player.y.toFixed(1) + ') to (' + targetX.toFixed(1) + ',' + targetY.toFixed(1) + ')');
     for (const wp of path) {
@@ -208,6 +208,7 @@ function walkDungeonAndBeatBoss(game, dungeonId, seenLines = []) {
 
   for (let f = 1; f <= dungeon.floors; f++) {
     const floorId = dungeonId + '_f' + f;
+    console.error('[STORY] entering', floorId);
     const floorZone = insideOf(floorId);
     assert.equal(zoneAt(game.player.x, game.player.y).id, floorId, 'On ' + floorId);
 
@@ -318,16 +319,21 @@ test('full Hero story playthrough (chapters 1..10, bridge seal, dungeon puzzles/
   assert.equal(currentChapter(game).id, 'blade', 'Chapter 2 completes after 5 kills');
 
   // --- Chapter 3: A real blade (buy a stronger weapon in Eldermoor) ---
-  walkPathTo(game, eldermoor.x + eldermoor.w / 2, eldermoor.y + eldermoor.h / 2, { maxSteps: 100000, stopRange: 2, seenLines });
+  console.error('[STORY] Ch 3 blade walk back');
+  walkPathTo(game, eldermoor.plan.center.x, eldermoor.plan.center.y, { maxSteps: 100000, stopRange: 2.5, seenLines });
+  console.error('[STORY] Ch 3 reached town center, buying weapon');
   earnLexis(game, 25000); // Cheat coin for weapon/wall chapters while testing real shop upgrades
   const firstWeapon = nextUpgrade('weapon', game.player.weapon);
   assert.equal(buy(game, firstWeapon), true, 'Bought ' + firstWeapon + ' in Eldermoor');
-  while (nextUpgrade('weapon', game.player.weapon)) buy(game, nextUpgrade('weapon', game.player.weapon));
-  while (nextUpgrade('armor', game.player.armor)) buy(game, nextUpgrade('armor', game.player.armor));
+  // Buy the next upgrades while the shop has them (out of stock: buy() says false, and we stop).
+  while (nextUpgrade('weapon', game.player.weapon) && buy(game, nextUpgrade('weapon', game.player.weapon)));
+  while (nextUpgrade('armor', game.player.armor) && buy(game, nextUpgrade('armor', game.player.armor)));
+  console.error('[STORY] Ch 3 bought gear:', game.player.weapon, game.player.armor);
   updateStory(game);
   assert.equal(currentChapter(game).id, 'helpVillagers', 'Chapter 3 completes after upgrading weapon');
 
   // --- Chapter 4: Help the villagers (2 Eldermoor side quests) ---
+  console.error('[STORY] Ch 4 quests');
   for (let q = 0; q < 2; q++) {
     const giverNpc = NPCS.find((n) => offeredQuest(game, n.id));
     assert.ok(giverNpc, 'Available NPC quest giver #' + (q + 1));
@@ -343,14 +349,16 @@ test('full Hero story playthrough (chapters 1..10, bridge seal, dungeon puzzles/
   assert.equal(currentChapter(game).id, 'fortify', 'Chapter 4 completes after 2 villager quests');
 
   // --- Chapter 5: Renovate the walls (repair/upgrade 2 village walls in Eldermoor) ---
+  console.error('[STORY] Ch 5 fortify');
   const wallTiles = wallTilesOf(eldermoor);
   let repairedNow = 0;
   for (let i = 0; i < wallTiles.length && repairedNow < 2; i += 8) {
     const wt = wallTiles[i];
-    // Stand just inside Eldermoor next to the wall tile & use real act() wall repair
-    const inX = Math.min(eldermoor.x + eldermoor.w - 3, Math.max(eldermoor.x + 2, wt.x)) + 0.5;
-    const inY = Math.min(eldermoor.y + eldermoor.h - 3, Math.max(eldermoor.y + 2, wt.y)) + 0.5;
-    walkPathTo(game, inX, inY, { stopRange: 1.4, seenLines });
+    const adj = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+      .map(([dx, dy]) => ({ x: wt.x + dx + 0.5, y: wt.y + dy + 0.5 }))
+      .find((p) => !isSolid(p.x, p.y) && zoneAt(p.x, p.y).id === 'lexia');
+    if (!adj) continue;
+    walkPathTo(game, adj.x, adj.y, { maxSteps: 10000, stopRange: 0.7, seenLines });
     act(game);
     const before = game.counts.wallsRepaired || 0;
     clearDialogs(game, seenLines, (c) => c.label.includes('Upgrade') || c.label.includes('Repair') || c.label.includes('Close'));
@@ -361,7 +369,9 @@ test('full Hero story playthrough (chapters 1..10, bridge seal, dungeon puzzles/
   assert.equal(currentChapter(game).id, 'night', 'Chapter 5 completes after renovating 2 walls');
 
   // --- Chapter 6: The Night of Silence (Day 7 Raid) ---
-  while (game.day < game.raid.nextDay) passHours(game, 24);
+  console.error('[STORY] Ch 6 night raid');
+  let dayGuard = 0;
+  while (game.day < game.raid.nextDay && dayGuard++ < 30) passHours(game, 24);
   if (game.hour < 21) passHours(game, 21 - game.hour);
   game.player.x = eldermoor.x + eldermoor.w / 2;
   game.player.y = eldermoor.y + eldermoor.h / 2;
@@ -397,11 +407,13 @@ test('full Hero story playthrough (chapters 1..10, bridge seal, dungeon puzzles/
   game.player.soldiers = 4;
 
   // --- Chapter 7: The Crystal Cave -> Gerund Lich ---
+  console.error('[STORY] Ch 7 crypt');
   walkDungeonAndBeatBoss(game, 'crypt', seenLines);
   updateStory(game);
   assert.equal(currentChapter(game).id, 'tower', 'Chapter 7 completes after Gerund Lich falls');
 
   // --- Chapter 8: Frostpeak Castle -> Chrono Warden (3 floors) ---
+  console.error('[STORY] Ch 8 tower');
   walkDungeonAndBeatBoss(game, 'tower', seenLines);
   updateStory(game);
   assert.equal(currentChapter(game).id, 'general', 'Chapter 8 completes after Chrono Warden falls');
@@ -410,11 +422,13 @@ test('full Hero story playthrough (chapters 1..10, bridge seal, dungeon puzzles/
   assert.equal(isSealOpen(game, seal), false, 'Silent Isle bridge seal remains closed until General Barbarism falls');
 
   // --- Chapter 9: Sandbandit Camp -> General Barbarism (2 floors) ---
+  console.error('[STORY] Ch 9 fort');
   walkDungeonAndBeatBoss(game, 'fort', seenLines);
   updateStory(game);
   assert.equal(currentChapter(game).id, 'king', 'Chapter 9 completes after General Barbarism falls');
 
   // --- CRITICAL CHECK: Bridge Seal Opens & Walks All The Way to Castle of Silence Door ---
+  console.error('[STORY] Unsealed bridge -> castle');
   assert.equal(isSealOpen(game, seal), true, 'Silent Isle bridge seal MUST open after General Barbarism is defeated');
   assert.equal(closedSealAt(game, seal.x + 1, seal.y), null, 'closedSealAt returns null after General falls');
 
@@ -427,6 +441,7 @@ test('full Hero story playthrough (chapters 1..10, bridge seal, dungeon puzzles/
   assert.ok(Math.hypot(game.player.x - (castle.door[0] + 0.5), game.player.y - (castle.door[1] + 1.5)) < 1.2, 'Unsealed bridge road leads directly to Castle of Silence door');
 
   // --- Chapter 10: Castle of Silence (5 floors: Ravnos, Thamuz, Velmora, Lilith, Solecis) ---
+  console.error('[STORY] Ch 10 castle');
   walkDungeonAndBeatBoss(game, 'castle', seenLines);
   updateStory(game);
 
