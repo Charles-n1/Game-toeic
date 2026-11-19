@@ -98,4 +98,20 @@ export const SONGS = {
       { wave: 'triangle', volume: 0.08, notes: 'C2 - - - - - - - G2 - - - - - - - C2 - - - - - - - - - - - - - - -' },
     ],
   },
+  // Bustling weekly market song.
+  market: {
+    bpm: 132,
+    voices: [
+      { wave: 'triangle', volume: 0.18, notes: 'G5 A5 G5 E5 D5 C5 D5 E5 G5 - E5 G5 A5 G5 E5 D5 C5 E5 G5 E5 D5 C5 D5 E5 C5 - - - G5 E5 D5 .' },
+      { wave: 'square', volume: 0.05, notes: 'C3 . G3 . C3 . G3 . F3 . C3 . G3 . D3 . C3 . G3 . F3 . G3 . C3 . G3 . C3 - - .' },
+    ],
+  },
+  // Warm cozy tavern & inn hearth tune (#91).
+  tavern: {
+    bpm: 108,
+    voices: [
+      { wave: 'triangle', volume: 0.17, notes: 'D5 - F5 E5 D5 A4 C5 - D5 - E5 F5 G5 E5 D5 - F5 G5 A5 F5 E5 D5 C5 - D5 - A4 - D5 - - .' },
+      { wave: 'sine', volume: 0.11, notes: 'D3 . A3 . D3 . A3 . C3 . G3 . C3 . G3 . A#2 . F3 . A2 . E3 . D3 . A3 . D3 - - .' },
+    ],
+  },
 };

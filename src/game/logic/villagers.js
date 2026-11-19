@@ -4,7 +4,9 @@ import { KINGDOMS } from '../data/kingdoms';
 import { raceMixForVillage, applyRaceToLook } from '../data/races';
 import { zoneAt } from '../data/zones';
 
-import { bestGateOf, findPath, followPath, stepSmart } from '../world/paths';
+import { bestGateOf, findPath, followPath } from '../world/paths';
+import { isSolid, tileAt } from '../world/map';
+import { TILE } from '../world/tileKinds';
 import { randomOf, pickWith } from '../world/seeded';
 import { pickRandom } from '../../logic/random';
 import { isNight } from './clock';
@@ -163,6 +165,20 @@ function workSpotOf(villager) {
   const plan = village.plan;
   const field = pickRandom(plan.fields.length > 0 ? plan.fields : [null]);
   const pen = pickRandom(plan.pens.length > 0 ? plan.pens : [null]);
+  const smithHouse = (plan.houses || []).find((h) => h.role === 'forge' || h.role === 'smithy' || h.role === 'armory');
+  const bakerHouse = (plan.houses || []).find((h) => h.role === 'bakery');
+  const shoreSpot = () => {
+    for (let r = 4; r <= 34; r += 4) {
+      for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+        const sx = plan.center.x + dx;
+        const sy = plan.center.y + dy;
+        if (tileAt(sx, sy) === TILE.WATER && !isSolid(sx - Math.sign(dx), sy - Math.sign(dy))) {
+          return { x: sx - Math.sign(dx), y: sy - Math.sign(dy) };
+        }
+      }
+    }
+    return randomTileIn(plan.square || village);
+  };
   const spots = {
     farmer: () => (field ? { x: field.x + Math.floor(Math.random() * field.w), y: field.y + field.h } : plan.center),
     woodcutter: () => pickRandom(treesOf(village).slice(0, 16)) || plan.center,
@@ -170,6 +186,9 @@ function workSpotOf(villager) {
     herder: () => (pen ? { x: pen.x + pen.w + 1, y: pen.y + 1 } : plan.center),
     builder: () => pickRandom(wallTilesOf(village).filter((_, i) => i % 7 === 0)) || plan.center,
     merchant: () => randomTileIn(plan.square || village),
+    smith: () => (smithHouse ? { x: smithHouse.x + Math.floor(smithHouse.w / 2), y: smithHouse.y + smithHouse.h + 1 } : randomTileIn(plan.square || village)),
+    baker: () => (bakerHouse ? { x: bakerHouse.x + Math.floor(bakerHouse.w / 2), y: bakerHouse.y + bakerHouse.h + 1 } : randomTileIn(plan.square || village)),
+    fisher: shoreSpot,
     knight: () => {
       const gate = pickRandom(plan.gates);
       return {
@@ -180,28 +199,46 @@ function workSpotOf(villager) {
     foreman: () => (field && Math.random() < 0.5 ? { x: field.x - 1, y: field.y + 1 } : randomTileIn(plan.square || village)),
     kid: () => randomTileIn(plan.square || village),
   };
-  return spots[villager.job]();
+  return (spots[villager.job] || spots.merchant)();
 }
 
+// Plans the way of a villager to a spot (a real way around the walls: see world/paths.js). Out of a walled
+// village, it goes by the best open gate. false: no way there (the villager must choose another place).
 function goTo(villager, spot) {
-  const direct = findPath(villager.x, villager.y, spot.x, spot.y, 6000);
-  if (direct) {
-    villager.path = direct;
-    return;
-  }
-  // If exiting a walled village to cut wood or quarry stone, route cleanly via the best open gate first
+  villager.hidden = false; // (hidden at home during a siege: see war/conquest.js) out again
+  villager.path = findPath(villager.x, villager.y, spot.x, spot.y, 14000);
+  if (villager.path) return true;
   const village = villageOf(villager.village);
   const gate = bestGateOf(village, spot);
   if (gate) {
-    const toGate = findPath(villager.x, villager.y, gate.outside.x, gate.outside.y, 4000);
-    const fromGate = toGate && findPath(gate.outside.x, gate.outside.y, spot.x, spot.y, 4000);
+    const toGate = findPath(villager.x, villager.y, gate.outside.x, gate.outside.y, 9000);
+    const fromGate = toGate && findPath(gate.outside.x, gate.outside.y, spot.x, spot.y, 9000);
     if (toGate && fromGate) {
       villager.path = [...toGate, ...fromGate.slice(1)];
+      return true;
+    }
+  }
+  return false;
+}
+
+// Goes to work: a few spots are tried (a tree behind a river may have no way); none: back home.
+function goToWork(villager) {
+  for (let tries = 0; tries < 3; tries++) {
+    if (goTo(villager, workSpotOf(villager))) {
+      villager.task = 'toWork';
       return;
     }
   }
-  const square = village?.plan?.square ? randomTileIn(village.plan.square) : village?.plan?.center;
-  villager.path = square ? findPath(villager.x, villager.y, square.x, square.y, 3500) : null;
+  goHome(villager);
+}
+
+// Goes home. No way home (rare): the villager is home at once (inside, not on the map).
+function goHome(villager) {
+  villager.task = 'toHome';
+  if (goTo(villager, villager.home)) return;
+  villager.x = villager.home.x;
+  villager.y = villager.home.y;
+  villager.path = null;
 }
 
 function isWorkTime(game) {
@@ -216,54 +253,38 @@ function isEvening(game) {
 function endOfWork(game, villager) {
   const village = villageOf(villager.village);
   const goesOut = isEvening(game) && village.plan.square && Math.random() < EVENING_CHANCE;
-  villager.task = goesOut ? 'toSquare' : 'toHome';
-  goTo(villager, goesOut ? randomTileIn(village.plan.square) : villager.home);
+  if (goesOut && goTo(villager, randomTileIn(village.plan.square))) villager.task = 'toSquare';
+  else goHome(villager);
 }
 
-// The day of a villager: work from 7 to 18, the square in the evening, home at night (inside: not drawn).
-// A knight keeps guarding at night. A village under attack: see logic/defense.js.
+// The day of a villager: work from 7 to 18, the square in the evening, home at night.
+// "home" = inside the house: the villager walks to the door, goes in (not drawn), and comes out later.
+// Nobody stands planted in front of a door. A knight keeps guarding at night. Under attack: logic/defense.js.
 function updateVillager(game, villager, dt) {
   if (villager.ko || villager.dead || villager.fighting) return;
+  if (villager.talkUntil > Date.now()) {
+    villager.walking = false; // a chat with a neighbour (see logic/villagerLife.js)
+    return;
+  }
+  if (villager.lifeUntil > Date.now()) {
+    if (villager.drunk > 0) villager.drunk = Math.max(0, villager.drunk - dt / 60);
+    if (villager.angry > 0) villager.angry = Math.max(0, villager.angry - dt);
+    return;
+  }
   const isOnDuty = villager.knight || isWorkTime(game);
   villager.wait -= dt;
   if (villager.task === 'home' && isOnDuty && villager.wait <= 0) {
-    villager.task = 'toWork';
-    goTo(villager, workSpotOf(villager));
+    goToWork(villager);
   } else if (villager.task === 'work' && !isOnDuty) {
     endOfWork(game, villager);
   } else if (villager.task === 'evening' && (villager.wait <= 0 || !isEvening(game))) {
-    villager.task = 'toHome';
-    goTo(villager, villager.home);
+    goHome(villager);
   } else if (villager.task === 'work' && villager.wait <= 0) {
-    villager.task = 'toWork'; // a new tree, a new rock, another gate...
-    goTo(villager, workSpotOf(villager));
+    goToWork(villager); // a new tree, a new rock, another gate...
   }
   if (['toWork', 'toSquare', 'toHome'].includes(villager.task)) {
-    const prevX = villager.x;
-    const prevY = villager.y;
     const baseSpeed = villager.kid ? 1.8 : villager.drunk > 0 ? 0.9 : villager.crier ? 2.15 : 1.4;
-    let done = false;
-    if (villager.path && villager.path.length > 0) {
-      done = followPath(villager, baseSpeed, dt);
-    } else if (villager._destSpot) {
-      done = !stepSmart(villager, villager._destSpot.x, villager._destSpot.y, baseSpeed, dt);
-    } else {
-      done = true;
-    }
-    const moved = Math.hypot(villager.x - prevX, villager.y - prevY);
-    villager._stuckAcc = moved < 0.002 ? (villager._stuckAcc || 0) + dt : 0;
-    if (villager._stuckAcc > 1.2) {
-      villager._stuckAcc = 0;
-      villager.path = null;
-      villager.task = villager.task === 'toHome' ? 'home' : 'work';
-      villager.wait = 6 + Math.random() * 10;
-      villager.walking = false;
-    } else if (done) {
-      villager.task = { toWork: 'work', toSquare: 'evening', toHome: 'home' }[villager.task];
-      villager.wait = villager.task === 'evening' ? 60 + Math.random() * 60 : 12 + Math.random() * 25;
-      villager.working = villager.task === 'work';
-      villager.walking = false;
-    }
+    if (followPath(villager, baseSpeed, dt)) arrive(villager);
   }
   // Town Criers proclaim urgent quests & dangers through streets and squares
   if (!villager.kid && (villager.id.endsWith('-1') || villager.id.endsWith('-3'))) {
@@ -285,13 +306,22 @@ function updateVillager(game, villager, dt) {
   if (villager.angry > 0) villager.angry = Math.max(0, villager.angry - dt);
 }
 
+// The end of the way: at work, on the square, or home (inside).
+function arrive(villager) {
+  villager.task = { toWork: 'work', toSquare: 'evening', toHome: 'home' }[villager.task];
+  villager.wait = villager.task === 'evening' ? 60 + Math.random() * 60 : villager.task === 'home' ? 20 + Math.random() * 40 : 12 + Math.random() * 25;
+  villager.working = villager.task === 'work';
+  villager.walking = false;
+  villager.path = null;
+}
+
 export function updateVillagers(game, dt) {
   game.run.villagers.forEach((villager) => updateVillager(game, villager, dt));
 }
 
-// The villagers that can be seen (not at home at night).
+// The villagers that can be seen: not the ones at home (they are inside their house, day or night).
 export function visibleVillagers(game) {
-  return game.run.villagers.filter((villager) => !villager.dead && !villager.ko && !(villager.task === 'home' && !villager.walking && (isNight(game) || villager.hidden)));
+  return game.run.villagers.filter((villager) => !villager.dead && !villager.ko && !(villager.task === 'home' && !villager.walking) && !(villager.hidden && !villager.walking));
 }
 
 // The villager close to the hero (to talk with), or null.

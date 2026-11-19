@@ -39,6 +39,8 @@ import { isPropHarvested } from '../logic/harvest';
 import { economyDrawings } from './economyArt';
 import { familyKidsList } from '../logic/families';
 import { hasFires, treeFireAt, burningTrees } from '../logic/war/forestFire';
+import { spokenLines } from '../logic/smallTalk';
+import { drawLifeGround, lifeDrawings, drawLifeEffects, writeLifeLabels } from './lifeArt';
 
 // Draws the world. Everything is painted at its real pixel size in a small hidden canvas (the "buffer"),
 // then the buffer is drawn 2 to 4 times bigger on the screen, without smoothing: crisp pixel art.
@@ -1300,9 +1302,15 @@ function lightsOf(game, view, time = 0) {
     const middle = game.player.x + battleGap(game) / 2;
     lights.push({ x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 120 }, { x: middle * T - view.x, y: game.player.y * T - 16 - view.y, radius: 90 });
   }
+  // Outside guild/house, lamp glow waits for Lamplighter if currently lighting dusk lanterns
+  const isLampProp = (p) => p.kind === 'lamp';
+  const lamplighterActive = Boolean(game.run.life?.lamplighter && game.hour >= 17.5 && game.hour < 19.5);
   const night = isNight(game);
   for (const prop of propsOfView(view, game)) {
     if (!isNear(view, prop.x, prop.y, prop.w, prop.h)) continue;
+    if (isLampProp(prop) && lamplighterActive && prop.village === game.run.life.lamplighter.villageId && !game.run.litLamps?.[prop.x + ',' + prop.y]) {
+      continue;
+    }
     if (prop.kind === 'window') {
       lights.push({ x: (prop.x + prop.w / 2) * T - view.x, y: (prop.y + prop.h) * T - 6 - view.y, radius: night ? 26 : 62, warm: false });
       continue;
@@ -1467,6 +1475,17 @@ function writeNames(ctx, game, view, scale) {
     const npcName = npcOf(follower.id)?.name || follower.id;
     writeText(ctx, npcName + ': "' + follower.banter.text + '"', (follower.x * T - view.x) * scale, (follower.y * T - 38 - view.y) * scale, 11, '#fff3b0');
   }
+  // The people talking together (see logic/smallTalk.js): the line said now, over the head of who says it.
+  for (const spoken of spokenLines(game)) {
+    if (Math.hypot(spoken.x - game.player.x, spoken.y - game.player.y) > 11) continue;
+    writeText(ctx, spoken.name + ': "' + spoken.text + '"', (spoken.x * T - view.x) * scale, (spoken.y * T - 38 - view.y) * scale, 11, '#f4f7ff');
+  }
+  // In a guild hall: the name of whoever has a sign over the head (the card registrar), seen from afar.
+  for (const patron of game.run.visitHouse?.patrons || []) {
+    if (!patron.sign || Math.hypot(patron.x - game.player.x, patron.y - game.player.y) > 9) continue;
+    writeText(ctx, patron.sign, (patron.x * T - view.x) * scale, (patron.y * T - 34 - view.y) * scale, 12, '#ffd86b');
+  }
+  writeLifeLabels(ctx, game, view, scale);
 }
 
 function writeFloatingTexts(ctx, game, view, scale) {
@@ -1774,6 +1793,7 @@ export function drawScene(ctx, game, width, height, time) {
 
   drawGround(art, game, view, time);
   drawTracks(art, game, view);
+  drawLifeGround(art, game, view, time);
   drawWaterLife(art, view, time);
   drawBloodPools(art, game, view);
   drawBarrierAuras(art, game, view, time);
@@ -1782,7 +1802,7 @@ export function drawScene(ctx, game, width, height, time) {
   const followers = fight ? [] : followerDrawings(game, view, time); // in a fight, the friends stand with the hero (battle.js)
   const living = [...npcDrawings(game, view, time), ...villagerDrawings(game, view, time), ...childDrawings(game, view, time), ...guildPatronDrawings(game, view, time), ...animalDrawings(game, view, time), ...followers, ...monsterDrawings(game, view, time)];
   if (!fight) living.push(heroDrawing(game, view, time));
-  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time), ...isekaiTodoDrawings(game, view, time), ...soulDrawings(game, view, time));
+  living.push(...warDrawings(game, view, time), ...societyDrawings(game, view, time), ...campDrawings(game, view, time), ...bondsDrawings(game, view, time), ...partyDrawings(game, view, time), ...economyDrawings(game, view, time), ...isekaiTodoDrawings(game, view, time), ...soulDrawings(game, view, time), ...lifeDrawings(game, view, time));
   drawSorted(art, [...treesAndRocks(view, game, time), ...houses(view, game, time), ...villageProps(view, time, game), ...chestsAndBarriers(view, game), ...sealDrawings(view, game, time), ...boatDrawings(view, time), ...living]);
   if (!fight) {
     drawHeroAura(art, game, view, time);
@@ -1805,6 +1825,7 @@ export function drawScene(ctx, game, width, height, time) {
   drawRealismWorldOverlays(art, game, view, time);
   drawIsekaiTodoIndicators(art, game, view, time);
   structuresArt.drawStructureAmbience(art, game, view, time);
+  drawLifeEffects(art, game, view, time);
   drawWeather(art, game, view, time);
   drawSilenceAtmosphere(art, game);
   drawLights(art, game, buffer.width, buffer.height, lightsOf(game, view, time), darknessHere(game));

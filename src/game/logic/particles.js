@@ -6,8 +6,16 @@ const MAX_PARTICLES = 400;
 const MAX_BLOOD = 80;
 const MAX_TRACKS = 100;
 
-function addParticle(game, particle) {
-  if (game.run.particles.length < MAX_PARTICLES) game.run.particles.push({ age: 0, gravity: 0, ...particle });
+export function addParticle(game, particle) {
+  if (game.run.particles.length < MAX_PARTICLES) {
+    game.run.particles.push({
+      age: 0,
+      gravity: 0,
+      vx: particle.vx !== undefined ? particle.vx : (particle.dx || 0),
+      vy: particle.vy !== undefined ? particle.vy : (particle.dy || 0),
+      ...particle,
+    });
+  }
 }
 
 // Persistent blood splatters left on the ground after lethal blows or ambush traps.

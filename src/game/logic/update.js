@@ -21,6 +21,7 @@ import { isNight } from './clock';
 import { villageNews } from './villages';
 import { updateVillagers, villagerNear, wakeVillages } from './villagers';
 import { updateVillagerLife } from './villagerLife';
+import { updateSmallTalk } from './smallTalk';
 import { updateAnimals, wakeAnimals, wildAnimalNear, petWildAnimal, strikeWorld, HOSTILE_WILDLIFE } from './animals';
 import { harvestableNear, harvestProp } from './harvest';
 import { updateWeather, knockedOutNear, carry, checkRescue, checkKnockedOut, putDown } from './weather';
@@ -68,6 +69,7 @@ import {
   actionsOfSoul,
   ensureSoul,
 } from './soul';
+import { slowLife, updateLife, actionsOfLife, gossipLinesFor } from './life';
 
 // One step of the world. Called at every frame while the player is on the map.
 
@@ -149,6 +151,16 @@ function walk(game, input, dt) {
     const wet = game.weather && (game.weather.kind === 'rain' || game.weather.kind === 'storm');
     if (under === TILE.SAND || biomeAt(player.x, player.y) === 'mountain' || wet) {
       addTrack(game, player.x, player.y, direction.x, direction.y, mount > 1 ? 'hoof' : 'foot');
+    } else if (under === TILE.GRASS && game.life) {
+      if (!Array.isArray(game.life.wornTiles)) game.life.wornTiles = [];
+      const tx = Math.floor(player.x);
+      const ty = Math.floor(player.y);
+      const existing = game.life.wornTiles.find((t) => t.x === tx && t.y === ty);
+      if (existing) existing.hits = Math.min(12, existing.hits + 1);
+      else {
+        game.life.wornTiles.push({ x: tx, y: ty, hits: 1 });
+        if (game.life.wornTiles.length > 140) game.life.wornTiles.shift();
+      }
     }
   }
 }
@@ -310,8 +322,10 @@ function talkToVillager(game, villager) {
       return;
     }
   }
+  const gossip = gossipLinesFor(game, villager.village);
   const words = villager.working ? 'Hard work today. ' : 'Hello, traveler. ';
-  say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + '"']);
+  const rumor = gossip.length > 0 && Math.random() < 0.45 ? ' Heard word from afar: "' + gossip[gossip.length - 1].text + '"' : '';
+  say(game, null, [villager.name + ': "' + words + villageNews(game, villager.village) + rumor + '"']);
 }
 
 function nearbySpiritSpot(game) {
@@ -360,6 +374,7 @@ function actionsOf(game) {
     { when: () => knockedOutNear(game), icon: 'people', run: () => carry(game, knockedOutNear(game)) },
     ...actionsOfIsekai(game),
     ...actionsOfSoul(game),
+    ...actionsOfLife(game),
     ...actionsOfWar(game),
     ...actionsOfParties(game),
     ...actionsOfBonds(game),
@@ -431,6 +446,7 @@ function slowUpdates(game, dt) {
     exploreAround(game);
     wakeVillages(game);
     updateVillagerLife(game);
+    updateSmallTalk(game); // the people talk together (see logic/smallTalk.js)
     wakeAnimals(game);
     checkRescue(game);
     checkKnockedOut(game);
@@ -447,6 +463,7 @@ function slowUpdates(game, dt) {
     syncWeeklyChallenge(game);
     checkEpisodeProgression(game);
     slowSoul(game);
+    slowLife(game);
     const rSlow = game?.realism ? ensureRealism(game) : null;
     if (rSlow?.world?.lastDeathPos && rSlow?.world?.lastDeathBag && Math.hypot(rSlow.world.lastDeathPos.x - game.player.x, rSlow.world.lastDeathPos.y - game.player.y) <= 1.2) {
       tryRecoverLostBag(game);
@@ -487,6 +504,7 @@ export function updateGame(game, input, dt) {
   updateBonds(game, dt);
   updateWorldParties(game, dt);
   updateEconomy(game, dt);
+  updateLife(game, dt);
   tickEmissaries(game, dt);
   tickCourierMessenger(game, dt);
   slowUpdates(game, dt);

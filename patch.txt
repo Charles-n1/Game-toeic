@@ -1,0 +1,117 @@
+PATCH: WHAT THE GAME NEEDS BEFORE MORE CONTENT
+==============================================
+
+The game already has a lot (see life.txt for the living world ideas). What it needs now is that what exists
+works well, stays playable, and helps the player get a better TOEIC reading score.
+The order of the parts below is the order to do them in.
+
+Not in this patch (decided): no notebook of mistakes to read again, no audio / listening part (the game stays
+written only), the explanations of the mistakes stay as they are, the interface stays as it is, no intro.
+
+
+1. RELIABILITY: TESTS THAT CATCH THE BUGS
+-----------------------------------------
+The last fixes were deep bugs found by hand: the RC 8 / RC 55 texts showing only their first document, people
+stuck in front of the houses or walking into walls, demons appearing anywhere, beating "Thamuz" in the Spire
+killing the real one in the castle. The code was written fast, by several AIs, and nothing checks it.
+
+A small set of automatic tests (run with one command, before each push):
+  1. Every question with a text: its text is shown whole (every document), its answers belong to it.
+  2. A save is written, read back, and the game goes on the same.
+  3. 10 days of game on the map without a crash (the world updated frame after frame).
+  4. The people move: nobody walks without moving, nobody goes back and forth forever, nobody stands for long
+     in front of a door.
+  5. The demons only appear on the demon land; their generals stay on the Silent Isle.
+  6. Each boss, once beaten, only removes itself (no other boss or floor disappears).
+  7. Every shop opens and sells only its kind of items.
+
+
+2. PROGRESS: THE TOEIC SCORE IN THE GAME
+----------------------------------------
+Playing must feel like getting better at the TOEIC.
+  1. An estimated TOEIC reading score (5 to 495), from the answers of the game and of the app, visible in the
+     game (the HUD or the stats menu).
+  2. It moves after each fight: "+3" in green, "-2" in red, so the player sees that each answer counts.
+  3. The goal score of the player shown next to it, with the distance left.
+  4. Per category (gerunds, tenses, prepositions...): the level and the trend of the last days.
+
+
+3. BALANCE: PLAY A WHOLE GAME
+-----------------------------
+Several numbers changed at the same time, and nobody played a whole game since:
+  - the health of all the monsters doubled (bosses and demons too);
+  - every level now costs the same XP (300);
+  - the demon land spreads every day, and burns forests.
+To check, by playing or by a simulation of a whole game:
+  1. How long a normal fight lasts, now that monsters have twice the health.
+  2. How fast the hero levels up, from the start to the Demon King.
+  3. How far the demon land goes before the hero can fight it back (not too fast, not invisible).
+  4. That nothing blocks the story (a boss too strong, a road closed, a quest that never ends).
+
+
+4. THE GOAL OF THE MOMENT
+-------------------------
+With so many systems (guild, realism, economy, war, romance, spirits, the Spire...), the player can get lost.
+  1. One line always visible: what to do now in the main story ("Defeat General Barbarism in the
+     Sunscorch Desert").
+  2. No tutorial, no intro: only this line, and the map mark that already exists.
+
+
+5. PERFORMANCE
+--------------
+The more the world lives, the more it computes. Today: about 2 ms per frame.
+  1. Measure it again after each big addition from life.txt, on a phone too.
+  2. Only the people, animals and monsters near the hero are updated every frame; the far ones live "in numbers"
+     (like the villages far away already do).
+  3. A limit on the number of moving things on screen.
+
+
+6. OPTIMIZATIONS
+----------------
+Where the game spends its time, every frame (to check with the browser profiler first, then fix the worst):
+  1. The drawing of the world (draw/scene.js) makes a new small function for every tree, rock and person in
+     view, every frame. Keep the drawings of what does not move, and only rebuild them when the view moves to
+     another block.
+  2. Many lists are filtered every frame (NPCS.filter(...), monsters near the hero, villagers near the hero).
+     Filter once per frame (or once per second for the slow things) and share the result.
+  3. The ensure...() functions (23 of them) check and fill the state again and again, every frame. Call them
+     once when the game is loaded (save.js / newGame.js), then just read the state.
+  4. zoneAt() is called a lot for the same tiles: keep the zone of each moving thing, and look again only when it
+     changes tile.
+  5. The searches of a way (world/paths.js) are the most expensive thing a walker does: never more than a few
+     per frame for the whole world (a small queue), the others wait their turn.
+  6. The forest fires and the demon land count their lists with Object.keys() often: keep a counter instead.
+  7. The far villages, caravans and parties should live "in numbers" (one step per second), not frame by frame.
+  8. The big pictures (the world map painting, the atlases) are loaded once, and only drawn when on screen.
+
+
+7. CLEAN THE CODE
+-----------------
+There is no CLAUDE.md in the project yet: write one, with the rules below, so that every AI follows them.
+The rules (they are already the style of the first files of the project):
+  - "Be simple as fuck. And the clearest humanely readable function. One function for one functionality."
+    (the first rule, above all the others)
+  - As simple and readable as possible: one function = one thing, with a clear name.
+  - A plain comment above each function that is not obvious: what it does and why, in simple English.
+  - Small files: one subject per file. Data (lists of monsters, items, sentences) in data/, rules in logic/,
+    drawing in draw/, screens in ui/.
+  - Plain objects and small named functions: no classes, no clever abstractions.
+  - The numbers that can be tuned are named constants at the top of the file, with a comment.
+
+What to clean, from what was measured:
+  1. Split the biggest files by subject: draw/scene.js (1879 lines), draw/props.js (1465), logic/houses.js
+     (1369: the houses, the halls, the residents, the academies are four subjects).
+  2. Cut the very long functions into small named ones (some are 250 to 500 lines: specialHallSpec in
+     logic/houses.js, the panels of ui/menu/, dealText in ui/ShopScreen.jsx, slowNatureAndRoads in
+     logic/life/natureAndRoads.js...).
+  3. One helper, used everywhere, for what is written again and again: the distance between two things
+     (10 copies), turning to face something (5 copies), "is the hero near".
+  4. Comments: the same plain style everywhere (111 comments are in the "/** ... */" style of another AI, often
+     long and full of words like "robust" or "seamless": make them simple, or remove them when the name says it).
+  5. Time: 126 calls to Date.now() in the rules of the game. Use the clock of the game instead, so that the
+     pause, the frozen time and the tests work the same everywhere.
+  6. Remove what is never used: exported functions nobody calls, old fields (like the old _steerSign of the
+     walkers), items or data that nothing reads.
+  7. The same name for the same thing everywhere (people / npcs / villagers / patrons / residents: say in a
+     comment which is which, and do not add new words for the same idea).
+  8. After each cleaning step: the build passes, and the tests of part 1 pass.

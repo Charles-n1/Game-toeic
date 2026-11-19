@@ -76,7 +76,7 @@ function homeOf(game, npc) {
 export function placePeople(game) {
   for (const npc of NPCS) {
     const home = homeOf(game, npc);
-    game.run.people[npc.id] = { x: home.x, y: home.y, walkX: 0, walkY: 0, walkTime: 0, step: 0, dir: 'down', path: null, errandTime: 10 + Math.random() * 60, away: false };
+    game.run.people[npc.id] = { x: home.x, y: home.y, walkX: 0, walkY: 0, walkTime: 0, step: 0, dir: 'down', path: null, errandTime: 1 + Math.random() * 8, away: false }; // out on an errand within seconds
   }
 }
 
@@ -127,77 +127,98 @@ function npcEconomicExchange(game, npc, house) {
   }
 }
 
+// Out of the village, exploring: a fighter attacks the monsters it meets, the others run home.
+// Back home when the place is reached, when the time is over, or when there is no way to go further.
 function handleExploringNpc(game, npc, place, dt) {
   const nearbyFoe = (game.run.monsters || []).find((m) => !m.boss && m.health > 0 && Math.hypot(m.x - place.x, m.y - place.y) < 4.5);
   if (nearbyFoe) {
     if (npc.fighter) {
-      const distFoe = Math.hypot(nearbyFoe.x - place.x, nearbyFoe.y - place.y);
-      if (distFoe > 1.3) {
-        stepSmart(place, nearbyFoe.x, nearbyFoe.y, 2.0, dt);
-      } else {
-        place.walking = false;
-        place.dir = facingOf(nearbyFoe.x - place.x, nearbyFoe.y - place.y);
-        place._atkCd = (place._atkCd || 0) - dt;
-        if (place._atkCd <= 0) {
-          place._atkCd = 1.05;
-          nearbyFoe.health -= 14;
-          nearbyFoe.hitAt = Date.now();
-          burst(game, nearbyFoe.x, nearbyFoe.y - 0.3, '#ffd23f', 6);
-        }
-      }
+      fightFoe(game, place, nearbyFoe, dt);
       return;
     }
-    // Non-fighters actively evade & flee back through town gate instead of walking into monsters
     const home = homeOf(game, npc);
-    stepSmart(place, home.x, home.y, 2.2, dt);
+    stepSmart(place, home.x, home.y, 2.2, dt); // non-fighters run back home, away from the monster
     return;
   }
 
   const dest = place.exploreTarget;
-  if (!dest || Date.now() > (place.exploreUntil || 0) || Math.hypot(dest.x - place.x, dest.y - place.y) < 1.5) {
-    place.exploreTarget = null;
+  if (!place.returningFromExplore && (!dest || Date.now() > (place.exploreUntil || 0) || Math.hypot(dest.x - place.x, dest.y - place.y) < 1.5)) {
     place.returningFromExplore = true;
   }
-  if (place.returningFromExplore) {
-    const home = homeOf(game, npc);
-    if (Math.hypot(home.x - place.x, home.y - place.y) < 2.2 || !stepSmart(place, home.x, home.y, 1.6, dt)) {
-      place.exploring = false;
-      place.returningFromExplore = false;
-      place.errandTime = 15 + Math.random() * 20;
-    }
+  if (!place.returningFromExplore) {
+    if (!stepSmart(place, dest.x, dest.y, 1.5, dt)) place.returningFromExplore = true; // no way further: back home
     return;
   }
-  stepSmart(place, dest.x, dest.y, 1.5, dt);
+  const home = homeOf(game, npc);
+  if (Math.hypot(home.x - place.x, home.y - place.y) < 2.2 || !stepSmart(place, home.x, home.y, 1.6, dt)) {
+    place.exploring = false;
+    place.returningFromExplore = false;
+    place.exploreTarget = null;
+    place.errandTime = 2 + Math.random() * 6;
+  }
+}
+
+// A fighter against a monster: it walks to it, then strikes every second.
+function fightFoe(game, place, foe, dt) {
+  if (Math.hypot(foe.x - place.x, foe.y - place.y) > 1.3) {
+    stepSmart(place, foe.x, foe.y, 2.0, dt);
+    return;
+  }
+  place.walking = false;
+  place.dir = facingOf(foe.x - place.x, foe.y - place.y);
+  place._atkCd = (place._atkCd || 0) - dt;
+  if (place._atkCd <= 0) {
+    place._atkCd = 1.05;
+    foe.health -= 14;
+    foe.hitAt = Date.now();
+    burst(game, foe.x, foe.y - 0.3, '#ffd23f', 6);
+  }
+}
+
+// The end of an errand. At a door, the person goes in (not drawn) and comes out later: nobody waits in front of
+// a door. At a square or a well, they stay a moment (and often talk with the others there).
+function arriveAt(game, npc, place, spot) {
+  place.targetPoint = null;
+  place.targetOutside = false;
+  place.walking = false;
+  const house = spot.isDoor ? spot.house : spot.isHome ? houseAtDoor(npc, place) : null;
+  if (house && !npc.wanderer) {
+    if (spot.isDoor) npcEconomicExchange(game, npc, house);
+    place.indoors = { village: house.village, role: house.role, house: house, untilTime: Date.now() + (15 + Math.random() * 25) * 1000 };
+    return;
+  }
+  place.errandTime = 6 + Math.random() * 12;
+}
+
+// The house whose door is right here (their shop, their home), or null. Back at their spot in front of it,
+// people go in (the hero finds them inside) instead of standing in front of the door.
+function houseAtDoor(npc, place) {
+  return errandSpots(npc).find((spot) => spot.isDoor && Math.hypot(spot.x - place.x, spot.y - place.y) < 2.2)?.house || null;
+}
+
+// Gives up a place with no way to it: another errand very soon (never stuck walking into a wall).
+function giveUpErrand(place) {
+  place.targetPoint = null;
+  place.targetOutside = false;
+  place.walking = false;
+  place.errandTime = 1 + Math.random() * 2;
 }
 
 function runErrands(game, npc, dt) {
   const place = game.run.people[npc.id];
+  if (place.talkUntil > Date.now()) {
+    place.walking = false; // a chat with someone (see logic/smallTalk.js)
+    return true;
+  }
   if (place.exploring) {
     handleExploringNpc(game, npc, place, dt);
     return true;
   }
   if (place.targetPoint) {
-    const far = Math.hypot(place.targetPoint.x - place.x, place.targetPoint.y - place.y);
-    if (far < 0.9 || !stepSmart(place, place.targetPoint.x, place.targetPoint.y, 1.45, dt, { stayInside: !place.targetOutside })) {
-      const doneTarget = place.targetPoint;
-      place.targetPoint = null;
-      place.targetOutside = false;
-      place.walking = false;
-      if (doneTarget.isDoor && doneTarget.house && !npc.wanderer) {
-        npcEconomicExchange(game, npc, doneTarget.house);
-        if (Math.random() < 0.65) {
-          place.indoors = {
-            village: doneTarget.house.village,
-            role: doneTarget.house.role,
-            house: doneTarget.house,
-            untilTime: Date.now() + 24000,
-          };
-          return true;
-        }
-      }
-      place.errandTime = place.away ? 8 + Math.random() * 14 : 16 + Math.random() * 28;
-      return true;
-    }
+    const spot = place.targetPoint;
+    const far = Math.hypot(spot.x - place.x, spot.y - place.y);
+    if (far < (spot.isDoor ? 1.3 : 0.9)) arriveAt(game, npc, place, spot);
+    else if (!stepSmart(place, spot.x, spot.y, 1.45, dt, { stayInside: !place.targetOutside })) giveUpErrand(place);
     return true;
   }
   if (place.path) {
@@ -229,7 +250,7 @@ function runErrands(game, npc, dt) {
   const home = homeOf(game, npc);
   const spots = errandSpots(npc);
   if (place.away || spots.length === 0) {
-    place.targetPoint = { x: home.x, y: home.y };
+    place.targetPoint = { x: home.x, y: home.y, isHome: true };
     place.away = false;
   } else {
     place.targetPoint = pickRandom(spots);
@@ -244,7 +265,8 @@ export function updatePeople(game, dt) {
   for (const npc of NPCS) {
     const place = game.run.people[npc.id];
     if (place?.indoors && now >= place.indoors.untilTime) {
-      place.indoors = null; // exits house back onto street cleanly
+      place.indoors = null; // comes out of the house, and walks away soon (never waits at the door)
+      place.errandTime = Math.min(place.errandTime, 1 + Math.random() * 3);
     }
     const isVisible = isOutside(game, npc);
     game.run.visible[npc.id] = isVisible;

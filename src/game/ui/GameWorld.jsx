@@ -21,6 +21,7 @@ import { useGameOptions } from './gameOptions';
 import { songFor } from '../audio/soundtrack';
 import { playSong } from '../audio/music';
 import { playEffect } from '../audio/effects';
+import { updateAmbient } from '../audio/ambient';
 import { ensureRealism } from '../logic/realism/state';
 
 const REFRESH_EVERY = 0.2; // seconds between two updates of the HUD (the world itself is drawn at every frame)
@@ -60,6 +61,7 @@ export default function GameWorld({ game, questions, goalRate, onAnswer, onResta
     updateEffects(game, dt);
     drawScene(ctx, game, width, height, time);
     playSong(songFor(game));
+    updateAmbient(game);
     takeCues(game).forEach(playEffect);
 
     const screenChanged = game.run.screen !== shownScreen.current;

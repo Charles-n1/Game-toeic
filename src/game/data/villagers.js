@@ -11,8 +11,8 @@ export const CLOTHES = ['#6b8a3a', '#8a5a3a', '#5a6b8a', '#8a3a5a', '#7a7a5a', '
 
 // The jobs of the villagers on screen, in the order they are given (a farming village: mostly farmers).
 export const JOB_ORDER = {
-  farm: ['farmer', 'farmer', 'herder', 'farmer', 'woodcutter', 'farmer', 'builder', 'merchant'],
-  other: ['farmer', 'woodcutter', 'builder', 'merchant', 'herder', 'stonecutter', 'farmer', 'merchant'],
+  farm: ['farmer', 'farmer', 'herder', 'farmer', 'woodcutter', 'baker', 'builder', 'merchant'],
+  other: ['farmer', 'woodcutter', 'builder', 'merchant', 'herder', 'stonecutter', 'smith', 'baker', 'fisher'],
 };
 
 export const JOB_NAMES = {
@@ -22,6 +22,9 @@ export const JOB_NAMES = {
   herder: 'Herder',
   builder: 'Builder',
   merchant: 'Merchant',
+  smith: 'Blacksmith',
+  baker: 'Baker',
+  fisher: 'Fisher',
   knight: 'Knight',
   foreman: 'Foreman',
   kid: 'Child',
@@ -35,6 +38,9 @@ export const JOB_GOODS = {
   herder: ['milk', 'rawMeat', 'egg'],
   builder: ['firewood', 'stone'],
   merchant: ['cloth', 'lampOil', 'driedMeat', 'healthPotion', 'rope'],
+  smith: ['ironSword', 'repairKit', 'ore'],
+  baker: ['bread', 'carrot', 'berryTart'],
+  fisher: ['rawFish', 'salt'],
   knight: [],
   foreman: [],
   kid: [],

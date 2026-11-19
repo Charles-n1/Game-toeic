@@ -107,7 +107,7 @@ export function isFestivalActive(game, villageId) {
   return s.feastActive[villageId] === game.day || game.day >= state.feast;
 }
 
-// Multiplier for village trade & services (mood, infamy, festival -25%, negotiated deal).
+// Multiplier for village trade & services (mood, infamy, festival -25%, demon-front scarcity #69, negotiated deal).
 export function villagePriceMultiplier(game, villageId) {
   const s = ensureSociety(game);
   const state = villageState(game, villageId);
@@ -116,9 +116,11 @@ export function villagePriceMultiplier(game, villageId) {
   const infamy = s.infamy || 0;
   const infamyFactor = infamy >= 30 ? 1 + Math.min(0.6, infamy * 0.012) : infamy >= 10 ? 1 + infamy * 0.006 : 1;
   const festivalFactor = isFestivalActive(game, villageId) ? 0.75 : 1;
+  const besiegedFront = Boolean(!game.bosses?.king && (game.war?.warbands?.some((b) => b.targetId === villageId) || state?.underAttack));
+  const frontFactor = besiegedFront ? 1.25 : 1;
   const deal = s.deals[villageId];
   const dealFactor = deal && deal.day === game.day ? deal.factor : 1;
-  return Math.max(0.45, Number((moodFactor * infamyFactor * festivalFactor * dealFactor).toFixed(3)));
+  return Math.max(0.45, Number((moodFactor * infamyFactor * festivalFactor * frontFactor * dealFactor).toFixed(3)));
 }
 
 // Riding speed multiplier: ~1.8x when fed, dropping smoothly to ~1.05x when starving.

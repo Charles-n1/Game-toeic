@@ -1,8 +1,11 @@
 import { zoneAt } from '../data/zones';
 import { isSolid } from './map';
 
-// Finding a way from a tile to another, around the walls, the houses and the water (for the people who walk
-// to their work). A search in rings (the closest tiles first), limited: a far goal gives up (null).
+// Finding a way from a tile to another, around the walls, the houses and the water, for everyone who walks:
+// the people of the villages, the travelers, the caravans, the patrols, the friends of the hero.
+// A walker plans its way ONCE (a search of the tiles, the most promising first: "A*"), then follows it.
+// It never walks "by feel" into a wall, and never turns back and forth in front of an obstacle: when there is no
+// way, it stops and says so (stepSmart returns false), and whoever moves it chooses another place to go.
 
 const SIDES = [
   [1, 0],
@@ -10,32 +13,83 @@ const SIDES = [
   [0, 1],
   [0, -1],
 ];
+const KEY_WIDTH = 4096; // to make one number of (x, y): y * KEY_WIDTH + x (the map is less than 4096 wide)
+const GREED = 1.3; // > 1: the search goes straight to the goal first (much faster, the way is nearly the shortest)
 
-// The tiles to walk on, from (x, y) to (goalX, goalY): [{ x, y }] (the middles of the tiles), or null.
-// The goal itself may be solid (a tree to cut, a rock to break): the way stops next to it.
-export function findPath(x, y, goalX, goalY, maxSteps = 2500) {
-  const start = [Math.floor(x), Math.floor(y)];
-  const goal = [Math.floor(goalX), Math.floor(goalY)];
-  const cameFrom = new Map([[start.join(','), null]]);
-  const queue = [start];
-  let found = null;
-  for (let i = 0; i < queue.length && i < maxSteps; i++) {
-    const [cx, cy] = queue[i];
-    if (Math.abs(cx - goal[0]) + Math.abs(cy - goal[1]) <= 1) {
-      found = [cx, cy];
-      break;
-    }
-    for (const [dx, dy] of SIDES) {
-      const next = [cx + dx, cy + dy];
-      const key = next.join(',');
-      if (cameFrom.has(key) || isSolid(next[0] + 0.5, next[1] + 0.5)) continue;
-      cameFrom.set(key, [cx, cy]);
-      queue.push(next);
+function isWalkable(x, y) {
+  return !isSolid(x, y);
+}
+
+// ---------- A small heap: the cheapest tile first ----------
+// Each item: [cost, x, y]. push and pop keep the cheapest item at heap[0].
+
+function heapPush(heap, item) {
+  heap.push(item);
+  let i = heap.length - 1;
+  while (i > 0) {
+    const parent = (i - 1) >> 1;
+    if (heap[parent][0] <= heap[i][0]) break;
+    [heap[parent], heap[i]] = [heap[i], heap[parent]];
+    i = parent;
+  }
+}
+
+function heapPop(heap) {
+  const top = heap[0];
+  const last = heap.pop();
+  if (heap.length > 0) {
+    heap[0] = last;
+    let i = 0;
+    for (;;) {
+      const left = i * 2 + 1;
+      const right = left + 1;
+      let smallest = i;
+      if (left < heap.length && heap[left][0] < heap[smallest][0]) smallest = left;
+      if (right < heap.length && heap[right][0] < heap[smallest][0]) smallest = right;
+      if (smallest === i) break;
+      [heap[smallest], heap[i]] = [heap[i], heap[smallest]];
+      i = smallest;
     }
   }
-  if (!found) return null;
+  return top;
+}
+
+// ---------- The search ----------
+
+// The tiles to walk on, from (x, y) to (goalX, goalY): [{ x, y }] (the middles of the tiles), or null.
+// The goal itself may be solid (a tree to cut, a door): the way stops next to it.
+// maxSteps: how many tiles are looked at, at most (a goal too far or closed off gives up: null).
+export function findPath(x, y, goalX, goalY, maxSteps = 9000, canWalk = isWalkable) {
+  const startX = Math.floor(x);
+  const startY = Math.floor(y);
+  const goal = [Math.floor(goalX), Math.floor(goalY)];
+  const guess = (cx, cy) => (Math.abs(cx - goal[0]) + Math.abs(cy - goal[1])) * GREED;
+  const startKey = startY * KEY_WIDTH + startX;
+  const cameFrom = new Map([[startKey, -1]]);
+  const walked = new Map([[startKey, 0]]);
+  const heap = [[guess(startX, startY), startX, startY]];
+  for (let steps = 0; heap.length > 0 && steps < maxSteps; steps++) {
+    const [, cx, cy] = heapPop(heap);
+    if (Math.abs(cx - goal[0]) + Math.abs(cy - goal[1]) <= 1) return wayBack(cameFrom, cy * KEY_WIDTH + cx);
+    const here = walked.get(cy * KEY_WIDTH + cx);
+    for (const [dx, dy] of SIDES) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      const key = ny * KEY_WIDTH + nx;
+      if (walked.has(key) && walked.get(key) <= here + 1) continue;
+      if (!canWalk(nx + 0.5, ny + 0.5)) continue;
+      walked.set(key, here + 1);
+      cameFrom.set(key, cy * KEY_WIDTH + cx);
+      heapPush(heap, [here + 1 + guess(nx, ny), nx, ny]);
+    }
+  }
+  return null;
+}
+
+// From the last tile back to the first one: the way, in the right order.
+function wayBack(cameFrom, lastKey) {
   const path = [];
-  for (let cell = found; cell; cell = cameFrom.get(cell.join(','))) path.push({ x: cell[0] + 0.5, y: cell[1] + 0.5 });
+  for (let key = lastKey; key !== -1; key = cameFrom.get(key)) path.push({ x: (key % KEY_WIDTH) + 0.5, y: Math.floor(key / KEY_WIDTH) + 0.5 });
   return path.reverse();
 }
 
@@ -46,26 +100,37 @@ export function followPath(walker, speed, dt) {
     walker.walking = false;
     return true;
   }
-  const target = walker.path[0];
-  const far = Math.hypot(target.x - walker.x, target.y - walker.y);
-  const move = speed * dt;
-  if (far <= move) {
-    walker.x = target.x;
-    walker.y = target.y;
-    walker.path.shift();
-  } else {
-    const dx = (target.x - walker.x) / far;
-    const dy = (target.y - walker.y) / far;
-    walker.x += dx * move;
-    walker.y += dy * move;
-    walker.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-  }
+  walkAlong(walker, walker.path, speed * dt);
   walker.walking = true;
   walker.step = (walker.step || 0) + dt * 6;
   return walker.path.length === 0;
 }
 
-// ---------- Gate-Aware & Obstacle-Avoiding Smart Navigation ----------
+// Walks `move` tiles along the points (the points reached are taken off the list). Turns the walker.
+function walkAlong(walker, points, move) {
+  let left = move;
+  while (points.length > 0 && left > 0) {
+    const target = points[0];
+    const far = Math.hypot(target.x - walker.x, target.y - walker.y);
+    if (far > 0.0001) faceTo(walker, target.x - walker.x, target.y - walker.y);
+    if (far <= left) {
+      walker.x = target.x;
+      walker.y = target.y;
+      points.shift();
+      left -= far;
+    } else {
+      walker.x += ((target.x - walker.x) / far) * left;
+      walker.y += ((target.y - walker.y) / far) * left;
+      left = 0;
+    }
+  }
+}
+
+function faceTo(walker, dx, dy) {
+  walker.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+}
+
+// ---------- The gates of the villages ----------
 
 // Returns { inside, outside, gate } for the open gate of `village` closest to `target`.
 export function bestGateOf(village, target) {
@@ -88,168 +153,100 @@ export function bestGateOf(village, target) {
   return best;
 }
 
-function advanceAlongPoints(walker, points, move, canWalk) {
-  while (points.length > 0) {
-    const pt = points[0];
-    const far = Math.hypot(pt.x - walker.x, pt.y - walker.y);
-    if (far <= move) {
-      if (!canWalk(pt.x, pt.y)) {
-        points.length = 0;
-        return null;
-      }
-      const dx = pt.x - walker.x;
-      const dy = pt.y - walker.y;
-      walker.x = pt.x;
-      walker.y = pt.y;
-      points.shift();
-      return { dx, dy, moved: true };
-    }
-    const dx = ((pt.x - walker.x) / far) * move;
-    const dy = ((pt.y - walker.y) / far) * move;
-    if (!canWalk(walker.x + dx, walker.y + dy)) {
-      points.length = 0;
-      return null;
-    }
-    walker.x += dx;
-    walker.y += dy;
-    return { dx, dy, moved: true };
-  }
-  return null;
-}
-
-// Moves an entity toward (goalX, goalY) cleanly:
-// - Routes out the nearest open town gate when inside a village aiming outside (no wall-banging at the south gate!)
-// - Routes to the destination village's outside gate when `options.stopAtGate` is true
-// - Uses local multi-angle steering + short BFS findPath detours around walls/water/buildings (never flies over solids)
-export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
-  const canWalk = options.canWalk || ((x, y) => !isSolid(x, y));
-  const now = options.now || Date.now();
-  const move = speed * dt;
-  const distToGoal = Math.hypot(goalX - walker.x, goalY - walker.y);
-  if (distToGoal < 0.15) {
-    walker.walking = false;
-    return false;
-  }
-
-  let tx = goalX;
-  let ty = goalY;
+// Where to walk first: out by a gate when leaving a village, or to the gate of the village to reach.
+function nextStop(walker, goalX, goalY, options) {
   const startZone = zoneAt(walker.x, walker.y);
   const goalZone = zoneAt(goalX, goalY);
   if (startZone.kind === 'village' && !options.stayInside && goalZone.id !== startZone.id) {
     const exit = bestGateOf(startZone, { x: goalX, y: goalY });
-    if (exit) {
-      tx = exit.outside.x;
-      ty = exit.outside.y;
-    }
+    if (exit) return exit.outside;
   } else if (goalZone.kind === 'village' && startZone.id !== goalZone.id) {
     const entry = bestGateOf(goalZone, walker);
     if (entry) {
-      if (options.stopAtGate || Math.hypot(entry.outside.x - walker.x, entry.outside.y - walker.y) > 3.2) {
-        tx = entry.outside.x;
-        ty = entry.outside.y;
-      } else {
-        tx = entry.inside.x;
-        ty = entry.inside.y;
+      const isAtGate = Math.hypot(entry.outside.x - walker.x, entry.outside.y - walker.y) <= 3.2;
+      return options.stopAtGate || !isAtGate ? entry.outside : entry.inside;
+    }
+  }
+  return { x: goalX, y: goalY };
+}
+
+// ---------- Walking somewhere, the smart way ----------
+
+const LEG = 70; // tiles: a long trip is planned in legs of this length (one after the other)
+const PLAN_STEPS = 9000; // tiles looked at, at most, to plan one leg
+const RETRY_AFTER = 2000; // ms: after a failed plan, the walker waits this long before trying again
+const MOVED_GOAL = 1.5; // tiles: the goal moved this much (someone followed): the way is planned again
+
+// The place to plan for: the stop itself, or (farther than `length`) a walkable place `length` tiles toward it.
+function legTarget(walker, stop, length, canWalk) {
+  const far = Math.hypot(stop.x - walker.x, stop.y - walker.y);
+  if (far <= length) return stop;
+  const ux = (stop.x - walker.x) / far;
+  const uy = (stop.y - walker.y) / far;
+  return walkableNear(walker.x + ux * length, walker.y + uy * length, 8, canWalk);
+}
+
+// The closest walkable tile around (x, y), at most `radius` tiles away (or null).
+function walkableNear(x, y, radius, canWalk) {
+  for (let r = 0; r <= radius; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // only the ring at distance r
+        const tx = Math.floor(x) + dx + 0.5;
+        const ty = Math.floor(y) + dy + 0.5;
+        if (canWalk(tx, ty)) return { x: tx, y: ty };
       }
     }
   }
+  return null;
+}
 
-  // Anti-stuck detector: if an entity barely moved over 420ms, clear stale paths and sidestep obstacles
-  if (now - (walker._stAt || 0) > 420) {
-    const movedSince = Math.hypot(walker.x - (walker._stX ?? walker.x), walker.y - (walker._stY ?? walker.y));
-    if (walker._stAt && movedSince < 0.05) {
-      walker._stuckCount = (walker._stuckCount || 0) + 1;
-      walker._navPath = null;
-      walker._navRetryAt = 0;
-      walker._steerSign = -1 * (walker._steerSign || 1);
-      const escapeAngle = Math.atan2(ty - walker.y, tx - walker.x) + (walker._stuckCount % 2 === 0 ? 1.57 : -1.57);
-      const ex = walker.x + Math.cos(escapeAngle) * 2.2;
-      const ey = walker.y + Math.sin(escapeAngle) * 2.2;
-      if (canWalk(ex, ey)) walker._navPath = [{ x: ex, y: ey }];
-    } else {
-      walker._stuckCount = 0;
+// Must the walker plan its way (again)? No way yet, the goal moved, or the way got blocked.
+function needsPlan(walker, stop, canWalk, now) {
+  if (now < (walker._planAgainAt || 0)) return false;
+  const route = walker._navPath;
+  if (!route || route.length === 0) return true;
+  if (!walker._navGoal || Math.hypot(walker._navGoal.x - stop.x, walker._navGoal.y - stop.y) > MOVED_GOAL) return true;
+  return !canWalk(route[0].x, route[0].y);
+}
+
+// Plans the way to the stop (or to the next leg of a long trip: a long leg first, a shorter one if a lake or
+// a cliff is in the way). No way at all: the walker waits a bit before retrying.
+function plan(walker, stop, canWalk, now) {
+  walker._navGoal = { x: stop.x, y: stop.y };
+  for (const length of [LEG, LEG * 0.4, 12]) {
+    const target = legTarget(walker, stop, length, canWalk);
+    const path = target && findPath(walker.x, walker.y, target.x, target.y, PLAN_STEPS, canWalk);
+    if (path) {
+      walker._navPath = path.slice(1);
+      if (target === stop && canWalk(stop.x, stop.y)) walker._navPath.push({ x: stop.x, y: stop.y }); // the exact spot
+      return;
     }
-    walker._stX = walker.x;
-    walker._stY = walker.y;
-    walker._stAt = now;
+    if (target === stop) break; // the stop itself is closer than a leg: no shorter leg to try
   }
+  walker._navPath = null;
+  walker._planAgainAt = now + RETRY_AFTER + Math.random() * 1000;
+}
 
-  // Follow cached short detour path if still valid toward current waypoint
-  if (walker._navPath && walker._navPath.length > 0 && now < (walker._navUntil || 0)) {
-    const res = advanceAlongPoints(walker, walker._navPath, move, canWalk);
-    if (res && res.moved) {
-      walker.walking = true;
-      walker.step = (walker.step || 0) + dt * 6;
-      if (Math.abs(res.dx) > 0.001 || Math.abs(res.dy) > 0.001) {
-        walker.dir = Math.abs(res.dx) > Math.abs(res.dy) ? (res.dx < 0 ? 'left' : 'right') : res.dy < 0 ? 'up' : 'down';
-      }
-      return true;
-    }
-  }
+// Moves an entity toward (goalX, goalY) by a real way around the walls, the water and the buildings.
+// Leaving a village, it goes out by a gate; going to a village, to its gate (stopAtGate: and stops there).
+// options: { canWalk(x, y), stayInside, stopAtGate, now }.
+// Returns true while it walks; false when it is there, or when there is no way (the caller picks another goal).
+export function stepSmart(walker, goalX, goalY, speed, dt, options = {}) {
+  const canWalk = options.canWalk || isWalkable;
+  const now = options.now || Date.now();
+  if (Math.hypot(goalX - walker.x, goalY - walker.y) < 0.15) return stopWalking(walker);
+  const stop = nextStop(walker, goalX, goalY, options);
+  if (needsPlan(walker, stop, canWalk, now)) plan(walker, stop, canWalk, now);
+  const route = walker._navPath;
+  if (!route || route.length === 0) return stopWalking(walker);
+  walkAlong(walker, route, speed * dt);
+  walker.walking = true;
+  walker.step = (walker.step || 0) + dt * 6;
+  return true;
+}
 
-  const far = Math.hypot(tx - walker.x, ty - walker.y);
-  if (far < 0.12) return false;
-  const baseAngle = Math.atan2(ty - walker.y, tx - walker.x);
-  const directLookX = walker.x + Math.cos(baseAngle) * Math.min(1.6, far);
-  const directLookY = walker.y + Math.sin(baseAngle) * Math.min(1.6, far);
-
-  // If direct line ahead is blocked & cooldown elapsed, run a fast local BFS around walls/buildings/gates
-  if (!canWalk(directLookX, directLookY) && now >= (walker._navRetryAt || 0)) {
-    walker._navRetryAt = now + 900;
-    const bfsLimit = startZone.kind === 'village' || goalZone.kind === 'village' ? 1800 : 750;
-    const detour = findPath(walker.x, walker.y, tx, ty, bfsLimit);
-    if (detour && detour.length > 1) {
-      walker._navPath = detour.slice(1);
-      walker._navUntil = now + 2200;
-      const res = advanceAlongPoints(walker, walker._navPath, move, canWalk);
-      if (res && res.moved) {
-        walker.walking = true;
-        walker.step = (walker.step || 0) + dt * 6;
-        walker.dir = Math.abs(res.dx) > Math.abs(res.dy) ? (res.dx < 0 ? 'left' : 'right') : res.dy < 0 ? 'up' : 'down';
-        return true;
-      }
-    }
-  }
-
-  // Smooth multi-angle steering with turn-direction memory to skirt lakes/cliffs without oscillation
-  const pref = walker._steerSign || 1;
-  const angles = [0, 0.35 * pref, -0.35 * pref, 0.72 * pref, -0.72 * pref, 1.1 * pref, -1.1 * pref, 1.5 * pref, -1.5 * pref, 1.95 * pref, -1.95 * pref, 2.4 * pref, -2.4 * pref];
-  for (const offset of angles) {
-    const ang = baseAngle + offset;
-    const dx = Math.cos(ang) * move;
-    const dy = Math.sin(ang) * move;
-    const probeX = walker.x + Math.cos(ang) * Math.min(0.85, far);
-    const probeY = walker.y + Math.sin(ang) * Math.min(0.85, far);
-    if (canWalk(walker.x + dx, walker.y + dy) && (offset === 0 || canWalk(probeX, probeY))) {
-      walker.x += dx;
-      walker.y += dy;
-      walker._steerSign = offset === 0 ? pref : offset > 0 ? 1 : -1;
-      walker.walking = true;
-      walker.step = (walker.step || 0) + dt * 6;
-      walker.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-      return true;
-    }
-  }
-
-  // Last-resort X/Y axis slide (never passes through solid walls or water)
-  const ux = Math.cos(baseAngle) * move;
-  const uy = Math.sin(baseAngle) * move;
-  const beforeX = walker.x;
-  const beforeY = walker.y;
-  let moved = false;
-  if (canWalk(walker.x + ux, walker.y)) {
-    walker.x += ux;
-    moved = true;
-  }
-  if (canWalk(walker.x, walker.y + uy)) {
-    walker.y += uy;
-    moved = true;
-  }
-  const actualDelta = Math.hypot(walker.x - beforeX, walker.y - beforeY);
-  walker.walking = moved && actualDelta > 0.002;
-  if (walker.walking) {
-    walker.step = (walker.step || 0) + dt * 6;
-    walker.dir = Math.abs(ux) > Math.abs(uy) ? (ux < 0 ? 'left' : 'right') : uy < 0 ? 'up' : 'down';
-  }
-  return walker.walking;
+function stopWalking(walker) {
+  walker.walking = false;
+  return false;
 }

@@ -62,8 +62,13 @@ function paintVignette(ctx, width, height) {
 }
 
 export function drawLights(ctx, game, width, height, lights, dark = darkness(game)) {
-  const sunset = sunsetAmount(game.hour);
-  if (sunset > 0) paintTint(ctx, width, height, 'rgba(255, 115, 48, ' + (0.19 * sunset).toFixed(3) + ')');
+  const h = game.hour ?? 12;
+  const morning = h >= 5 && h < 8.5 ? 1 - Math.abs(h - 6.75) / 1.75 : 0;
+  const noon = h >= 11 && h < 14.5 ? 1 - Math.abs(h - 12.75) / 1.75 : 0;
+  const evening = h >= 17 && h < 21 ? 1 - Math.abs(h - 19) / 2 : 0;
+  if (morning > 0) paintTint(ctx, width, height, 'rgba(255, 206, 98, ' + (0.14 * morning).toFixed(3) + ')');
+  if (noon > 0) paintTint(ctx, width, height, 'rgba(255, 255, 245, ' + (0.06 * noon).toFixed(3) + ')');
+  if (evening > 0) paintTint(ctx, width, height, 'rgba(255, 115, 48, ' + (0.2 * evening).toFixed(3) + ')');
   if (game.raid.active) paintTint(ctx, width, height, 'rgba(255, 50, 18, 0.24)');
   if (bloodMoonTint(game)) paintTint(ctx, width, height, bloodMoonTint(game));
   if (dark > 0) paintNight(ctx, width, height, dark, lights);

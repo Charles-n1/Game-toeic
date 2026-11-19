@@ -24,6 +24,7 @@ import { refreshDailyLetters, syncWeeklyChallenge } from './isekaiTodo/socialPlu
 import { checkAchievements } from './isekaiTodo/progression';
 import { hourlyRealism, dailyRealism } from './realism/index';
 import { hourlySoul, dailySoul } from './soul';
+import { newDayLife } from './life';
 import { burnForests } from './war/forestFire';
 
 // Time passing: the clock moves, and a new day changes the world.
@@ -51,6 +52,7 @@ function newDay(game) {
   checkAchievements(game);
   dailyRealism(game);
   dailySoul(game);
+  newDayLife(game);
   notify(game, '🌅 Day ' + game.day);
 }
 

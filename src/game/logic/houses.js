@@ -12,6 +12,7 @@ import { cureCold } from './weather';
 import { passHours } from './days';
 import { healFully, restoreMana } from './player';
 import { buildGuildHall, applyGuildFloor } from './guildHall';
+import { ensureGuild } from './guild/ranks';
 import { talkTo } from './people';
 import { facingOf, frontTile } from './input';
 import { CLASS_ACADEMIES, academyForRole, classOf } from '../data/classes';
@@ -1112,6 +1113,7 @@ export function enterVisitedHouse(game, house, travelFn) {
   cue(game, 'step');
   if (visit.guild) {
     notify(game, '🍺 ' + visit.title + ': drinks at the bar, quests on the board, stairs lead upstairs.', '#ffd86b');
+    if (!ensureGuild(game).registered) notify(game, '🪪 No Adventurer Card yet? Odile makes them, at the desk by the door.', '#ffd23f');
     return;
   }
   if (visit.palace) {

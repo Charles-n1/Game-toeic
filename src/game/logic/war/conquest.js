@@ -9,6 +9,8 @@ import { addHappiness } from '../village';
 import { notify } from '../messages';
 import { burst, dust, floatText, bloodSplatter, bloodHit } from '../particles';
 import { cue } from '../cues';
+import { ensureLife } from '../life/state';
+import { triggerHeroVictoryLife } from '../life/villageEvents';
 import {
   dist,
   centerOfPlace,
@@ -154,6 +156,11 @@ export function liberateVillage(game, village) {
   gainXp(game, 40);
   addHappiness(game, 8);
   cue(game, 'warHorn');
+  triggerHeroVictoryLife(game, 'Liberation of ' + village.name, village.id);
+  const life = ensureLife(game);
+  if (village.plan?.center && !life.constructions.some((c) => c.villageId === village.id)) {
+    life.constructions.push({ id: 'rep-' + village.id + '-' + game.day, villageId: village.id, x: village.plan.center.x + 2, y: village.plan.center.y - 2, stage: 1, maxStage: 3, kind: 'repair', builtDay: game.day || 1 });
+  }
   notify(game, '🏳️ ' + village.name + ' has been liberated and begins rebuilding! +80 Lexis, +40 XP', '#7CFC9A');
   return true;
 }

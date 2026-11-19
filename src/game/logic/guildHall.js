@@ -14,7 +14,7 @@ import { sleepUntilMorning } from './days';
 import { cureCold } from './weather';
 import { interactBoard } from './society/worldLife';
 import { openGuildDesk, openGuildContractsMenu } from './guild';
-import { ensureGuild, rankIndex, boardContractsFor } from './guild/ranks';
+import { ensureGuild, rankIndex, rankInfo, nextRankInfo, boardContractsFor, registerAdventurerCard, startPromotionExam } from './guild/ranks';
 import { ensureRealism } from './realism/state';
 import { applySleepQualityRecovery } from './realism/bodyHealth';
 import { readNoticeBoardQuestion, maybeTriggerEarthDream } from './realism/englishWorld';
@@ -100,6 +100,7 @@ function buildGuildFloor0(game, house, x, y, w, h) {
     { kind: 'toilet', x: x + 20, y: y + 2, w: 1, h: 1, fixed: true },
     { kind: 'basin', x: x + 20, y: y + 3, w: 1, h: 1, fixed: true },
     { kind: 'stairsUp', x: x + 20, y: y + 5, w: 1, h: 1, walkable: true },
+    { kind: 'barCounter', x: x + 6, y: y + 13, w: 3, h: 1, fixed: true }, // the desk of the Adventurer Cards, by the door
   ];
   return {
     title: 'Guild of Adventurers (1F · Tavern)',
@@ -251,7 +252,28 @@ function patronsOf(game, x, y) {
     y: y + 4.2,
     dir: 'down',
   };
-  return [receptionist, ...drinkers, ...servers, ...members];
+  // Behind her desk by the door: the one who makes and keeps the Adventurer Cards.
+  const registrar = {
+    kind: 'registrar',
+    name: 'Odile · Card Registrar',
+    sign: '🪪 Adventurer Cards',
+    look: { skin: '#f1c9a5', hair: '#2b2b3a', style: 'bun', eyes: '#3a6fd8', outfit: '#3a4a8a', trim: '#ffd23f' },
+    x: x + 7.5,
+    y: y + 12.6,
+    dir: 'down',
+    reach: 2.4, // tiles: she is talked to across her desk
+  };
+  const rival = {
+    kind: 'drinker',
+    name: 'Kael · Rival Adventurer',
+    look: { skin: '#e8c49a', hair: '#b83232', style: 'spiky', eyes: '#c83e3e', outfit: '#2b2b3a', trim: '#ffd23f' },
+    x: x + 15.8,
+    y: y + 9.4,
+    dir: 'up',
+    sipTime: 2.2,
+    drinking: false,
+  };
+  return [registrar, receptionist, rival, ...drinkers, ...servers, ...members];
 }
 
 export function isInGuildHall(game) {
@@ -302,7 +324,7 @@ function sip(drinker, dt) {
 function patronNear(game) {
   if (!isInGuildHall(game)) return null;
   const player = game.player;
-  return game.run.visitHouse.patrons.find((patron) => Math.hypot(patron.x - player.x, patron.y - player.y) < TALK_RANGE) || null;
+  return game.run.visitHouse.patrons.find((patron) => Math.hypot(patron.x - player.x, patron.y - player.y) < (patron.reach || TALK_RANGE)) || null;
 }
 
 // A drink from the bar: paid, it quenches the thirst (and a bit of hunger).
@@ -350,7 +372,7 @@ export function elenaGreeting(game) {
   if (g.registered) {
     return "Elena waves cheerfully: 'Welcome back, " + (player?.name || 'Hero') + "! Check the contract board or ask about your Adventurer Card anytime.'";
   }
-  return "Elena greets you from behind the ledger: 'Welcome to the Adventurer Guild! Let's register your Adventurer Card.'";
+  return "Elena greets you: 'Welcome to the Adventurer Guild! First, get your Adventurer Card: Odile makes them, at the desk by the door.'";
 }
 
 /** Rests safely in the upstairs Guild Bedroom until morning (15 Lexis, free at Rank C+). */
@@ -393,7 +415,38 @@ function offerGuildBed(game) {
   ]);
 }
 
+// The card registrar: she makes the Adventurer Card of the hero (free, at once), then shows it and sends to the
+// promotion exams. (Before, the card was hidden in the menus of the receptionist.)
+function talkToRegistrar(game, patron) {
+  const g = ensureGuild(game);
+  const examiner = { id: null, name: patron.name, look: patron.look };
+  if (!g.registered) {
+    say(game, null, [patron.name + ': "Welcome! I keep the register of the Adventurer Cards. The card is free. With it, you take guild contracts, climb from Rank F to Rank S, hire companions, and get discounts in the shops."'], [
+      { label: 'Register my Adventurer Card (free)', icon: 'quests', run: () => registerAtDesk(game, patron) },
+      { label: 'Not now', run: () => {} },
+    ]);
+    return;
+  }
+  const info = rankInfo(g.rank);
+  const next = nextRankInfo(g.rank);
+  const nextLine = next ? ' Next: Rank ' + next.id + ' at ' + next.minPts + ' points (exam fee: ' + next.fee + ' Lexis).' : ' You hold the highest rank!';
+  const choices = [];
+  if (next) choices.push({ label: 'Promotion exam -> Rank ' + next.id + ' (' + g.points + '/' + next.minPts + ' pts)', icon: 'crown', run: () => startPromotionExam(game, examiner) });
+  choices.push({ label: 'Thank you', run: () => {} });
+  say(game, null, [patron.name + ': "Your card: Rank ' + g.rank + ' · ' + info.title + ' · ' + g.points + ' guild points.' + nextLine + '"'], choices);
+}
+
+function registerAtDesk(game, patron) {
+  registerAdventurerCard(game);
+  emote(game, 'hero', 'sparkle');
+  say(game, null, [patron.name + ': "There you go: your Adventurer Card, Rank F. Take contracts at the board, and come back to me for your promotion exams. Good luck out there!"']);
+}
+
 function talkToPatron(game, patron) {
+  if (patron.kind === 'registrar') {
+    talkToRegistrar(game, patron);
+    return;
+  }
   if (patron.kind === 'receptionist') {
     const vid = game.run.visitHouse?.house?.village || 'lexia';
     const examiner = { id: null, name: patron.name, look: patron.look };

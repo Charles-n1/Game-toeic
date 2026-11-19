@@ -438,7 +438,8 @@ function updatePatrols(game, dt) {
   for (const p of econ.patrols) {
     const far = Math.hypot(p.targetX - p.x, p.targetY - p.y);
     if (far <= 6) {
-      const towns = VILLAGES.filter((v) => v.kingdom === p.kingdom && game.villages[v.id]?.owner === 'people' && v.id !== p.toId);
+      p.walking = false; // at the gate: it stands (a kingdom of islands may have no road to another town)
+      const towns = patrolTowns(game, p).filter((v) => v.id !== p.toId);
       const nextTown = towns.length > 0 ? pickRandom(towns) : villageOf(p.fromId);
       if (nextTown) {
         const destGate = bestGateOf(nextTown, p)?.outside || centerOf(nextTown);
@@ -458,22 +459,32 @@ function updatePatrols(game, dt) {
       p._stuck = 0;
     } else {
       p._stuck = (p._stuck || 0) + dt;
-      if (p._stuck > 2.5) {
+      if (p._stuck > 6) {
         p._stuck = 0;
-        const back = villageOf(p.fromId);
-        if (back) {
-          const destGate = bestGateOf(back, p)?.outside || centerOf(back);
-          const oldTo = p.toId;
-          p.toId = p.fromId;
-          p.fromId = oldTo;
-          p.targetX = destGate.x;
-          p.targetY = destGate.y;
-          p._navPath = null;
-          p._steerSign = -(p._steerSign || 1);
-        }
+        changePatrolRoute(game, p);
       }
     }
   }
+}
+
+// The towns a patrol of the kingdom can go to (not the ones it found no road to).
+function patrolTowns(game, p) {
+  return VILLAGES.filter((v) => v.kingdom === p.kingdom && game.villages[v.id]?.owner === 'people' && !(p.noRoad || []).includes(v.id));
+}
+
+// No road to its town (across the sea...): the patrol remembers it and goes to another town of the kingdom.
+// (Before, it turned back and forth forever between two towns.)
+function changePatrolRoute(game, p) {
+  p.noRoad = [...(p.noRoad || []), p.toId];
+  const towns = patrolTowns(game, p).filter((v) => v.id !== p.fromId);
+  const next = towns.length > 0 ? pickRandom(towns) : villageOf(p.fromId);
+  if (!next) return;
+  const destGate = bestGateOf(next, p)?.outside || centerOf(next);
+  p.toId = next.id;
+  p.targetX = destGate.x;
+  p.targetY = destGate.y;
+  p._navPath = null;
+  p._planAgainAt = 0;
 }
 
 // ---------- 5. Visible Paid Local Gatherers near Hero ----------

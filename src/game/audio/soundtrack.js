@@ -1,4 +1,5 @@
 import { zoneAt } from '../data/zones';
+import { biomeAt } from '../world/map';
 import { isNight } from '../logic/clock';
 import { isSilencedZone } from '../logic/soul';
 import { SONGS } from './songs';
@@ -13,6 +14,13 @@ export function songFor(game) {
   if (game.raid.active) return 'raid';
   if (isSilencedZone(game)) return 'silent';
   if (game.ended) return 'ending';
+  const vh = game.run?.visitHouse;
+  if (vh && (vh.guild || vh.specialRole === 'inn') && SONGS.tavern) return 'tavern';
   if (isNight(game)) return 'night';
-  return zoneAt(game.player.x, game.player.y).kind === 'village' ? 'village' : 'exploration';
+  const zone = zoneAt(game.player.x, game.player.y);
+  if (zone.kind === 'village') {
+    return game.day % 7 === 3 && SONGS.market ? 'market' : 'village';
+  }
+  if (biomeAt(game.player.x, game.player.y) === 'demon' && SONGS.solecis) return 'solecis';
+  return 'exploration';
 }

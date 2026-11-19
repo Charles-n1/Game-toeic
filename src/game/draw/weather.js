@@ -166,17 +166,19 @@ function drawBirds(ctx, view, time) {
   }
 }
 
-// A V-formation flock of 7 wild geese migrating across the land.
+// A V-formation flock of 7 wild geese migrating across the land with ground shadows (#46).
 function drawVFlock(ctx, view, time) {
   const span = SKY_SPAN * 2; // one flock is rarer than the small birds
   const leadX = Math.round(wrapToView(time * 18, view.x, span, 90));
   const leadY = Math.round(wrapToView(span * 0.3 + Math.sin(time * 0.25) * 14, view.y, span, 90));
   const offsets = [[0, 0], [-7, -5], [-7, 5], [-14, -10], [-14, 10], [-21, -15], [-21, 15]];
-  ctx.fillStyle = '#263048';
   for (let i = 0; i < offsets.length; i++) {
     const bx = leadX + offsets[i][0];
     const by = leadY + offsets[i][1];
     const flap = Math.sin(time * 8 + i * 0.8) > 0 ? -1 : 1;
+    ctx.fillStyle = 'rgba(14, 18, 30, 0.2)';
+    ctx.fillRect(bx - 1, by + 28, 4, 2); // ground shadow
+    ctx.fillStyle = '#263048';
     ctx.fillRect(bx, by, 2, 1);
     ctx.fillRect(bx - 1, by + flap, 1, 1);
     ctx.fillRect(bx + 2, by + flap, 1, 1);
@@ -299,6 +301,14 @@ export function drawWeather(ctx, game, view, time) {
   if (biome === 'mountain' && kind !== 'clear') drawSnow(ctx, width, height, time);
   else if (kind === 'rain') drawRain(ctx, width, height, time, 90);
   else if (kind === 'storm') drawRain(ctx, width, height, time, 170);
+  // Distant rain curtain on horizon when rainy or storming (#99)
+  if (kind === 'cloudy' || kind === 'rain' || kind === 'storm') {
+    ctx.fillStyle = kind === 'cloudy' ? 'rgba(130, 155, 200, 0.08)' : 'rgba(120, 165, 230, 0.14)';
+    for (let c = 0; c < 6; c++) {
+      const rx = Math.round(((c * 58 + time * 14) % (width + 40)) - 20);
+      ctx.fillRect(rx, 0, 14, 34);
+    }
+  }
   if ((biome === 'forest' || zone.id === 'woods') && kind !== 'storm') drawLeaves(ctx, width, height, time);
   if (dark < 0.35 && kind === 'clear' && biome !== 'demon' && biome !== 'mountain') drawButterflies(ctx, width, height, time);
   if (dark < 0.35 && kind === 'clear' && biome !== 'demon' && biome !== 'mountain') drawPollenSeeds(ctx, width, height, time);

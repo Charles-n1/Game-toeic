@@ -1,0 +1,495 @@
+LIFE: 100 IDEAS TO MAKE THE WORLD FEEL ALIVE
+============================================
+
+A living world: the world goes on without the hero. People have a day, nature moves, the war changes the land,
+and the hero sees it, hears it, and can step in. (Already in the game, not listed here: the routines of the
+villagers, their small talk, the caravans, the demon land and the forest fires, the raids, the weather, the
+seasons, the families.)
+
+Each idea: what the player SEES or HEARS. A system nobody can see is not worth building.
+The best first ones (a lot of life for little work): 5, 26, 33, 61, 89.
+
+
+1. THE PEOPLE
+-------------
+1. They react to the hero: a friend says the hero's name, a villager whispers if the hero has a bad name,
+   people step aside when the hero runs with a weapon out.
+2. They react to the world: they run under a roof when it rains, form a bucket chain when a forest burns,
+   close their shutters during a raid.
+3. They have needs we can see: lunch at the inn at noon, water from the well in the morning, bed when tired.
+4. They remember each other: two neighbors who fought avoid each other, two friends meet on the square at night.
+5. Their jobs can be seen and heard: the smith hits the anvil (sparks, noise), the baker takes the bread out in
+   the morning (smoke), the fisherman walks to the lake with his rod.
+6. Kids play: tag, chasing the chickens, throwing stones in the river, following the hero around.
+7. Pets: cats on the roofs, dogs that follow their owner and bark at monsters.
+8. Moods on the face: a sad villager after a death in the family, a happy one on a wedding day.
+9. Old people sit on a bench in front of their house and watch the street.
+10. Lovers walk hand in hand by the river at sunset.
+11. Couples argue in front of their door (a short scene, raised voices, then one of them leaves).
+12. People carry things: a sack of flour, a bucket, firewood, a basket of fish.
+13. People get sick: they stay home, a healer visits them, they come out again a few days later.
+14. People get old: gray hair after many days, and one day an old villager is not there anymore.
+15. A newcomer moves into an empty house, with a cart full of furniture.
+16. People leave a village that is too dangerous (near the demon land), and their house stays empty.
+17. Apprentices: a young villager follows the smith for a few days, then works alone.
+18. People pray at the church on the day of the temple, and the bell rings for them.
+19. Drunk people sing on the way home after the inn.
+20. Gossip travels: what the hero did in one village is told in the next one a day later.
+
+
+2. THE VILLAGES
+---------------
+21. Weekly market: stalls on the square, merchants shouting their prices, more people than usual.
+22. Weddings: a procession through the streets, music, flowers, a feast on the square.
+23. Funerals: a silent procession to the cemetery, a new grave stays there.
+24. Births: the church bell rings, the neighbors bring gifts to the house.
+25. Buildings grow: a house under construction, with scaffolding that rises day after day, then a family moves in.
+26. The evening: a lamplighter lights the lanterns one by one, music at the inn, windows light up.
+27. Guards change shifts at a fixed hour, and walk their rounds along the walls.
+28. Crimes between people: a pickpocket robs a villager who shouts "Thief!", and the hero can step in.
+29. A town crier reads the news of the day on the square every morning.
+30. Laundry day: clothes drying on lines between the houses, washerwomen at the river.
+31. The well is a meeting place: in the morning, a small line of people with buckets.
+32. Repairs: after a raid, builders fix the broken walls and roofs, tile after tile.
+33. Smoke from the chimneys: more in the morning and the evening, more in winter, none in an empty house.
+34. Shop signs that open and close: "OPEN" in the morning, shutters closed at night.
+35. A school: kids walk to school in the morning and run out at noon.
+36. A village festival once a season: decorations, games, a contest the hero can join.
+37. A fire in a house (a candle, lightning): villagers shout and bring water.
+38. Beggars at the gates of the capitals, who thank the hero for a coin.
+39. Street musicians and jugglers on the squares of the capitals.
+40. Village councils: the elder and a few villagers argue at a table about the walls, the taxes, the demons.
+
+
+3. NATURE
+---------
+41. Wild animals with a behavior: deer that run away, wolves in packs at night, birds that fly off when the hero
+    passes, fish that jump in the lakes.
+42. A food chain: wolves hunt deer; too many rabbits eat the fields; foxes steal chickens at night.
+43. Tracks and signs: footprints in the snow and the mud, a carcass left by a hunter, nests in the trees.
+44. Nature reacts to the weather: puddles after the rain, rivers that overflow, leaves that fall in autumn,
+    snow that covers everything in winter.
+45. Plants live: fields grow, are harvested, then are bare; fruit trees bloom in spring and give fruit in summer.
+46. Flocks of birds cross the sky (shadows on the ground), and go south in autumn.
+47. Butterflies in the meadows by day, fireflies at night in summer.
+48. Frogs croak near the ponds after the rain.
+49. Bees around the hives and the flowers.
+50. Wind in the trees: leaves and grass move when the wind is strong.
+51. Storms leave marks: a fallen tree on the road, a broken fence, a flooded field.
+52. Animals have babies in spring: fawns follow their mother, chicks follow the hen.
+53. Migrations: herds of bison cross the plains once a season.
+54. Mushrooms grow after the rain, in the forests.
+55. The sea moves: waves on the beach, the tide goes up and down, seaweed on the sand.
+56. Lightning can set a tree on fire in a storm (not only the demons).
+57. Burnt forests grow back step by step: ash, then grass, then small trees, then the forest.
+58. Day and night creatures: owls and bats come out at sunset, roosters sing at dawn.
+59. Hunters set traps in the forest, and come back to check them.
+60. A rare animal that few people saw (a white stag): a rumor, then a sighting.
+
+
+4. THE WORLD AT WAR
+-------------------
+61. Refugees: when the demons take land, families flee on the roads with their carts, toward the towns.
+62. Villages near the demon land fortify: palisades, watchtowers, more guards.
+63. Messengers: a rider crosses the land to bring news (a town fell, a boss is dead), then people talk about it.
+64. Ruins: a village taken by the demons stays burnt; the hero can free it and watch it being rebuilt.
+65. Smoke on the horizon where a battle or a fire is happening.
+66. Soldiers march from the capital to the front, singing.
+67. Wounded soldiers come back to the villages, with bandages, and rest at the clinic.
+68. War orphans in the capitals.
+69. Prices go up near the front (less food), and down when the land is freed.
+70. Deserters hide in the forests, and may turn into bandits.
+71. Statues and memorials for the heroes of the war, built in the squares after a victory.
+72. Black banners on the houses of the families who lost someone.
+73. Scouts watch the demon land from the hills, and run to warn the village when demons come close.
+74. The demon land changes the ground: gray grass, dead trees, a red sky near it.
+75. Freed land heals slowly: the gray goes away over a few days.
+
+
+5. THE ROADS
+------------
+76. Random events: an overturned cart to help, a peddler, a pilgrim who asks the way (in English: a TOEIC
+    question), a duel between two adventurers.
+77. Rival adventurers who take the same quests, met in a dungeon or at the inn.
+78. Campfires of travelers at night, where the hero can sit and hear rumors.
+79. Farmers drive their cows and sheep along the roads to the market.
+80. A broken bridge that workers repair over a few days (the road is closed meanwhile).
+81. Milestones and signposts that tell the distance to the next town.
+82. Inns along the roads, with stables full of horses at night.
+83. Bandits who block a road, and a reward when the road is free again.
+84. A traveling circus or theater troupe that goes from town to town.
+85. Pilgrims walking to a shrine, all in white.
+86. A lost child on the road, to bring back home.
+87. Royal carriages with guards, on the way to another capital.
+88. Toll gates at the borders of the kingdoms, with a guard who checks papers.
+
+
+6. THE ATMOSPHERE
+-----------------
+89. The sounds of the world: church bells on the hour, roosters at dawn, crickets at night, the noise of the
+    market, the forge far away.
+90. Smells shown as small effects: bread steam at the bakery, smoke at the forge, flowers in spring.
+91. Music changes with the place and the hour: lively on the market, calm at night, tense near the demon land.
+92. Light changes all day: golden morning, white noon, orange evening, blue night.
+93. Footsteps leave marks: a path appears in the grass where everybody walks.
+94. Paths and roads get busier near the towns, and empty in the wild.
+95. A planted tree grows over the days.
+96. Graves appear in the cemetery when a villager dies, with their name on it.
+97. The world remembers the hero: a statue after a big victory, a song at the inn about what the hero did.
+98. Seasonal decorations: flowers in spring, lanterns in summer, pumpkins in autumn, lights in winter.
+99. Weather in the distance: a rain curtain on the horizon, a rainbow after the rain.
+100. The world goes on when the hero is away: coming back after many days, things have changed (a new house,
+     a new baby, a shop that closed, a wall that was repaired).
+
+
+=====================================================================
+300 MORE IDEAS (101 to 400)
+=====================================================================
+
+
+7. DAILY LIFE, UP CLOSE
+-----------------------
+101. People eat at a table at home: plates, bread, a pot on the fire (seen when the hero visits).
+102. Breakfast smells: smoke and steam from the kitchens at dawn.
+103. Someone sweeps the front of their house every morning.
+104. People water their flowers and their small gardens.
+105. A woman shakes a rug out of the window.
+106. A man chops firewood behind his house; the pile grows, then shrinks in winter.
+107. People wash their face at the well or the basin in the morning.
+108. Someone reads a book on a bench, and turns the pages.
+109. Old men play a board game in front of the inn.
+110. People yawn in the morning and stretch.
+111. People cough when it is cold, and wear scarves and coats in winter.
+112. People wear lighter clothes and hats in summer.
+113. A neighbor borrows salt from the house next door.
+114. Someone forgot their keys and knocks on their own door.
+115. People open their windows on sunny days and close them when it rains.
+116. Shoes and boots outside the doors.
+117. Candles behind the windows at night, going out one by one.
+118. Someone snores (a small "zzz" from a dark house at night).
+119. People run when they are late (for work, for the market).
+120. Someone drops what they carry (apples roll on the street) and picks it up.
+121. People slip on ice in winter, and get up laughing.
+122. People shelter under a tree or a roof edge in a sudden shower.
+123. Someone feeds the pigeons on the square.
+124. People stop to look at something strange (a monster passing outside the walls, a fire).
+125. People point at the sky during a storm or a rainbow.
+126. Someone whistles a tune while walking.
+127. Someone is writing a letter at a window, then walks to the post.
+128. People wave to each other across the street.
+129. Someone sits on the edge of the well and dreams.
+130. People go to the toilets behind the houses (a small hut).
+131. A bath day: steam from the bathhouse, people with towels.
+132. A barber shaves a customer in front of his shop.
+133. People mend their clothes on the doorstep in the evening.
+134. Someone counts coins at a table, worried.
+135. People lock their door at night, and open it in the morning.
+136. A villager sneezes because of the spring flowers.
+137. People stay home on very cold or very hot days: the streets are empty.
+138. Families eat together on the square on summer evenings.
+139. Someone sits alone on the pier and fishes, every evening at the same time.
+140. People go to bed later on festival nights.
+
+
+8. WORK AND THE ECONOMY
+-----------------------
+141. Farmers plow in spring, sow, weed, and harvest: the fields change with them.
+142. The miller's wheel turns by the river; sacks of flour go to the bakery.
+143. Woodcutters fell trees: the tree falls, a stump stays, and is carried away as logs.
+144. Miners come out of the mine dirty, with lamps on their heads.
+145. Carts bring stone from the quarry to a building site.
+146. The tanner hangs hides to dry; it smells (flies around).
+147. The weaver works at a loom seen through the window.
+148. The potter turns a pot; the pots dry in a row in the sun.
+149. The butcher hangs meat in front of his shop.
+150. The fishmonger sells fish on ice; cats wait nearby.
+151. Shepherds take the sheep out in the morning and bring them back at night.
+152. A cowherd milks the cows; milk churns go to the market.
+153. Beekeepers in white suits open the hives.
+154. Grape harvest in autumn: baskets of grapes, people dancing in the barrels.
+155. Apprentices carry tools for their masters.
+156. Deliveries: a boy runs from the bakery to the inn with a basket of bread.
+157. Shops get new stock: a cart stops, boxes are carried inside.
+158. Shops run out: an empty stall, a sign "Sold out".
+159. Prices are written on boards in front of the shops, and change.
+160. A shop closes for good (a sign "Closed"), and another one opens later.
+161. Workers take a break at noon in the shade, and eat bread and cheese.
+162. Strikes: workers stop and argue with their boss if they are not paid.
+163. Night workers: the baker starts at 4 in the morning, the night guard at sunset.
+164. Tax collectors come once a month, with a guard and a big book.
+165. People pay at the bank, and a line forms on pay day.
+166. A merchant haggles loudly with a customer.
+167. Porters at the harbor carry crates from the ships.
+168. Tools wear out: the smith repairs the farmers' hoes.
+169. A new road is built step by step between two villages.
+170. A guild of craftsmen meets once a week at the inn.
+171. A rich merchant shows off a new carriage.
+172. A poor family sells its furniture in front of its house.
+173. Seasonal jobs: ice cutters on the frozen lake in winter.
+174. Inventors: a strange machine in a workshop, that sometimes explodes (smoke).
+175. Shops have a busy hour (lunch, after work) with a small line.
+
+
+9. SOCIAL LIFE AND RELATIONSHIPS
+--------------------------------
+176. First dates: two young villagers shy on a bench, giving flowers.
+177. Proposals: someone kneels on the square, and everyone claps.
+178. Breakups: one leaves with a bag, the other watches from the window.
+179. Best friends always walk together.
+180. Rivals: two merchants who hate each other shout across the market.
+181. Family visits: grandparents arrive from another village with gifts.
+182. People hug when they meet after a long time.
+183. People laugh at a joke (small laughing bubbles).
+184. Someone cries alone after bad news, and a friend comes to comfort them.
+185. People invite their neighbors to dinner.
+186. Groups of friends play music together in the evening.
+187. A group of young people dance on the square.
+188. People bet on an arm-wrestling match at the inn.
+189. A local hero (a retired knight) tells stories to the kids.
+190. A grumpy old man shouts at kids who play near his house.
+191. People help each other: neighbors repair a roof together.
+192. People lend tools and food in hard times (a bad harvest).
+193. People share the news of the day while waiting at the well.
+194. Secret lovers meet behind the barn at night.
+195. A family feud: two families that do not talk, for a reason told in rumors.
+196. Reconciliations: two old enemies shake hands at a festival.
+197. People write letters to family in other villages; the courier brings answers.
+198. People celebrate birthdays: a cake, songs, a small gift.
+199. Name days and anniversaries remembered by couples.
+200. A villager falls in love with an adventurer passing through.
+201. People make fun of someone who failed (a fallen cart, a burnt cake).
+202. People apologize after an argument.
+203. Popular villagers have more people around them on the square.
+204. Lonely villagers walk alone and eat alone.
+205. A matchmaker tries to marry the young people of the village.
+206. Widows and widowers visit the cemetery with flowers.
+207. People talk about the weather to start a conversation.
+208. Friends say goodbye at the gate when someone leaves the village.
+209. People wait at the gate for someone who is late from a trip.
+210. A big family reunion on a holiday: a long table in the street.
+
+
+10. CHILDREN AND FAMILIES
+-------------------------
+211. Kids play hide and seek: one counts, the others hide behind barrels.
+212. Kids play ball on the square, and the ball breaks a window.
+213. Kids fly kites on windy days.
+214. Kids build snowmen in winter, and throw snowballs.
+215. Kids jump in puddles after the rain.
+216. Kids climb trees and fall (they cry, then laugh).
+217. Kids pretend to be the hero, with wooden swords.
+218. Kids pretend to be monsters and chase each other.
+219. Kids follow a cat, a dog, a chicken.
+220. Babies in arms or in a cradle in front of the house.
+221. Parents call their kids home for dinner (shouting their names).
+222. Kids are scolded for coming home dirty.
+223. Kids go to school and come back with books.
+224. Teenagers sit on a wall and talk, away from the adults.
+225. A kid gets lost and the whole village searches for them.
+226. Kids grow up: the kid of today is the apprentice of tomorrow.
+227. Kids imitate their parents' jobs (a small hammer, a small broom).
+228. Kids sell lemonade or flowers on the road.
+229. Kids are afraid of the night and of the demons (they hide behind their parents).
+230. Kids give drawings to the hero after a good deed.
+
+
+11. ANIMALS AND FARMS
+---------------------
+231. Chickens peck in the yards and run from the dogs.
+232. Roosters on the fences at dawn.
+233. Cows lie down before the rain.
+234. Pigs roll in the mud.
+235. Sheep are sheared in spring (white wool on the ground).
+236. Horses in the stables eat hay and shake their heads.
+237. Horses are washed and brushed by the stable boys.
+238. Donkeys carry sacks and refuse to move sometimes.
+239. Goats climb on everything (roofs, carts, rocks).
+240. Ducks swim in a line on the ponds.
+241. Geese chase the hero.
+242. Cats sleep in the sun on the windows and walls.
+243. Cats hunt mice around the granaries.
+244. Dogs guard the farms and bark at strangers.
+245. Dogs play with the kids and fetch sticks.
+246. Stray dogs at the edge of town, that the hero can adopt.
+247. Animals are born on the farms (calves, lambs, piglets).
+248. Animals escape from their pen, and farmers run after them.
+249. Animals are sold at the market (a cow on a rope).
+250. Animals get sick: a vet or a healer visits the farm.
+251. Birds sit in a row on the roofs and the fences.
+252. Crows on the fields, and a scarecrow that scares them.
+253. Rats near the garbage at night.
+254. Squirrels collect nuts in autumn.
+255. Rabbits come out at dusk in the meadows.
+256. Hedgehogs cross the roads at night.
+257. Swallows nest under the roofs in spring.
+258. Storks on the chimneys.
+259. Horses react to monsters: they neigh and pull on their rope.
+260. Animals huddle together in the snow.
+
+
+12. NATURE AND LANDSCAPE
+------------------------
+261. Morning fog in the valleys, that lifts at noon.
+262. Dew on the grass at dawn (small shining dots).
+263. Ice on the ponds in winter, that the hero can walk on.
+264. Snow melts in spring: streams appear, mud everywhere.
+265. Hot summer days: heat waves above the roads, dry yellow grass.
+266. Droughts: rivers get lower, fields turn yellow, people pray for rain.
+267. Floods: water covers the low roads after big storms.
+268. Landslides in the mountains after heavy rain, closing a pass.
+269. Avalanches in the snowy peaks.
+270. Earthquakes: the ground shakes, things fall, people run out.
+271. Volcanic ash near the demon land: gray rain.
+272. Northern lights over the snowy peaks on winter nights.
+273. Shooting stars on clear summer nights.
+274. The moon changes (full moon, new moon); some monsters come out at the full moon.
+275. Eclipses: everything goes dark, people are afraid.
+276. Waterfalls with rainbows in the spray.
+277. Wind turns the mills faster, and bends the trees.
+278. Tornadoes cross the plains (rarely), and people hide.
+279. Sand storms in the desert: nothing can be seen.
+280. Oases in the desert, with palm trees and travelers resting.
+281. Echoes in the mountains and the caves.
+282. Leaves turn red and yellow, then fall, then the trees are bare.
+283. Spring flowers cover the meadows in a few days.
+284. Old trees fall from age and stay as logs with moss.
+285. Wild berries and fruits that animals and people pick.
+286. Caves with water drops and bats.
+287. Hot springs with steam in winter.
+288. Swamps with bubbles, mist and will-o'-the-wisps.
+289. The color of the sea changes with the weather.
+290. Distant mountains get snow on their tops in autumn.
+
+
+13. THE MONSTERS HAVE A LIFE TOO
+--------------------------------
+291. Monsters sleep in their camps at day or at night (depending on the species).
+292. Monsters eat: goblins around a fire, wolves on a carcass.
+293. Monsters fight each other: wolves against goblins, orcs against lizardmen.
+294. Monsters guard their territory and chase out the others.
+295. Monsters have young: small slimes following a big one.
+296. Monsters migrate with the seasons (harpies to the south in winter).
+297. Monster camps grow if nobody attacks them (more tents, a palisade).
+298. Monster camps run away or break up when their chief is killed.
+299. Monsters raid farms at night and steal sheep.
+300. Monsters flee from a stronger hero (they run when they lose).
+301. Some monsters are peaceful: they only defend themselves.
+302. Monsters patrol around their camps in small groups.
+303. Monsters dig: holes and tunnels near goblin camps.
+304. Monsters trade: goblin merchants, a strange market in a monster town.
+305. Monsters celebrate: drums and dances in the orc camps at night.
+306. Monsters are afraid of fire and light.
+307. Monsters hide from the rain (in caves, under trees).
+308. Monsters leave signs of their presence: claw marks, bones, broken fences.
+309. A famous monster of the area, with a name and a legend, that people fear.
+310. Monsters remember the hero: those who fled come back with friends.
+311. The demon soldiers march in order, with banners.
+312. Demon scouts watch the villages from far away.
+313. Demons build black towers on the land they take.
+314. Demons capture villagers (cages in their camps, to free).
+315. Monsters are attracted by noise (a fight brings more of them).
+316. Monster corpses are eaten by crows and wolves, then only bones stay.
+317. Slimes split when they are hit too hard (two small ones).
+318. Monsters play with each other (young wolves biting each other).
+319. Monster mothers protect their young (more aggressive near a nest).
+320. Some monsters are tamed by villagers (a goblin working on a farm).
+
+
+14. KINGDOMS AND POLITICS
+-------------------------
+321. The king or queen visits a village with a procession.
+322. Royal decrees posted on the boards (a new tax, a curfew, a reward).
+323. Elections of the mayor in the villages: posters, speeches, votes.
+324. Kingdoms sign peace treaties or declare war (news, flags, soldiers).
+325. Border tensions: more guards, closed gates, papers checked.
+326. Spies: a stranger asks too many questions at the inn.
+327. Nobles in rich clothes visit the markets with servants.
+328. Revolts when taxes are too high: angry crowds in front of the castle.
+329. Prisoners in the stocks on the square, people throw tomatoes.
+330. Trials at the town hall: a crowd watches.
+331. Public executions are not shown, but the gallows stand empty and grim.
+332. Ambassadors from other kingdoms with strange clothes.
+333. Royal weddings: a festival in the whole kingdom.
+334. A king dies: black flags, a new king is crowned.
+335. Kingdoms build things: a new bridge, a new castle tower, a lighthouse.
+336. Recruitment posters for the army; young men line up.
+337. Taxes change the life: high taxes, fewer goods in the shops.
+338. Famine in a kingdom: long lines for bread, people leave.
+339. Plague in a kingdom: masks, closed doors, a red cross on the houses.
+340. Royal hunts in the forests (horns, dogs, riders).
+341. Kingdoms help each other against the demons (allied soldiers).
+342. A kingdom falls to the demons: its capital becomes a ruin.
+343. Bandit lords control a road and ask for a toll.
+344. Rich towns grow bigger over time; poor ones shrink.
+345. Each kingdom has its own style: clothes, music, food, flags.
+
+
+15. BELIEFS, CULTURE AND LEGENDS
+--------------------------------
+346. Priests bless the fields in spring.
+347. Offerings at small shrines on the roads (flowers, coins, food).
+348. Fortune tellers at the markets (a short reading, true or false).
+349. Ghost stories told at night; and sometimes, a real ghost.
+350. Lucky charms on the doors (a horseshoe, garlic against demons).
+351. Superstitions: people do not go out on the night of the new moon.
+352. Bards sing old legends at the inn (new songs after the hero's deeds).
+353. A theater play on the square, with the story of the war.
+354. Books in the library that tell the history of the world.
+355. Old ruins with carvings that tell a lost story.
+356. Holidays of each kingdom, with their own customs.
+357. A sacred tree in the forest that nobody cuts.
+358. Pilgrimages to a holy place once a year.
+359. Witches who live alone and that people fear and visit at night.
+360. Folk dances that change from region to region.
+361. Proverbs said by the villagers (simple English sentences).
+362. A museum in the capital, that shows the trophies of the hero.
+363. Painters paint the landscape on an easel.
+364. Poets read poems on the square.
+365. Myths about the Demon King, told differently in each village.
+
+
+16. ADVENTURERS AND DUNGEONS
+---------------------------
+366. Adventurer parties come back from dungeons wounded, with loot.
+367. Adventurers brag at the guild about their kills.
+368. An adventurer does not come back: a notice "Missing" on the board.
+369. Rescue missions for lost adventurers in the dungeons.
+370. Adventurers sell their loot at the market.
+371. Adventurers train in the yard of the guild (sword fights, archery).
+372. Famous adventurers that people know (and ask for autographs).
+373. Dungeons change: monsters come back, new traps, new treasures.
+374. Remains of other adventurers in the dungeons (a camp, a note, a skeleton).
+375. Dungeon entrances with guards and a list of names.
+376. Rival guilds that compete for the best contracts.
+377. Adventurers rest at camps along the roads.
+378. Adventurers recruit at the inn (a sign "Looking for a healer").
+379. Retired adventurers open shops or inns.
+380. Adventurer funerals: their sword on their grave.
+
+
+17. THE SEA AND THE WATER
+-------------------------
+381. Fishing boats leave at dawn and come back at night with fish.
+382. Seagulls follow the boats and steal fish.
+383. Sailors sing on the docks and in the taverns.
+384. Ships in storms; sometimes a shipwreck on the coast, with goods on the beach.
+385. Lighthouses that turn at night.
+386. Pirates seen at sea; a pirate attack on a port.
+387. Children swim in the rivers in summer.
+388. Washerwomen at the river, ducks around them.
+389. Rafts and small boats on the lakes.
+390. Ice fishing on frozen lakes in winter.
+
+
+18. THE WORLD AND THE HERO
+--------------------------
+391. Villagers remember the hero's gifts and talk about them to others.
+392. The hero's house changes: neighbors bring things, kids play in front of it.
+393. The hero's fame shows: people stop and look, kids follow.
+394. The hero's mistakes are remembered too: a broken fence, a stolen item.
+395. People ask the hero for help in the street (not only quests on the board).
+396. A villager the hero saved names their baby after the hero.
+397. A painting of the hero in the inn, after a big victory.
+398. Enemies of the hero: a bandit who wants revenge appears from time to time.
+399. The world reacts to the hero's English: people praise a hero who answers well (a reputation of a scholar).
+400. Coming back home after a long trip: a welcome party at the gate.
